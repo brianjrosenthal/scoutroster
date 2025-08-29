@@ -94,7 +94,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } else {
     $err = implode(' ', $errors);
   }
-}
+} // end invite/legacy branch
+} // end POST handler
 
 header_html('Manage Adults');
 ?>
