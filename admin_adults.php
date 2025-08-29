@@ -90,4 +90,33 @@ header_html('Add Adult');
   </form>
 </div>
 
+<div class="card">
+  <h3>All Adults</h3>
+  <?php $all = pdo()->query("SELECT id, first_name, last_name, email, is_admin FROM users ORDER BY last_name, first_name")->fetchAll(); ?>
+  <?php if (empty($all)): ?>
+    <p class="small">No adults found.</p>
+  <?php else: ?>
+    <table class="list">
+      <thead>
+        <tr>
+          <th>Adult</th>
+          <th>Email</th>
+          <th>Role</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($all as $a): ?>
+          <tr>
+            <td><?=h($a['first_name'].' '.$a['last_name'])?></td>
+            <td><?=h($a['email'])?></td>
+            <td><?= !empty($a['is_admin']) ? 'Admin' : '' ?></td>
+            <td class="small"><a class="button" href="/adult_edit.php?id=<?= (int)$a['id'] ?>">Edit</a></td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
 <?php footer_html(); ?>

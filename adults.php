@@ -48,11 +48,11 @@ $sql = "
     dm.den_id    AS child_den_id,
     d.den_name   AS child_den_name
   FROM users u
-  JOIN parent_relationships pr ON pr.adult_id = u.id
-  JOIN youth y ON y.id = pr.youth_id
+  LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
+  LEFT JOIN youth y ON y.id = pr.youth_id
   LEFT JOIN den_memberships dm ON dm.youth_id = y.id
   LEFT JOIN dens d ON d.id = dm.den_id
-  WHERE y.bsa_registration_number IS NOT NULL
+  WHERE 1=1
 ";
 
 if ($q !== '') {
@@ -151,7 +151,7 @@ header_html('Adults Roster');
         <a class="button" href="/admin_adults.php">Add Adult</a>
       <?php endif; ?>
     </div>
-    <small class="small">Roster includes adults with at least one <strong>registered</strong> child.</small>
+    <small class="small">Roster lists all adults. Use the grade filter to show adults with a child in a specific grade.</small>
   </form>
 </div>
 

@@ -135,6 +135,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   ]);
 }
 
+/** Load linked children for relationship management */
+$stChildren = pdo()->prepare("
+  SELECT y.*, dm.den_id, d.den_name
+  FROM parent_relationships pr
+  JOIN youth y ON y.id = pr.youth_id
+  LEFT JOIN den_memberships dm ON dm.youth_id = y.id
+  LEFT JOIN dens d ON d.id = dm.den_id
+  WHERE pr.adult_id = ?
+  ORDER BY y.last_name, y.first_name
+");
+$stChildren->execute([$id]);
+$linkedChildren = $stChildren->fetchAll();
+
 header_html('Edit Adult');
 ?>
 <h2>Edit Adult</h2>
@@ -231,6 +244,72 @@ header_html('Edit Adult');
     <div class="actions">
       <button class="primary" type="submit">Save</button>
       <a class="button" href="/adults.php">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Parent Relationships</h3>
+
+  <?php if (empty($linkedChildren)): ?>
+    <p class="small">No children linked to this adult.</p>
+  <?php else: ?>
+    <table class="list">
+      <thead>
+        <tr>
+          <th>Child</th>
+          <th>Den</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($linkedChildren as $c): ?>
+          <tr>
+            <td><?=h($c['first_name'].' '.$c['last_name'])?></td>
+            <td><?=h($c['den_name'] ?? '')?></td>
+            <td class="small">
+              <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Unlink this child from this adult?');">
+                <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+                <input type="hidden" name="action" value="unlink">
+                <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
+                <input type="hidden" name="youth_id" value="<?= (int)$c['id'] ?>">
+                <button class="button danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Link a Child to this Adult</h3>
+  <form method="post" action="/adult_relationships.php" class="stack">
+    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+    <input type="hidden" name="action" value="link">
+    <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+      <label>Child
+        <select name="youth_id" required>
+          <?php
+          $allY = pdo()->query("SELECT id, first_name, last_name FROM youth ORDER BY last_name, first_name")->fetchAll();
+          foreach ($allY as $yy) {
+            echo '<option value="'.(int)$yy['id'].'">'.h($yy['last_name'].', '.$yy['first_name']).'</option>';
+          }
+          ?>
+        </select>
+      </label>
+      <label>Relationship
+        <select name="relationship">
+          <option value="guardian">guardian</option>
+          <option value="father">father</option>
+          <option value="mother">mother</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button class="primary">Link Child</button>
     </div>
   </form>
 </div>
