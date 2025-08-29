@@ -1,7 +1,9 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
-require_admin();
+require_login();
+$me = current_user();
+$isAdmin = !empty($me['is_admin']);
 
 $err = null;
 $msg = null;
@@ -14,6 +16,13 @@ $st = pdo()->prepare("SELECT * FROM youth WHERE id=? LIMIT 1");
 $st->execute([$id]);
 $y = $st->fetch();
 if (!$y) { http_response_code(404); exit('Not found'); }
+
+// Authorization: admins OR parents of the youth may access this page
+if (!$isAdmin) {
+  $stAuth = pdo()->prepare("SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1");
+  $stAuth->execute([$id, (int)$me['id']]);
+  if (!$stAuth->fetchColumn()) { http_response_code(403); exit('Not authorized'); }
+}
 
 // Compute current grade from class_of
 $currentGrade = GradeCalculator::gradeForClassOf((int)$y['class_of']);
@@ -191,6 +200,85 @@ header_html('Edit Youth');
     <div class="actions">
       <button class="primary" type="submit">Save</button>
       <a class="button" href="/youth.php">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Parents / Guardians</h3>
+  <?php
+    $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email, pr.relationship
+                           FROM parent_relationships pr
+                           JOIN users u ON u.id=pr.adult_id
+                           WHERE pr.youth_id=?
+                           ORDER BY u.last_name,u.first_name");
+    $pps->execute([$id]);
+    $parents = $pps->fetchAll();
+  ?>
+  <?php if (empty($parents)): ?>
+    <p class="small">No parents linked to this child.</p>
+  <?php else: ?>
+    <table class="list">
+      <thead>
+        <tr>
+          <th>Parent</th>
+          <th>Email</th>
+          <th>Relationship</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($parents as $p): ?>
+          <tr>
+            <td><?=h($p['first_name'].' '.$p['last_name'])?></td>
+            <td><?=h($p['email'])?></td>
+            <td><?=h($p['relationship'])?></td>
+            <td class="small">
+              <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Remove this parent from this child? (At least one parent must remain)');">
+                <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+                <input type="hidden" name="action" value="unlink">
+                <input type="hidden" name="adult_id" value="<?= (int)$p['id'] ?>">
+                <input type="hidden" name="youth_id" value="<?= (int)$id ?>">
+                <input type="hidden" name="return_to" value="<?=h('/youth_edit.php?id='.(int)$id)?>">
+                <button class="button danger">Remove</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Link an Existing Adult as Parent/Guardian</h3>
+  <form method="post" action="/adult_relationships.php" class="stack">
+    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+    <input type="hidden" name="action" value="link">
+    <input type="hidden" name="youth_id" value="<?= (int)$id ?>">
+    <input type="hidden" name="return_to" value="<?=h('/youth_edit.php?id='.(int)$id)?>">
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+      <label>Adult
+        <select name="adult_id" required>
+          <?php
+          $adults = pdo()->query("SELECT id, first_name, last_name, email FROM users ORDER BY last_name, first_name")->fetchAll();
+          foreach ($adults as $a) {
+            $label = trim(($a['last_name'] ?? '').', '.($a['first_name'] ?? '') . (empty($a['email']) ? '' : ' <'.$a['email'].'>'));
+            echo '<option value="'.(int)$a['id'].'">'.$label.'</option>';
+          }
+          ?>
+        </select>
+      </label>
+      <label>Relationship
+        <select name="relationship">
+          <option value="guardian">guardian</option>
+          <option value="father">father</option>
+          <option value="mother">mother</option>
+        </select>
+      </label>
+    </div>
+    <div class="actions">
+      <button class="primary">Link Adult</button>
     </div>
   </form>
 </div>

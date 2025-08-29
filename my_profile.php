@@ -427,6 +427,47 @@ header_html('My Profile');
           </div>
         </form>
 
+        <div class="card" style="margin-top:8px;">
+          <h4>Current Parents/Guardians</h4>
+          <?php
+            $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email, pr.relationship FROM parent_relationships pr JOIN users u ON u.id=pr.adult_id WHERE pr.youth_id=? ORDER BY u.last_name,u.first_name");
+            $pps->execute([(int)$c['id']]);
+            $parents = $pps->fetchAll();
+          ?>
+          <?php if (empty($parents)): ?>
+            <p class="small">No parents linked to this child.</p>
+          <?php else: ?>
+            <table class="list">
+              <thead>
+                <tr>
+                  <th>Parent</th>
+                  <th>Email</th>
+                  <th>Relationship</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php foreach ($parents as $p): ?>
+                  <tr>
+                    <td><?=h($p['first_name'].' '.$p['last_name'])?></td>
+                    <td><?=h($p['email'])?></td>
+                    <td><?=h($p['relationship'])?></td>
+                    <td class="small">
+                      <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Remove this parent from this child? (At least one parent must remain)');">
+                        <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+                        <input type="hidden" name="action" value="unlink">
+                        <input type="hidden" name="adult_id" value="<?= (int)$p['id'] ?>">
+                        <input type="hidden" name="youth_id" value="<?= (int)$c['id'] ?>">
+                        <button class="button danger">Remove</button>
+                      </form>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+              </tbody>
+            </table>
+          <?php endif; ?>
+        </div>
+
         <div class="stack" style="margin-top:8px;">
           <form method="post" class="stack" style="border-top:1px solid #eee;padding-top:8px;">
             <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
