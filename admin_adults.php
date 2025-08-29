@@ -45,6 +45,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Throwable $e) {
       $err = 'Failed to send invitation.';
     }
+  } elseif ($action === 'delete') {
+    try {
+      $aid = (int)($_POST['adult_id'] ?? 0);
+      if ($aid <= 0) throw new Exception('Invalid adult');
+      // prevent self-deletion
+      $me = current_user();
+      if ($aid === (int)($me['id'] ?? 0)) {
+        throw new Exception('You cannot delete your own account.');
+      }
+      $st = pdo()->prepare('DELETE FROM users WHERE id=?');
+      $st->execute([$aid]);
+      if ($st->rowCount() > 0) {
+        $msg = 'Adult deleted.';
+      } else {
+        $err = 'Adult not found.';
+      }
+    } catch (Throwable $e) {
+      // Likely blocked by FK constraints (RSVPs or other references)
+      $err = 'Unable to delete adult. Remove RSVP references first.';
+    }
   } else {
     $first = trim($_POST['first_name'] ?? '');
     $last  = trim($_POST['last_name'] ?? '');
@@ -162,6 +182,14 @@ header_html('Manage Adults');
                 <span class="small" style="margin-left:6px;">No email</span>
               <?php else: ?>
                 <span class="small" style="margin-left:6px;">Verified</span>
+              <?php endif; ?>
+              <?php if ((int)$a['id'] !== (int)(current_user()['id'] ?? 0)): ?>
+                <form method="post" style="display:inline; margin-left:6px;" onsubmit="return confirm('Delete this adult? This cannot be undone.');">
+                  <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="adult_id" value="<?= (int)$a['id'] ?>">
+                  <button class="button danger">Delete</button>
+                </form>
               <?php endif; ?>
             </td>
           </tr>
