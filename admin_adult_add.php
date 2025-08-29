@@ -108,9 +108,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-header_html('Add Adult (No Login)');
+header_html('Create Adult');
 ?>
-<h2>Add Adult</h2>
+<h2>Create Adult</h2>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
