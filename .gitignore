@@ -4,4 +4,4 @@
 .env
 .DS_Store
 config.local.php
-
+*.sw*
