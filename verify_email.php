@@ -7,9 +7,7 @@ $token = is_string($token) ? trim($token) : '';
 if ($token === '') { header('Location: /login.php?verify_error=1'); exit; }
 
 // Find user by token first (to obtain id/email), then verify and force a password reset step
-$st = pdo()->prepare('SELECT id, email FROM users WHERE email_verify_token = ? LIMIT 1');
-$st->execute([$token]);
-$u = $st->fetch();
+$u = UserManagement::getByVerifyToken($token);
 if (!$u) { header('Location: /login.php?verify_error=1'); exit; }
 
 if (!UserManagement::verifyByToken($token)) {

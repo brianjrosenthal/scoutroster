@@ -13,9 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $email = strtolower(trim($_POST['email'] ?? ''));
   if ($email !== '') {
     try {
-      $st = pdo()->prepare('SELECT id, first_name, last_name, email FROM users WHERE email = ? LIMIT 1');
-      $st->execute([$email]);
-      $u = $st->fetch();
+      $u = UserManagement::findByEmail($email);
 
       // Always behave the same to avoid enumeration
       if ($u) {

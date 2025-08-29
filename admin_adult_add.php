@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_admin();
 
 $msg = null;
@@ -73,64 +74,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (empty($errors)) {
     try {
-      // Generate a random unknown password so the account cannot be used until invited and reset
-      $rand = bin2hex(random_bytes(18));
-      $hash = password_hash($rand, PASSWORD_DEFAULT);
-
-      $sql = "INSERT INTO users
-        (first_name, last_name, email, password_hash, is_admin,
-         preferred_name, street1, street2, city, state, zip,
-         email2, phone_home, phone_cell, shirt_size, photo_path,
-         bsa_membership_number, bsa_registration_expires_on, safeguarding_training_completed_on,
-         emergency_contact1_name, emergency_contact1_phone, emergency_contact2_name, emergency_contact2_phone,
-         email_verify_token, email_verified_at, password_reset_token_hash, password_reset_expires_at)
-        VALUES
-        (:first_name, :last_name, :email, :password_hash, :is_admin,
-         :preferred_name, :street1, :street2, :city, :state, :zip,
-         :email2, :phone_home, :phone_cell, :shirt_size, :photo_path,
-         :bsa_no, :bsa_exp, :safe_done,
-         :em1_name, :em1_phone, :em2_name, :em2_phone,
-         NULL, NULL, NULL, NULL)";
-
-      $stmt = pdo()->prepare($sql);
-
-      $stmt->bindValue(':first_name', $first, PDO::PARAM_STR);
-      $stmt->bindValue(':last_name',  $last,  PDO::PARAM_STR);
-      if ($email === null) $stmt->bindValue(':email', null, PDO::PARAM_NULL);
-      else $stmt->bindValue(':email', $email, PDO::PARAM_STR);
-      $stmt->bindValue(':password_hash', $hash, PDO::PARAM_STR);
-      $stmt->bindValue(':is_admin', $is_admin, PDO::PARAM_INT);
-
-      // Personal/contact
-      $stmt->bindValue(':preferred_name', $preferred_name, $preferred_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':street1', $street1, $street1 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':street2', $street2, $street2 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':city', $city, $city === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':state', $state, $state === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':zip', $zip, $zip === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':email2', $email2, $email2 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':phone_home', $phone_home, $phone_home === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':phone_cell', $phone_cell, $phone_cell === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':shirt_size', $shirt_size, $shirt_size === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':photo_path', $photo_path, $photo_path === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-
-      // Scouting
-      $stmt->bindValue(':bsa_no',  $bsa_membership_number, $bsa_membership_number === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':bsa_exp', $bsa_registration_expires_on, $bsa_registration_expires_on === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':safe_done', $safeguarding_training_completed_on, $safeguarding_training_completed_on === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-
-      // Emergency
-      $stmt->bindValue(':em1_name',  $em1_name,  $em1_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':em1_phone', $em1_phone, $em1_phone === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':em2_name',  $em2_name,  $em2_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-      $stmt->bindValue(':em2_phone', $em2_phone, $em2_phone === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-
-      $ok = $stmt->execute();
-
-      if ($ok) {
-        header('Location: /admin_adults.php?created=1'); exit;
-      }
-      $err = 'Failed to create adult.';
+      $id = UserManagement::createAdultWithDetails([
+        'first_name' => $first,
+        'last_name' => $last,
+        'email' => $email,
+        'is_admin' => $is_admin,
+        'preferred_name' => $preferred_name,
+        'street1' => $street1,
+        'street2' => $street2,
+        'city' => $city,
+        'state' => $state,
+        'zip' => $zip,
+        'email2' => $email2,
+        'phone_home' => $phone_home,
+        'phone_cell' => $phone_cell,
+        'shirt_size' => $shirt_size,
+        'photo_path' => $photo_path,
+        'bsa_membership_number' => $bsa_membership_number,
+        'bsa_registration_expires_on' => $bsa_registration_expires_on,
+        'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
+        'emergency_contact1_name' => $em1_name,
+        'emergency_contact1_phone' => $em1_phone,
+        'emergency_contact2_name' => $em2_name,
+        'emergency_contact2_phone' => $em2_phone,
+      ]);
+      header('Location: /admin_adults.php?created=1'); exit;
     } catch (Throwable $e) {
       // Likely duplicate email (if not null) or other constraint
       $err = 'Error creating adult. Ensure the email (if provided) is unique';

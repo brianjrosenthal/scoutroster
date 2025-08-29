@@ -12,9 +12,7 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 try {
-  $st = pdo()->prepare('SELECT id, first_name, last_name, email_verified_at FROM users WHERE email=? LIMIT 1');
-  $st->execute([$email]);
-  $u = $st->fetch();
+  $u = UserManagement::findByEmail($email);
 
   if ($u && empty($u['email_verified_at'])) {
     $token = bin2hex(random_bytes(32));

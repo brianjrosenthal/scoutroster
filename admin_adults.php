@@ -19,9 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($aid <= 0) throw new Exception('Invalid adult');
 
       // Load adult
-      $st = pdo()->prepare("SELECT id, first_name, last_name, email, email_verified_at FROM users WHERE id=? LIMIT 1");
-      $st->execute([$aid]);
-      $a = $st->fetch();
+      $a = UserManagement::findById($aid);
       if (!$a || empty($a['email']) || !empty($a['email_verified_at'])) {
         throw new Exception('Adult not eligible for invite.');
       }
@@ -54,9 +52,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($aid === (int)($me['id'] ?? 0)) {
         throw new Exception('You cannot delete your own account.');
       }
-      $st = pdo()->prepare('DELETE FROM users WHERE id=?');
-      $st->execute([$aid]);
-      if ($st->rowCount() > 0) {
+      $deleted = UserManagement::delete($aid);
+      if ($deleted > 0) {
         $msg = 'Adult deleted.';
       } else {
         $err = 'Adult not found.';
@@ -88,8 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       // If admin checkbox set, elevate role
       if ($makeAdmin) {
-        $st = pdo()->prepare("UPDATE users SET is_admin=1 WHERE id=?");
-        $st->execute([(int)$id]);
+        UserManagement::setAdminFlag((int)$id, true);
       }
 
       // Send activation/verification email
@@ -149,7 +145,7 @@ header_html('Manage Adults');
 
 <div class="card">
   <h3>All Adults</h3>
-  <?php $all = pdo()->query("SELECT id, first_name, last_name, email, is_admin, email_verified_at FROM users ORDER BY last_name, first_name")->fetchAll(); ?>
+  <?php $all = UserManagement::listAllBasic(); ?>
   <?php if (empty($all)): ?>
     <p class="small">No adults found.</p>
   <?php else: ?>

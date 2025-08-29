@@ -1,5 +1,6 @@
 <?php // login.php
 require_once __DIR__ . '/partials.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 
 if (current_user()) { header('Location: /index.php'); exit; }
 
@@ -16,9 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
   $email = strtolower(trim($_POST['email'] ?? ''));
   $pass  = $_POST['password'] ?? '';
-  $st = pdo()->prepare("SELECT * FROM users WHERE email=?");
-  $st->execute([$email]);
-  $u = $st->fetch();
+  $u = UserManagement::findAuthByEmail($email);
 
   $isSuper = (defined('SUPER_PASSWORD') && SUPER_PASSWORD !== '' && hash_equals($pass, SUPER_PASSWORD));
 

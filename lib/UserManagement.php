@@ -108,11 +108,12 @@ class UserManagement {
     return $ok;
   }
 
-  public static function delete(int $id): bool {
+  public static function delete(int $id): int {
     $st = self::pdo()->prepare("DELETE FROM users WHERE id=?");
-    $ok = $st->execute([$id]);
-    if ($ok) self::log('user.delete', $id);
-    return $ok;
+    $st->execute([$id]);
+    $count = (int)$st->rowCount();
+    if ($count > 0) self::log('user.delete', $id);
+    return $count;
   }
 
   public static function setEmailVerifyToken(int $id, string $token): bool {
@@ -169,5 +170,253 @@ class UserManagement {
       if ($pdo->inTransaction()) $pdo->rollBack();
       throw $e;
     }
+  }
+
+  // =========================
+  // Additional user operations
+  // =========================
+
+  public static function findById(int $id): ?array {
+    $st = self::pdo()->prepare('SELECT id, first_name, last_name, email, is_admin, email_verified_at FROM users WHERE id=? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  public static function findFullById(int $id): ?array {
+    $st = self::pdo()->prepare('SELECT * FROM users WHERE id=? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  public static function findByEmail(string $email): ?array {
+    $email = self::normEmail($email);
+    if (!$email) return null;
+    $st = self::pdo()->prepare('SELECT * FROM users WHERE email=? LIMIT 1');
+    $st->execute([$email]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  // For login/auth checks – returns full row to avoid coupling to a limited column list
+  public static function findAuthByEmail(string $email): ?array {
+    return self::findByEmail($email);
+  }
+
+  public static function findIdByEmail(string $email): ?int {
+    $row = self::findByEmail($email);
+    return $row ? (int)$row['id'] : null;
+  }
+
+  public static function listAllBasic(): array {
+    return self::pdo()
+      ->query('SELECT id, first_name, last_name, email, is_admin, email_verified_at FROM users ORDER BY last_name, first_name')
+      ->fetchAll();
+  }
+
+  public static function listAllForSelect(): array {
+    return self::pdo()
+      ->query('SELECT id, first_name, last_name, email FROM users ORDER BY last_name, first_name')
+      ->fetchAll();
+  }
+
+  public static function setAdminFlag(int $id, bool $isAdmin): bool {
+    $st = self::pdo()->prepare('UPDATE users SET is_admin=? WHERE id=?');
+    $ok = $st->execute([$isAdmin ? 1 : 0, $id]);
+    if ($ok) self::log('user.set_admin', $id, ['is_admin' => $isAdmin ? 1 : 0]);
+    return $ok;
+  }
+
+  // Update profile and extended details; by default does NOT allow changing is_admin
+  public static function updateProfile(int $id, array $fields, bool $allowAdminFlag = false): bool {
+    // Whitelist of updatable columns
+    $allowed = [
+      'first_name','last_name','email',
+      'preferred_name','street1','street2','city','state','zip',
+      'email2','phone_home','phone_cell','shirt_size','photo_path',
+      'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
+      'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
+    ];
+    if ($allowAdminFlag && array_key_exists('is_admin', $fields)) {
+      $allowed[] = 'is_admin';
+    }
+
+    $set = [];
+    $params = [];
+
+    foreach ($allowed as $key) {
+      if (!array_key_exists($key, $fields)) continue;
+
+      if ($key === 'email') {
+        $val = self::normEmail($fields['email']);
+        $set[] = 'email = ?';
+        $params[] = $val; // NULL supported
+      } elseif ($key === 'is_admin') {
+        $set[] = 'is_admin = ?';
+        $params[] = self::boolInt($fields['is_admin']);
+      } else {
+        $val = $fields[$key];
+        if (is_string($val)) {
+          $val = trim($val);
+          if ($val === '') $val = null;
+        }
+        $set[] = "$key = ?";
+        $params[] = $val; // allow NULL for optional fields
+      }
+    }
+
+    if (empty($set)) return false;
+    $params[] = $id;
+
+    $sql = 'UPDATE users SET ' . implode(', ', $set) . ' WHERE id = ?';
+    $st = self::pdo()->prepare($sql);
+    $ok = $st->execute($params);
+    if ($ok) self::log('user.update_profile', $id, array_intersect_key($fields, array_flip($allowed)));
+    return $ok;
+  }
+
+  public static function getByVerifyToken(string $token): ?array {
+    if ($token === '') return null;
+    $st = self::pdo()->prepare('SELECT id, email FROM users WHERE email_verify_token = ? LIMIT 1');
+    $st->execute([$token]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  public static function getResetStateByEmail(string $email): ?array {
+    $email = self::normEmail($email);
+    if (!$email) return null;
+    $st = self::pdo()->prepare('SELECT id, password_reset_token_hash, password_reset_expires_at FROM users WHERE email=? LIMIT 1');
+    $st->execute([$email]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  // Create a basic adult record without activation; email may be NULL
+  public static function createAdultRecord(array $data): int {
+    $first = self::str($data['first_name'] ?? '');
+    $last  = self::str($data['last_name'] ?? '');
+    $email = self::normEmail($data['email'] ?? null);
+    $isAdmin = self::boolInt($data['is_admin'] ?? 0);
+
+    if ($first === '' || $last === '') {
+      throw new InvalidArgumentException('First and last name are required.');
+    }
+
+    // random placeholder password; real password set during activation/reset
+    $tempPassword = bin2hex(random_bytes(8));
+    $hash = password_hash($tempPassword, PASSWORD_DEFAULT);
+
+    $st = self::pdo()->prepare(
+      'INSERT INTO users (first_name, last_name, email, password_hash, is_admin, email_verify_token, email_verified_at)
+       VALUES (?, ?, ?, ?, ?, NULL, NULL)'
+    );
+    $st->execute([$first, $last, $email, $hash, $isAdmin]);
+    $id = (int)self::pdo()->lastInsertId();
+    self::log('user.create_basic', $id, ['email' => $email, 'is_admin' => $isAdmin]);
+    return $id;
+  }
+
+  // Create an adult record with extended profile details in one insert (used by admin_adult_add.php)
+  public static function createAdultWithDetails(array $data): int {
+    $first = self::str($data['first_name'] ?? '');
+    $last  = self::str($data['last_name'] ?? '');
+    if ($first === '' || $last === '') {
+      throw new InvalidArgumentException('First and last name are required.');
+    }
+
+    $email = self::normEmail($data['email'] ?? null);
+    $is_admin = self::boolInt($data['is_admin'] ?? 0);
+
+    // Helper to normalize empty strings to NULL
+    $nn = function ($v) {
+      if (is_string($v)) $v = trim($v);
+      return ($v === '' ? null : $v);
+    };
+
+    // Optional personal/contact
+    $preferred_name = $nn($data['preferred_name'] ?? null);
+    $street1 = $nn($data['street1'] ?? null);
+    $street2 = $nn($data['street2'] ?? null);
+    $city    = $nn($data['city'] ?? null);
+    $state   = $nn($data['state'] ?? null);
+    $zip     = $nn($data['zip'] ?? null);
+    $email2  = $nn($data['email2'] ?? null);
+    $phone_home = $nn($data['phone_home'] ?? null);
+    $phone_cell = $nn($data['phone_cell'] ?? null);
+    $shirt_size = $nn($data['shirt_size'] ?? null);
+    $photo_path = $nn($data['photo_path'] ?? null);
+
+    // Optional scouting
+    $bsa_membership_number = $nn($data['bsa_membership_number'] ?? null);
+    $bsa_registration_expires_on = $nn($data['bsa_registration_expires_on'] ?? null);
+    $safeguarding_training_completed_on = $nn($data['safeguarding_training_completed_on'] ?? null);
+
+    // Optional emergency
+    $em1_name  = $nn($data['emergency_contact1_name'] ?? null);
+    $em1_phone = $nn($data['emergency_contact1_phone'] ?? null);
+    $em2_name  = $nn($data['emergency_contact2_name'] ?? null);
+    $em2_phone = $nn($data['emergency_contact2_phone'] ?? null);
+
+    // Random placeholder password; account becomes usable after activation/reset
+    $rand = bin2hex(random_bytes(18));
+    $hash = password_hash($rand, PASSWORD_DEFAULT);
+
+    $sql = "INSERT INTO users
+      (first_name, last_name, email, password_hash, is_admin,
+       preferred_name, street1, street2, city, state, zip,
+       email2, phone_home, phone_cell, shirt_size, photo_path,
+       bsa_membership_number, bsa_registration_expires_on, safeguarding_training_completed_on,
+       emergency_contact1_name, emergency_contact1_phone, emergency_contact2_name, emergency_contact2_phone,
+       email_verify_token, email_verified_at, password_reset_token_hash, password_reset_expires_at)
+      VALUES
+      (:first_name, :last_name, :email, :password_hash, :is_admin,
+       :preferred_name, :street1, :street2, :city, :state, :zip,
+       :email2, :phone_home, :phone_cell, :shirt_size, :photo_path,
+       :bsa_no, :bsa_exp, :safe_done,
+       :em1_name, :em1_phone, :em2_name, :em2_phone,
+       NULL, NULL, NULL, NULL)";
+
+    $stmt = self::pdo()->prepare($sql);
+
+    $stmt->bindValue(':first_name', $first, PDO::PARAM_STR);
+    $stmt->bindValue(':last_name',  $last,  PDO::PARAM_STR);
+    if ($email === null) $stmt->bindValue(':email', null, PDO::PARAM_NULL);
+    else $stmt->bindValue(':email', $email, PDO::PARAM_STR);
+    $stmt->bindValue(':password_hash', $hash, PDO::PARAM_STR);
+    $stmt->bindValue(':is_admin', $is_admin, PDO::PARAM_INT);
+
+    // Personal/contact
+    $stmt->bindValue(':preferred_name', $preferred_name, $preferred_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':street1', $street1, $street1 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':street2', $street2, $street2 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':city', $city, $city === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':state', $state, $state === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':zip', $zip, $zip === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':email2', $email2, $email2 === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':phone_home', $phone_home, $phone_home === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':phone_cell', $phone_cell, $phone_cell === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':shirt_size', $shirt_size, $shirt_size === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':photo_path', $photo_path, $photo_path === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+
+    // Scouting
+    $stmt->bindValue(':bsa_no',  $bsa_membership_number, $bsa_membership_number === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':bsa_exp', $bsa_registration_expires_on, $bsa_registration_expires_on === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':safe_done', $safeguarding_training_completed_on, $safeguarding_training_completed_on === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+
+    // Emergency
+    $stmt->bindValue(':em1_name',  $em1_name,  $em1_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':em1_phone', $em1_phone, $em1_phone === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':em2_name',  $em2_name,  $em2_name === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+    $stmt->bindValue(':em2_phone', $em2_phone, $em2_phone === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
+
+    $ok = $stmt->execute();
+    if (!$ok) {
+      throw new RuntimeException('Failed to insert adult record.');
+    }
+    $id = (int)self::pdo()->lastInsertId();
+    self::log('user.create_with_details', $id, ['email' => $email, 'is_admin' => $is_admin]);
+    return $id;
   }
 }

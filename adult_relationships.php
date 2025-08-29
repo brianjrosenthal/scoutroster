@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('Method Not Allowed'); }
@@ -17,9 +18,8 @@ if ($adultId <= 0 || $youthId <= 0) { http_response_code(400); exit('Invalid par
 
 // Validate adult and youth exist
 try {
-  $st = pdo()->prepare('SELECT id FROM users WHERE id=? LIMIT 1');
-  $st->execute([$adultId]);
-  if (!$st->fetch()) { http_response_code(404); exit('Adult not found'); }
+  $a = UserManagement::findById($adultId);
+  if (!$a) { http_response_code(404); exit('Adult not found'); }
 
   $st = pdo()->prepare('SELECT id FROM youth WHERE id=? LIMIT 1');
   $st->execute([$youthId]);

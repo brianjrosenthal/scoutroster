@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -261,7 +262,7 @@ header_html('Edit Youth');
       <label>Adult
         <select name="adult_id" required>
           <?php
-          $adults = pdo()->query("SELECT id, first_name, last_name, email FROM users ORDER BY last_name, first_name")->fetchAll();
+          $adults = UserManagement::listAllForSelect();
           foreach ($adults as $a) {
             $label = trim(($a['last_name'] ?? '').', '.($a['first_name'] ?? '') . (empty($a['email']) ? '' : ' <'.$a['email'].'>'));
             echo '<option value="'.(int)$a['id'].'">'.$label.'</option>';

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 
 $me = current_user();
@@ -58,25 +59,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
       try {
-        $sql = "UPDATE users SET
-          first_name=?, last_name=?, email=?,
-          preferred_name=?, street1=?, street2=?, city=?, state=?, zip=?,
-          email2=?, phone_home=?, phone_cell=?, shirt_size=?,
-          bsa_membership_number=?, bsa_registration_expires_on=?, safeguarding_training_completed_on=?
-          WHERE id=?";
-        $ok = pdo()->prepare($sql)->execute([
-          $first, $last, $email,
-          $preferred_name, $street1, $street2, $city, $state, $zip,
-          $email2, $phone_home, $phone_cell, $shirt_size,
-          $bsa_membership_number, $bsa_registration_expires_on, $safeguarding_training_completed_on,
-          (int)$me['id']
-        ]);
+        $ok = UserManagement::updateProfile((int)$me['id'], [
+          'first_name' => $first,
+          'last_name'  => $last,
+          'email'      => $email,
+          'preferred_name' => $preferred_name,
+          'street1' => $street1,
+          'street2' => $street2,
+          'city' => $city,
+          'state' => $state,
+          'zip' => $zip,
+          'email2' => $email2,
+          'phone_home' => $phone_home,
+          'phone_cell' => $phone_cell,
+          'shirt_size' => $shirt_size,
+          // Admin-only fields have been normalized above to retain existing values when not admin
+          'bsa_membership_number' => $bsa_membership_number,
+          'bsa_registration_expires_on' => $bsa_registration_expires_on,
+          'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
+        ], false);
         if ($ok) {
           $msg = 'Profile updated.';
           // Refresh $me
-          $st = pdo()->prepare('SELECT * FROM users WHERE id=?');
-          $st->execute([(int)$me['id']]);
-          $me = $st->fetch();
+          $me = UserManagement::findFullById((int)$me['id']);
         } else {
           $err = 'Failed to update profile.';
         }
@@ -215,14 +220,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       } else {
         try {
           // Find or create adult by email
-          $st = pdo()->prepare("SELECT id FROM users WHERE email=? LIMIT 1");
-          $st->execute([$email]);
-          $a = $st->fetch();
-          if ($a) {
-            $aid = (int)$a['id'];
-          } else {
+          $aid = UserManagement::findIdByEmail($email);
+          if (!$aid) {
             // Create invited adult (non-admin)
-            require_once __DIR__.'/lib/UserManagement.php';
             $token = bin2hex(random_bytes(32));
             if ($first === '' || $last === '') {
               // If no names provided, use placeholders
@@ -262,10 +262,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// Refresh $me after potential update
-$st = pdo()->prepare('SELECT * FROM users WHERE id=?');
-$st->execute([(int)$me['id']]);
-$me = $st->fetch();
+ // Refresh $me after potential update
+$me = UserManagement::findFullById((int)$me['id']);
 
 // Load my children
 $st = pdo()->prepare("

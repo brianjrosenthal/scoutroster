@@ -24,9 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($email === '' || $token === '') {
       $error = 'Invalid reset link.';
     } else {
-      $st = $pdo->prepare('SELECT id, password_reset_token_hash, password_reset_expires_at FROM users WHERE email=? LIMIT 1');
-      $st->execute([$email]);
-      $u = $st->fetch();
+      $u = UserManagement::getResetStateByEmail($email);
       if (!$u || empty($u['password_reset_token_hash']) || empty($u['password_reset_expires_at'])) {
         $error = 'Invalid or expired reset link.';
       } else {
@@ -51,9 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($email === '' || $token === '') {
     $error = 'Invalid reset link.';
   } else {
-    $st = $pdo->prepare('SELECT password_reset_token_hash, password_reset_expires_at FROM users WHERE email=? LIMIT 1');
-    $st->execute([$email]);
-    $u = $st->fetch();
+    $u = UserManagement::getResetStateByEmail($email);
     if (!$u || empty($u['password_reset_token_hash']) || empty($u['password_reset_expires_at'])) {
       $error = 'Invalid or expired reset link.';
     } else {

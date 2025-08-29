@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 
 function current_user() {
   if (!empty($_SESSION['uid'])) {
@@ -19,9 +20,8 @@ function current_user() {
       $_SESSION['last_activity'] = $now;
     }
 
-    $st = pdo()->prepare('SELECT * FROM users WHERE id = ?');
-    $st->execute([$_SESSION['uid']]);
-    return $st->fetch();
+    $u = UserManagement::findFullById((int)$_SESSION['uid']);
+    return $u ?: null;
   }
   return null;
 }

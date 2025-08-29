@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_admin();
 
 $err = null;
@@ -8,10 +9,8 @@ $msg = null;
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 
-// Load current record
-$st = pdo()->prepare("SELECT * FROM users WHERE id=? LIMIT 1");
-$st->execute([$id]);
-$u = $st->fetch();
+ // Load current record
+$u = UserManagement::findFullById($id);
 if (!$u) { http_response_code(404); exit('Not found'); }
 
 // Helper to normalize empty to null
@@ -82,28 +81,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (!$err) {
     try {
-      $sql = "UPDATE users SET
-        first_name=?, last_name=?, email=?, is_admin=?,
-        preferred_name=?, street1=?, street2=?, city=?, state=?, zip=?,
-        email2=?, phone_home=?, phone_cell=?, shirt_size=?, photo_path=?,
-        bsa_membership_number=?, bsa_registration_expires_on=?, safeguarding_training_completed_on=?,
-        emergency_contact1_name=?, emergency_contact1_phone=?, emergency_contact2_name=?, emergency_contact2_phone=?
-        WHERE id=?";
-      $ok = pdo()->prepare($sql)->execute([
-        $first, $last, $email, $is_admin,
-        $preferred_name, $street1, $street2, $city, $state, $zip,
-        $email2, $phone_home, $phone_cell, $shirt_size, $photo_path,
-        $bsa_membership_number, $bsa_registration_expires_on, $safeguarding_training_completed_on,
-        $em1_name, $em1_phone, $em2_name, $em2_phone,
-        $id
-      ]);
+      $ok = UserManagement::updateProfile($id, [
+        'first_name' => $first,
+        'last_name'  => $last,
+        'email'      => $email,
+        'is_admin'   => $is_admin,
+        'preferred_name' => $preferred_name,
+        'street1' => $street1,
+        'street2' => $street2,
+        'city' => $city,
+        'state' => $state,
+        'zip' => $zip,
+        'email2' => $email2,
+        'phone_home' => $phone_home,
+        'phone_cell' => $phone_cell,
+        'shirt_size' => $shirt_size,
+        'photo_path' => $photo_path,
+        'bsa_membership_number' => $bsa_membership_number,
+        'bsa_registration_expires_on' => $bsa_registration_expires_on,
+        'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
+        'emergency_contact1_name' => $em1_name,
+        'emergency_contact1_phone' => $em1_phone,
+        'emergency_contact2_name' => $em2_name,
+        'emergency_contact2_phone' => $em2_phone,
+      ], true);
       if ($ok) {
         header('Location: /adults.php'); exit;
       } else {
         $err = 'Failed to update adult.';
       }
     } catch (Throwable $e) {
-      // Likely unique email violation or other DB error
       $err = 'Error updating adult. Ensure the email is unique.';
     }
   }
