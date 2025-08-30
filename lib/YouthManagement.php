@@ -60,7 +60,7 @@ class YouthManagement {
   private static function assertAdminOrParent(?UserContext $ctx, int $youthId): void {
     self::assertLogin($ctx);
     echo('<pre>');
-    print_r($ctx)
+    print_r($ctx);
     echo('</pre>');
     exit();
     if ($ctx->admin) return;
