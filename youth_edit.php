@@ -57,10 +57,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($last === '')  $errors[] = 'Last name is required.';
   $g = GradeCalculator::parseGradeLabel($gradeLabel);
   if ($g === null) $errors[] = 'Grade is required.';
-  if ($street1 === '') $errors[] = 'Street1 is required.';
-  if ($city === '')    $errors[] = 'City is required.';
-  if ($state === '')   $errors[] = 'State is required.';
-  if ($zip === '')     $errors[] = 'Zip is required.';
 
   $allowedGender = ['male','female','non-binary','prefer not to say'];
   if ($gender !== null && $gender !== '' && !in_array($gender, $allowedGender, true)) {
@@ -90,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         ($school !== '' ? $school : null),
         ($shirt !== '' ? $shirt : null),
         ($bsa !== '' ? $bsa : null),
-        $street1, ($street2 !== '' ? $street2 : null), $city, $state, $zip,
+        ($street1 !== '' ? $street1 : null), ($street2 !== '' ? $street2 : null), ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null),
         $class_of, $sibling,
         $id
       ]);
@@ -182,19 +178,19 @@ header_html('Edit Youth');
     <h3>Address</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Street 1
-        <input type="text" name="street1" value="<?=h($y['street1'])?>" required>
+        <input type="text" name="street1" value="<?=h($y['street1'])?>">
       </label>
       <label>Street 2
         <input type="text" name="street2" value="<?=h($y['street2'])?>">
       </label>
       <label>City
-        <input type="text" name="city" value="<?=h($y['city'])?>" required>
+        <input type="text" name="city" value="<?=h($y['city'])?>">
       </label>
       <label>State
-        <input type="text" name="state" value="<?=h($y['state'])?>" required>
+        <input type="text" name="state" value="<?=h($y['state'])?>">
       </label>
       <label>Zip
-        <input type="text" name="zip" value="<?=h($y['zip'])?>" required>
+        <input type="text" name="zip" value="<?=h($y['zip'])?>">
       </label>
     </div>
 

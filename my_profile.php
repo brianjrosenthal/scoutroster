@@ -114,7 +114,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($last === '')  $errors[] = 'Child last name is required.';
     $g = \GradeCalculator::parseGradeLabel($gradeLabel);
     if ($g === null) $errors[] = 'Child grade is required.';
-    if ($street1 === '' || $city === '' || $state === '' || $zip === '') $errors[] = 'Child address is required.';
 
     $allowedGender = ['male','female','non-binary','prefer not to say'];
     if ($gender !== null && $gender !== '' && !in_array($gender, $allowedGender, true)) $gender = null;
@@ -134,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         $st->execute([
           $first, $last, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
-          $street1, $street2, $city, $state, $zip, $class_of, 1
+          ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $class_of, 1
         ]);
         $yid = (int)pdo()->lastInsertId();
 
@@ -173,7 +172,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $errors = [];
         if ($first === '' || $last === '') $errors[] = 'Child first and last name are required.';
-        if ($street1 === '' || $city === '' || $state === '' || $zip === '') $errors[] = 'Child address is required.';
         $allowedGender = ['male','female','non-binary','prefer not to say'];
         if ($gender !== null && $gender !== '' && !in_array($gender, $allowedGender, true)) $gender = null;
         if ($birthdate !== null) {
@@ -188,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               street1=?, street2=?, city=?, state=?, zip=? WHERE id=?");
             $ok = $st->execute([
               $first, $last, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
-              $street1, $street2, $city, $state, $zip, $yid
+              ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $yid
             ]);
             if ($ok) $msg = 'Child updated.'; else $err = 'Failed to update child.';
           } catch (Throwable $e) {
@@ -404,19 +402,19 @@ header_html('My Profile');
               <input type="text" name="shirt_size" value="<?=h($c['shirt_size'])?>">
             </label>
             <label>Street 1
-              <input type="text" name="street1" value="<?=h($c['street1'])?>" required>
+              <input type="text" name="street1" value="<?=h($c['street1'])?>">
             </label>
             <label>Street 2
               <input type="text" name="street2" value="<?=h($c['street2'])?>">
             </label>
             <label>City
-              <input type="text" name="city" value="<?=h($c['city'])?>" required>
+              <input type="text" name="city" value="<?=h($c['city'])?>">
             </label>
             <label>State
-              <input type="text" name="state" value="<?=h($c['state'])?>" required>
+              <input type="text" name="state" value="<?=h($c['state'])?>">
             </label>
             <label>Zip
-              <input type="text" name="zip" value="<?=h($c['zip'])?>" required>
+              <input type="text" name="zip" value="<?=h($c['zip'])?>">
             </label>
           </div>
           <div class="actions">
@@ -545,19 +543,19 @@ header_html('My Profile');
     <h4>Address</h4>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Street 1
-        <input type="text" name="street1" required>
+        <input type="text" name="street1">
       </label>
       <label>Street 2
         <input type="text" name="street2">
       </label>
       <label>City
-        <input type="text" name="city" required>
+        <input type="text" name="city">
       </label>
       <label>State
-        <input type="text" name="state" required>
+        <input type="text" name="state">
       </label>
       <label>Zip
-        <input type="text" name="zip" required>
+        <input type="text" name="zip">
       </label>
     </div>
 

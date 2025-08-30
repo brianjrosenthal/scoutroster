@@ -64,12 +64,12 @@ CREATE TABLE youth (
 
   bsa_registration_number VARCHAR(50) DEFAULT NULL, -- presence indicates "registered"
 
-  -- Address (required as per spec)
-  street1 VARCHAR(255) NOT NULL,
+  -- Address (optional)
+  street1 VARCHAR(255) DEFAULT NULL,
   street2 VARCHAR(255) DEFAULT NULL,
-  city    VARCHAR(100) NOT NULL,
-  state   VARCHAR(50)  NOT NULL,
-  zip     VARCHAR(20)  NOT NULL,
+  city    VARCHAR(100) DEFAULT NULL,
+  state   VARCHAR(50)  DEFAULT NULL,
+  zip     VARCHAR(20)  DEFAULT NULL,
 
   class_of INT NOT NULL,     -- grade computed from class_of
   sibling TINYINT(1) NOT NULL DEFAULT 0,
