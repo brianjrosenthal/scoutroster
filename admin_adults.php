@@ -1,6 +1,5 @@
 <?php
 require_once __DIR__.'/partials.php';
-require_once __DIR__.'/mailer.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_admin();
 
@@ -18,28 +17,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $aid = (int)($_POST['adult_id'] ?? 0);
       if ($aid <= 0) throw new Exception('Invalid adult');
 
-      // Load adult
-      $a = UserManagement::findById($aid);
-      if (!$a || empty($a['email']) || !empty($a['email_verified_at'])) {
-        throw new Exception('Adult not eligible for invite.');
+      // Delegate invite flow to domain layer
+      $sent = UserManagement::sendInvite($aid);
+      if ($sent) {
+        $msg = 'Invitation sent if eligible.';
+      } else {
+        $err = 'Adult not eligible for invite.';
       }
-
-      $token = bin2hex(random_bytes(32));
-      UserManagement::setEmailVerifyToken((int)$a['id'], $token);
-
-      $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-      $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-      $verifyUrl = $scheme.'://'.$host.'/verify_email.php?token='.urlencode($token);
-
-      $safeName = htmlspecialchars(trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')), ENT_QUOTES, 'UTF-8');
-      $safeUrl  = htmlspecialchars($verifyUrl, ENT_QUOTES, 'UTF-8');
-      $html = '<p>Hello '.($safeName ?: htmlspecialchars($a['email'], ENT_QUOTES, 'UTF-8')).',</p>'
-            . '<p>Please verify your email to activate your account for '.htmlspecialchars(Settings::siteTitle(), ENT_QUOTES, 'UTF-8').'.</p>'
-            . '<p><a href="'.$safeUrl.'">'.$safeUrl.'</a></p>'
-            . '<p>After verifying, you will be prompted to set your password.</p>';
-
-      @send_email((string)$a['email'], 'Activate your '.Settings::siteTitle().' account', $html, $safeName ?: (string)$a['email']);
-      $msg = 'Invitation sent if eligible.';
     } catch (Throwable $e) {
       $err = 'Failed to send invitation.';
     }

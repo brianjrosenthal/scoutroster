@@ -419,4 +419,41 @@ class UserManagement {
     self::log('user.create_with_details', $id, ['email' => $email, 'is_admin' => $is_admin]);
     return $id;
   }
+
+  // Send an invite email to an existing, unverified adult with an email on file.
+  // Returns true if an invite was sent, false if not eligible (no email or already verified).
+  public static function sendInvite(int $id): bool {
+    // Load minimal user info
+    $u = self::findById($id);
+    if (!$u) return false;
+    if (empty($u['email']) || !empty($u['email_verified_at'])) {
+      return false; // Not eligible
+    }
+
+    // Generate and persist a verification token
+    $token = bin2hex(random_bytes(32));
+    self::setEmailVerifyToken((int)$u['id'], $token);
+
+    // Build verify URL from current request context
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $verifyUrl = $scheme.'://'.$host.'/verify_email.php?token='.urlencode($token);
+
+    // Compose and send email
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+
+    $safeName  = htmlspecialchars(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? '')), ENT_QUOTES, 'UTF-8');
+    $safeUrl   = htmlspecialchars($verifyUrl, ENT_QUOTES, 'UTF-8');
+    $siteTitle = htmlspecialchars(Settings::siteTitle(), ENT_QUOTES, 'UTF-8');
+
+    $html = '<p>Hello '.($safeName ?: htmlspecialchars($u['email'], ENT_QUOTES, 'UTF-8')).',</p>'
+          . '<p>Please verify your email to activate your account for '.$siteTitle.'.</p>'
+          . '<p><a href="'.$safeUrl.'">'.$safeUrl.'</a></p>'
+          . '<p>After verifying, you will be prompted to set your password.</p>';
+
+    @send_email((string)$u['email'], 'Activate your '.$siteTitle.' account', $html, $safeName ?: (string)$u['email']);
+    self::log('user.invite_sent', (int)$u['id']);
+    return true;
+  }
 }
