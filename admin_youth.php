@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // Required fields
   $first = trim($_POST['first_name'] ?? '');
   $last  = trim($_POST['last_name'] ?? '');
+  $suffix = trim($_POST['suffix'] ?? '');
   $gradeLabel = trim($_POST['grade'] ?? ''); // K,0..5
   $street1 = trim($_POST['street1'] ?? '');
   $city    = trim($_POST['city'] ?? '');
@@ -59,6 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $id = YouthManagement::create($ctx, [
         'first_name' => $first,
         'last_name' => $last,
+        'suffix' => $suffix,
         'grade_label' => $gradeLabel,
         'preferred_name' => $preferred,
         'gender' => $gender,
@@ -97,6 +99,9 @@ header_html('Add Youth');
       </label>
       <label>Last name
         <input type="text" name="last_name" required>
+      </label>
+      <label>Suffix
+        <input type="text" name="suffix" placeholder="Jr, III">
       </label>
       <label>Preferred name
         <input type="text" name="preferred_name">

@@ -56,6 +56,7 @@ CREATE TABLE youth (
   id INT AUTO_INCREMENT PRIMARY KEY,
   first_name VARCHAR(100) NOT NULL,
   last_name  VARCHAR(100) NOT NULL,
+  suffix VARCHAR(20) DEFAULT NULL,
   preferred_name VARCHAR(100) DEFAULT NULL,
   gender ENUM('male','female','non-binary','prefer not to say') DEFAULT NULL,
   birthdate DATE DEFAULT NULL,

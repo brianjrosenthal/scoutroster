@@ -26,6 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // Required
   $first = trim($_POST['first_name'] ?? '');
   $last  = trim($_POST['last_name'] ?? '');
+  $suffix = trim($_POST['suffix'] ?? '');
   $gradeLabel = trim($_POST['grade'] ?? '');
   $street1 = trim($_POST['street1'] ?? '');
   $city    = trim($_POST['city'] ?? '');
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $ok = YouthManagement::update($ctx, $id, [
         'first_name' => $first,
         'last_name' => $last,
+        'suffix' => $suffix,
         'preferred_name' => $preferred,
         'gender' => $gender,
         'birthdate' => $birthdate,
@@ -100,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $y = array_merge($y, [
     'first_name' => $first,
     'last_name' => $last,
+    'suffix' => $suffix,
     'preferred_name' => $preferred !== '' ? $preferred : null,
     'gender' => ($gender !== '' ? $gender : null),
     'birthdate' => ($birthdate !== '' ? $birthdate : null),
@@ -132,6 +135,9 @@ header_html('Edit Youth');
       </label>
       <label>Last name
         <input type="text" name="last_name" value="<?=h($y['last_name'])?>" required>
+      </label>
+      <label>Suffix
+        <input type="text" name="suffix" value="<?=h($y['suffix'])?>" placeholder="Jr, III">
       </label>
       <label>Preferred name
         <input type="text" name="preferred_name" value="<?=h($y['preferred_name'])?>">

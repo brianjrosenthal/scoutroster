@@ -2,9 +2,31 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/YouthManagement.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 
 $u = current_user();
+
+$msg = null;
+$err = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_csrf();
+  if (!empty($u['is_admin'])) {
+    $action = $_POST['action'] ?? '';
+    if ($action === 'delete') {
+      try {
+        $yid = (int)($_POST['youth_id'] ?? 0);
+        if ($yid <= 0) throw new Exception('Invalid youth id');
+        YouthManagement::delete(UserContext::getLoggedInUserContext(), $yid);
+        $msg = 'Youth deleted.';
+      } catch (Throwable $e) {
+        $err = 'Unable to delete youth.';
+      }
+    }
+  } else {
+    $err = 'Admins only.';
+  }
+}
 
 // Inputs
 $q = trim($_GET['q'] ?? '');
@@ -21,6 +43,8 @@ if ($g !== null) {
 
 $ctx = UserContext::getLoggedInUserContext();
 $rows = YouthManagement::searchRoster($ctx, $q, $g);
+$youthIds = array_map(static function($r){ return (int)$r['id']; }, $rows);
+$parentsByYouth = !empty($youthIds) ? UserManagement::listParentsForYouthIds($ctx, $youthIds) : [];
 
 // Group by grade
 $byGrade = []; // grade int => list
@@ -36,6 +60,8 @@ ksort($byGrade);
 header_html('Youth Roster');
 ?>
 <h2>Youth Roster</h2>
+<?php if (!empty($msg)): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
+<?php if (!empty($err)): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
 <div class="card">
   <form method="get" class="stack">
@@ -75,23 +101,47 @@ header_html('Youth Roster');
       <thead>
         <tr>
           <th>Name</th>
-          <th>Preferred</th>
-          <th>Den</th>
-          <th>School</th>
-          <th>Registered</th>
-          <?php if (!empty($u['is_admin'])): ?><th></th><?php endif; ?>
+          <th>Adult(s)</th>
+          <?php if (!empty($u['is_admin'])): ?><th>Actions</th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
         <?php foreach ($list as $y): ?>
           <tr>
-            <td><?=h($y['first_name'].' '.$y['last_name'])?></td>
-            <td><?=h($y['preferred_name'])?></td>
-            <td><?=h($y['den_name'] ?? '')?></td>
-            <td><?=h($y['school'])?></td>
-            <td><?= !empty($y['bsa_registration_number']) ? '<span class="badge success">Yes</span>' : '' ?></td>
+            <td>
+              <?php
+                $fullName = trim(($y['first_name'] ?? ''));
+                if (!empty($y['preferred_name'])) { $fullName .= ' ("'.($y['preferred_name']).'")'; }
+                $fullName .= ' '.($y['last_name'] ?? '');
+                if (!empty($y['suffix'])) { $fullName .= ', '.($y['suffix']); }
+                echo h(trim($fullName));
+              ?>
+            </td>
+            <td class="small">
+              <?php
+                $plist = $parentsByYouth[(int)$y['id']] ?? [];
+                $parentStrs = [];
+                foreach ($plist as $p) {
+                  $pname = trim(($p['first_name'] ?? '').' '.($p['last_name'] ?? ''));
+                  $phone = !empty($p['phone_cell']) ? $p['phone_cell'] : ($p['phone_home'] ?? '');
+                  $contact = [];
+                  if (!empty($phone)) $contact[] = h($phone);
+                  if (!empty($p['email'])) $contact[] = h($p['email']);
+                  $parentStrs[] = h($pname) . (empty($contact) ? '' : ' ('.implode(', ', $contact).')');
+                }
+                echo !empty($parentStrs) ? implode(' and ', $parentStrs) : '';
+              ?>
+            </td>
             <?php if (!empty($u['is_admin'])): ?>
-              <td class="small"><a class="button" href="/youth_edit.php?id=<?= (int)$y['id'] ?>">Edit</a></td>
+              <td class="small">
+                <a class="button" href="/youth_edit.php?id=<?= (int)$y['id'] ?>">Edit</a>
+                <form method="post" style="display:inline; margin-left:6px;" onsubmit="return confirm('Delete this youth? This cannot be undone.');">
+                  <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+                  <input type="hidden" name="action" value="delete">
+                  <input type="hidden" name="youth_id" value="<?= (int)$y['id'] ?>">
+                  <button class="button danger">Delete</button>
+                </form>
+              </td>
             <?php endif; ?>
           </tr>
         <?php endforeach; ?>

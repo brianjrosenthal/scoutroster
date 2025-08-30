@@ -168,13 +168,14 @@ class YouthManagement {
     $state   = self::nn($data['state'] ?? null);
     $zip     = self::nn($data['zip'] ?? null);
     $sibling = self::boolInt($data['sibling'] ?? 0);
+    $suffix  = self::nn($data['suffix'] ?? null);
 
     $st = self::pdo()->prepare("INSERT INTO youth
-      (first_name,last_name,preferred_name,gender,birthdate,school,shirt_size,bsa_registration_number,
+      (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,bsa_registration_number,
        street1,street2,city,state,zip,class_of,sibling)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     $ok = $st->execute([
-      $first, $last, $preferred_name, $gender, $birthdate, $school, $shirt_size, $bsa,
+      $first, $last, $suffix, $preferred_name, $gender, $birthdate, $school, $shirt_size, $bsa,
       $street1, $street2, $city, $state, $zip, $class_of, $sibling
     ]);
     if (!$ok) throw new RuntimeException('Failed to create youth.');
@@ -186,7 +187,7 @@ class YouthManagement {
 
     // Common fields parents can update
     $allowedCommon = [
-      'first_name','last_name','preferred_name','gender','birthdate','school','shirt_size',
+      'first_name','last_name','suffix','preferred_name','gender','birthdate','school','shirt_size',
       'street1','street2','city','state','zip','sibling'
     ];
     // Admin-only fields

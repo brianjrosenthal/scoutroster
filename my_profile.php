@@ -96,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_once __DIR__.'/lib/GradeCalculator.php';
     $first = trim($_POST['first_name'] ?? '');
     $last  = trim($_POST['last_name'] ?? '');
+    $suffix = nn($_POST['suffix'] ?? '');
     $gradeLabel = trim($_POST['grade'] ?? ''); // K,0..5
     $street1 = trim($_POST['street1'] ?? '');
     $city    = trim($_POST['city'] ?? '');
@@ -128,11 +129,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $class_of = $currentFifthClassOf + (5 - (int)$g);
 
         $st = pdo()->prepare("INSERT INTO youth
-          (first_name,last_name,preferred_name,gender,birthdate,school,shirt_size,
+          (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,
            street1,street2,city,state,zip,class_of,sibling)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
         $st->execute([
-          $first, $last, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
+          $first, $last, $suffix, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
           ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $class_of, 1
         ]);
         $yid = (int)pdo()->lastInsertId();
@@ -159,6 +160,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($y) {
         $first = trim($_POST['first_name'] ?? '');
         $last  = trim($_POST['last_name'] ?? '');
+        $suffix = nn($_POST['suffix'] ?? '');
         $preferred = nn($_POST['preferred_name'] ?? '');
         $gender = $_POST['gender'] ?? null;
         $birthdate = nn($_POST['birthdate'] ?? '');
@@ -182,10 +184,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($errors)) {
           try {
             $st = pdo()->prepare("UPDATE youth SET
-              first_name=?, last_name=?, preferred_name=?, gender=?, birthdate=?, school=?, shirt_size=?,
+              first_name=?, last_name=?, suffix=?, preferred_name=?, gender=?, birthdate=?, school=?, shirt_size=?,
               street1=?, street2=?, city=?, state=?, zip=? WHERE id=?");
             $ok = $st->execute([
-              $first, $last, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
+              $first, $last, $suffix, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
               ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $yid
             ]);
             if ($ok) $msg = 'Child updated.'; else $err = 'Failed to update child.';
@@ -391,7 +393,7 @@ header_html('My Profile');
         $childForms = $stCF->fetchAll();
       ?>
       <details class="stack" style="margin-top:6px;">
-        <summary><?=h($c['first_name'].' '.$c['last_name'])?></summary>
+        <summary><?=h(trim($c['first_name'].' '.$c['last_name'].(!empty($c['suffix']) ? ' '.$c['suffix'] : '')))?></summary>
         <?php if (empty($childForms)): ?>
           <p class="small">No medical forms on file.</p>
         <?php else: ?>
@@ -417,7 +419,7 @@ header_html('My Profile');
   <?php else: ?>
     <?php foreach ($children as $c): ?>
       <details style="margin-bottom:10px;">
-        <summary><?=h($c['first_name'].' '.$c['last_name'])?></summary>
+        <summary><?=h(trim($c['first_name'].' '.$c['last_name'].(!empty($c['suffix']) ? ' '.$c['suffix'] : '')))?></summary>
         <form method="post" class="stack" style="margin-top:8px;">
           <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
           <input type="hidden" name="action" value="update_child">
@@ -428,6 +430,9 @@ header_html('My Profile');
             </label>
             <label>Last name
               <input type="text" name="last_name" value="<?=h($c['last_name'])?>" required>
+            </label>
+            <label>Suffix
+              <input type="text" name="suffix" value="<?=h($c['suffix'])?>" placeholder="Jr, III">
             </label>
             <label>Preferred name
               <input type="text" name="preferred_name" value="<?=h($c['preferred_name'])?>">
@@ -557,6 +562,9 @@ header_html('My Profile');
       </label>
       <label>Last name
         <input type="text" name="last_name" required>
+      </label>
+      <label>Suffix
+        <input type="text" name="suffix" placeholder="Jr, III">
       </label>
       <label>Preferred name
         <input type="text" name="preferred_name">

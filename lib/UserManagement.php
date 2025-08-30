@@ -234,6 +234,44 @@ class UserManagement {
       ->fetchAll();
   }
 
+  // Batch fetch parents (adults) for a set of youth IDs.
+  // Returns map: youth_id => [ { adult fields ... }, ... ]
+  public static function listParentsForYouthIds(UserContext $ctx, array $youthIds): array {
+    // Require login but do not enforce admin to view roster contacts
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+
+    // Sanitize IDs
+    $ids = array_values(array_unique(array_filter(array_map(static function($v) {
+      $n = (int)$v;
+      return $n > 0 ? $n : null;
+    }, $youthIds))));
+
+    if (empty($ids)) return [];
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = "SELECT pr.youth_id,
+                   u.id AS adult_id,
+                   u.first_name,
+                   u.last_name,
+                   u.phone_cell,
+                   u.phone_home,
+                   u.email
+            FROM parent_relationships pr
+            JOIN users u ON u.id = pr.adult_id
+            WHERE pr.youth_id IN ($placeholders)
+            ORDER BY pr.youth_id, u.last_name, u.first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($ids);
+    $map = [];
+    while ($row = $st->fetch()) {
+      $yid = (int)$row['youth_id'];
+      if (!isset($map[$yid])) $map[$yid] = [];
+      $map[$yid][] = $row;
+    }
+    return $map;
+  }
+
   public static function setAdminFlag(UserContext $ctx, int $id, bool $isAdmin): bool {
     self::assertAdmin($ctx);
     $st = self::pdo()->prepare('UPDATE users SET is_admin=? WHERE id=?');
