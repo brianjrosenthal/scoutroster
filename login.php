@@ -29,8 +29,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
       session_regenerate_id(true);
       $_SESSION['uid'] = $u['id'];
+      $_SESSION['is_admin'] = !empty($u['is_admin']) ? 1 : 0;
       $_SESSION['last_activity'] = time();
       $_SESSION['public_computer'] = !empty($_POST['public_computer']) ? 1 : 0;
+      // Initialize request-scoped context immediately (partials will also bootstrap next request)
+      if (class_exists('UserContext')) {
+        UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
+      }
       header('Location: /index.php'); exit;
     }
   } else {

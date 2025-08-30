@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (!$err) {
     try {
-      $ok = UserManagement::updateProfile($id, [
+      $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, [
         'first_name' => $first,
         'last_name'  => $last,
         'email'      => $email,

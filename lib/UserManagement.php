@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/UserContext.php';
 
 class UserManagement {
   private static function pdo(): PDO {
@@ -27,8 +28,18 @@ class UserManagement {
     // no-op for now
   }
 
+  private static function assertAdmin(?UserContext $ctx): void {
+    if (!$ctx || !$ctx->admin) { throw new RuntimeException('Admins only'); }
+  }
+
+  private static function assertCanUpdate(?UserContext $ctx, int $targetUserId): void {
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    if (!$ctx->admin && $ctx->id !== $targetUserId) { throw new RuntimeException('Forbidden'); }
+  }
+
   // Admin-created users are auto-verified (email_verify_token=NULL, email_verified_at=NOW())
-  public static function createAdmin(array $data): int {
+  public static function createAdmin(UserContext $ctx, array $data): int {
+    self::assertAdmin($ctx);
     $first = self::str($data['first_name'] ?? '');
     $last  = self::str($data['last_name'] ?? '');
     $email = self::normEmail($data['email'] ?? '');
@@ -108,7 +119,9 @@ class UserManagement {
     return $ok;
   }
 
-  public static function delete(int $id): int {
+  public static function delete(UserContext $ctx, int $id): int {
+    self::assertAdmin($ctx);
+    if ($id === $ctx->id) { throw new RuntimeException('You cannot delete your own account.'); }
     $st = self::pdo()->prepare("DELETE FROM users WHERE id=?");
     $st->execute([$id]);
     $count = (int)$st->rowCount();
@@ -221,7 +234,8 @@ class UserManagement {
       ->fetchAll();
   }
 
-  public static function setAdminFlag(int $id, bool $isAdmin): bool {
+  public static function setAdminFlag(UserContext $ctx, int $id, bool $isAdmin): bool {
+    self::assertAdmin($ctx);
     $st = self::pdo()->prepare('UPDATE users SET is_admin=? WHERE id=?');
     $ok = $st->execute([$isAdmin ? 1 : 0, $id]);
     if ($ok) self::log('user.set_admin', $id, ['is_admin' => $isAdmin ? 1 : 0]);
@@ -229,7 +243,8 @@ class UserManagement {
   }
 
   // Update profile and extended details; by default does NOT allow changing is_admin
-  public static function updateProfile(int $id, array $fields, bool $allowAdminFlag = false): bool {
+  public static function updateProfile(UserContext $ctx, int $id, array $fields, bool $allowAdminFlag = false): bool {
+    self::assertCanUpdate($ctx, $id);
     // Whitelist of updatable columns
     $allowed = [
       'first_name','last_name','email',
@@ -238,8 +253,10 @@ class UserManagement {
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
     ];
-    if ($allowAdminFlag && array_key_exists('is_admin', $fields)) {
+    if ($allowAdminFlag && $ctx->admin && array_key_exists('is_admin', $fields)) {
       $allowed[] = 'is_admin';
+    } else {
+      unset($fields['is_admin']);
     }
 
     $set = [];
@@ -294,7 +311,8 @@ class UserManagement {
   }
 
   // Create a basic adult record without activation; email may be NULL
-  public static function createAdultRecord(array $data): int {
+  public static function createAdultRecord(UserContext $ctx, array $data): int {
+    self::assertAdmin($ctx);
     $first = self::str($data['first_name'] ?? '');
     $last  = self::str($data['last_name'] ?? '');
     $email = self::normEmail($data['email'] ?? null);
@@ -319,7 +337,8 @@ class UserManagement {
   }
 
   // Create an adult record with extended profile details in one insert (used by admin_adult_add.php)
-  public static function createAdultWithDetails(array $data): int {
+  public static function createAdultWithDetails(UserContext $ctx, array $data): int {
+    self::assertAdmin($ctx);
     $first = self::str($data['first_name'] ?? '');
     $last  = self::str($data['last_name'] ?? '');
     if ($first === '' || $last === '') {
@@ -422,7 +441,8 @@ class UserManagement {
 
   // Send an invite email to an existing, unverified adult with an email on file.
   // Returns true if an invite was sent, false if not eligible (no email or already verified).
-  public static function sendInvite(int $id): bool {
+  public static function sendInvite(UserContext $ctx, int $id): bool {
+    self::assertAdmin($ctx);
     // Load minimal user info
     $u = self::findById($id);
     if (!$u) return false;

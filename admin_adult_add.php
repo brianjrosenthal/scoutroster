@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (empty($errors)) {
     try {
-      $id = UserManagement::createAdultWithDetails([
+      $id = UserManagement::createAdultWithDetails(UserContext::getLoggedInUserContext(), [
         'first_name' => $first,
         'last_name' => $last,
         'email' => $email,

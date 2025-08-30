@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($aid <= 0) throw new Exception('Invalid adult');
 
       // Delegate invite flow to domain layer
-      $sent = UserManagement::sendInvite($aid);
+      $sent = UserManagement::sendInvite(UserContext::getLoggedInUserContext(), $aid);
       if ($sent) {
         $msg = 'Invitation sent if eligible.';
       } else {
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($aid === (int)($me['id'] ?? 0)) {
         throw new Exception('You cannot delete your own account.');
       }
-      $deleted = UserManagement::delete($aid);
+      $deleted = UserManagement::delete(UserContext::getLoggedInUserContext(), $aid);
       if ($deleted > 0) {
         $msg = 'Adult deleted.';
       } else {
