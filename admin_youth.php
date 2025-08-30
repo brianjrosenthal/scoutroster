@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/YouthManagement.php';
 require_admin();
 
 $msg = null;
@@ -54,25 +55,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $class_of = $currentFifthClassOf + (5 - (int)$g);
 
     try {
-      $st = pdo()->prepare("INSERT INTO youth
-        (first_name,last_name,preferred_name,gender,birthdate,school,shirt_size,bsa_registration_number,
-         street1,street2,city,state,zip,class_of,sibling)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-      $ok = $st->execute([
-        $first, $last, ($preferred !== '' ? $preferred : null),
-        ($gender !== '' ? $gender : null),
-        ($birthdate !== '' ? $birthdate : null),
-        ($school !== '' ? $school : null),
-        ($shirt !== '' ? $shirt : null),
-        ($bsa !== '' ? $bsa : null),
-        ($street1 !== '' ? $street1 : null), ($street2 !== '' ? $street2 : null), ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null),
-        $class_of, $sibling
+      $ctx = UserContext::getLoggedInUserContext();
+      $id = YouthManagement::create($ctx, [
+        'first_name' => $first,
+        'last_name' => $last,
+        'grade_label' => $gradeLabel,
+        'preferred_name' => $preferred,
+        'gender' => $gender,
+        'birthdate' => $birthdate,
+        'school' => $school,
+        'shirt_size' => $shirt,
+        'bsa_registration_number' => $bsa,
+        'street1' => $street1,
+        'street2' => $street2,
+        'city' => $city,
+        'state' => $state,
+        'zip' => $zip,
+        'sibling' => $sibling,
       ]);
-      if ($ok) {
-        header('Location: /youth.php'); exit;
-      } else {
-        $err = 'Failed to create youth.';
-      }
+      header('Location: /youth.php'); exit;
     } catch (Throwable $e) {
       $err = 'Error creating youth.';
     }

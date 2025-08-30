@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 $me = current_user();
@@ -12,18 +13,8 @@ $msg = null;
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 
-// Load current record
-$st = pdo()->prepare("SELECT * FROM youth WHERE id=? LIMIT 1");
-$st->execute([$id]);
-$y = $st->fetch();
+$y = YouthManagement::getForEdit(UserContext::getLoggedInUserContext(), $id);
 if (!$y) { http_response_code(404); exit('Not found'); }
-
-// Authorization: admins OR parents of the youth may access this page
-if (!$isAdmin) {
-  $stAuth = pdo()->prepare("SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1");
-  $stAuth->execute([$id, (int)$me['id']]);
-  if (!$stAuth->fetchColumn()) { http_response_code(403); exit('Not authorized'); }
-}
 
 // Compute current grade from class_of
 $currentGrade = GradeCalculator::gradeForClassOf((int)$y['class_of']);
@@ -75,20 +66,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $class_of = $currentFifthClassOf + (5 - (int)$g);
 
     try {
-      $st = pdo()->prepare("UPDATE youth SET
-        first_name=?, last_name=?, preferred_name=?, gender=?, birthdate=?, school=?, shirt_size=?, bsa_registration_number=?,
-        street1=?, street2=?, city=?, state=?, zip=?, class_of=?, sibling=?
-        WHERE id=?");
-      $ok = $st->execute([
-        $first, $last, ($preferred !== '' ? $preferred : null),
-        ($gender !== '' ? $gender : null),
-        ($birthdate !== '' ? $birthdate : null),
-        ($school !== '' ? $school : null),
-        ($shirt !== '' ? $shirt : null),
-        ($bsa !== '' ? $bsa : null),
-        ($street1 !== '' ? $street1 : null), ($street2 !== '' ? $street2 : null), ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null),
-        $class_of, $sibling,
-        $id
+      $ctx = UserContext::getLoggedInUserContext();
+      $ok = YouthManagement::update($ctx, $id, [
+        'first_name' => $first,
+        'last_name' => $last,
+        'preferred_name' => $preferred,
+        'gender' => $gender,
+        'birthdate' => $birthdate,
+        'school' => $school,
+        'shirt_size' => $shirt,
+        'bsa_registration_number' => $bsa,
+        'street1' => $street1,
+        'street2' => $street2,
+        'city' => $city,
+        'state' => $state,
+        'zip' => $zip,
+        'sibling' => $sibling,
+        'grade_label' => $gradeLabel,
       ]);
       if ($ok) {
         header('Location: /youth.php'); exit;
@@ -204,13 +198,7 @@ header_html('Edit Youth');
 <div class="card" style="margin-top:16px;">
   <h3>Parents / Guardians</h3>
   <?php
-    $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email, pr.relationship
-                           FROM parent_relationships pr
-                           JOIN users u ON u.id=pr.adult_id
-                           WHERE pr.youth_id=?
-                           ORDER BY u.last_name,u.first_name");
-    $pps->execute([$id]);
-    $parents = $pps->fetchAll();
+    $parents = YouthManagement::listParents(UserContext::getLoggedInUserContext(), $id);
   ?>
   <?php if (empty($parents)): ?>
     <p class="small">No parents linked to this child.</p>

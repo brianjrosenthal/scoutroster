@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/YouthManagement.php';
 require_login();
 
 $u = current_user();
@@ -18,29 +19,8 @@ if ($g !== null) {
   $classOfFilter = $currentFifthClassOf + (5 - $g);
 }
 
-// Build SQL
-$params = [];
-$sql = "SELECT y.*, dm.den_id, d.den_name
-        FROM youth y
-        LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-        LEFT JOIN dens d ON d.id = dm.den_id
-        WHERE 1=1";
-
-if ($q !== '') {
-  $sql .= " AND (y.first_name LIKE ? OR y.last_name LIKE ? OR y.preferred_name LIKE ? OR y.school LIKE ?)";
-  $like = '%'.$q.'%';
-  array_push($params, $like, $like, $like, $like);
-}
-if ($classOfFilter !== null) {
-  $sql .= " AND y.class_of = ?";
-  $params[] = $classOfFilter;
-}
-
-$sql .= " ORDER BY y.last_name, y.first_name";
-
-$st = pdo()->prepare($sql);
-$st->execute($params);
-$rows = $st->fetchAll();
+$ctx = UserContext::getLoggedInUserContext();
+$rows = YouthManagement::searchRoster($ctx, $q, $g);
 
 // Group by grade
 $byGrade = []; // grade int => list
