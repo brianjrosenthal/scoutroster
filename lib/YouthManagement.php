@@ -59,9 +59,9 @@ class YouthManagement {
   // Allow admin OR a linked parent of the youth
   private static function assertAdminOrParent(?UserContext $ctx, int $youthId): void {
     self::assertLogin($ctx);
-    echo '<pre>';
+    echo('<pre>');
     print_r($ctx)
-    echo '</pre>';
+    echo('</pre>');
     exit();
     if ($ctx->admin) return;
     $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
