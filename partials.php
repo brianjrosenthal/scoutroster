@@ -1,8 +1,8 @@
 <?php
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/settings.php';
-require_once __DIR__ . '/lib/UserContext.php';
-UserContext::bootstrapFromSession();
+require_once __DIR__ . '/lib/Application.php';
+Application::init();
 
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
