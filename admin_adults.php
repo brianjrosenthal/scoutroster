@@ -62,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // Likely blocked by FK constraints (RSVPs or other references)
       $err = 'Unable to delete adult. Remove RSVP references first.';
     }
+  } // end if action === invite
 } // end POST handler
 
 header_html('Manage Adults');
