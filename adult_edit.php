@@ -256,6 +256,30 @@ header_html('Edit Adult');
 </div>
 
 <div class="card" style="margin-top:16px;">
+  <h3>Medical Forms</h3>
+  <?php
+    $stMF = pdo()->prepare("SELECT id, original_filename, uploaded_at FROM medical_forms WHERE adult_id=? ORDER BY uploaded_at DESC");
+    $stMF->execute([$id]);
+    $adultForms = $stMF->fetchAll();
+  ?>
+  <?php if (empty($adultForms)): ?>
+    <p class="small">No medical forms on file.</p>
+  <?php else: ?>
+    <ul class="list">
+      <?php foreach ($adultForms as $mf): ?>
+        <li>
+          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+          <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+  <div class="actions">
+    <a class="button" href="/upload_medical.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?=h('/adult_edit.php?id='.(int)$id)?>">Upload Medical Form</a>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px;">
   <h3>Parent Relationships</h3>
 
   <?php if (empty($linkedChildren)): ?>

@@ -8,6 +8,11 @@ $isAdmin = !empty($me['is_admin']);
 $type = $_GET['type'] ?? $_POST['type'] ?? '';
 $adultId = isset($_GET['adult_id']) ? (int)$_GET['adult_id'] : (int)($_POST['adult_id'] ?? 0);
 $youthId = isset($_GET['youth_id']) ? (int)$_GET['youth_id'] : (int)($_POST['youth_id'] ?? 0);
+$returnTo = $_GET['return_to'] ?? $_POST['return_to'] ?? '';
+$safeReturn = '';
+if (is_string($returnTo) && $returnTo !== '' && strpos($returnTo, '/') === 0 && strpos($returnTo, "\n") === false && strpos($returnTo, "\r") === false) {
+  $safeReturn = $returnTo;
+}
 
 if (!in_array($type, ['adult','youth'], true)) { http_response_code(400); exit('Invalid type'); }
 if ($type === 'adult' && $adultId <= 0) { http_response_code(400); exit('Missing adult_id'); }
@@ -81,8 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               ]);
               $mid = (int)pdo()->lastInsertId();
               $msg = 'File uploaded.';
-              // Redirect to download link? Stay on page and show success + link.
-              header('Location: /my_profile.php'); exit;
+              // Redirect back to calling page if provided; otherwise to My Profile
+              header('Location: '.($safeReturn ?: '/my_profile.php')); exit;
             } catch (Throwable $e) {
               @unlink($destAbs);
               $err = 'Failed to record upload.';
@@ -104,6 +109,7 @@ header_html('Upload Medical Form');
   <form method="post" enctype="multipart/form-data" class="stack">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="type" value="<?=h($type)?>">
+    <input type="hidden" name="return_to" value="<?=h($returnTo)?>">
     <?php if ($type === 'adult'): ?>
       <input type="hidden" name="adult_id" value="<?= (int)$adultId ?>">
       <p class="small">Uploading for you.</p>
@@ -116,7 +122,7 @@ header_html('Upload Medical Form');
     </label>
     <div class="actions">
       <button class="primary">Upload</button>
-      <a class="button" href="/my_profile.php">Cancel</a>
+      <a class="button" href="<?=h($safeReturn ?: '/my_profile.php')?>">Cancel</a>
     </div>
     <small class="small">Max size 10 MB. Only PDF files are allowed.</small>
   </form>

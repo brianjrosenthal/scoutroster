@@ -354,11 +354,59 @@ header_html('My Profile');
   <h3>Medical Forms</h3>
   <p class="small">Upload a medical form (PDF) for you or your child.</p>
   <div class="actions">
-    <a class="button" href="/upload_medical.php?type=adult&adult_id=<?= (int)$me['id'] ?>">Upload for me</a>
+    <a class="button" href="/upload_medical.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php">Upload for me</a>
     <?php foreach ($children as $c): ?>
-      <a class="button" href="/upload_medical.php?type=youth&youth_id=<?= (int)$c['id'] ?>">Upload for <?=h($c['first_name'])?></a>
+      <a class="button" href="/upload_medical.php?type=youth&youth_id=<?= (int)$c['id'] ?>&return_to=/my_profile.php">Upload for <?=h($c['first_name'])?></a>
     <?php endforeach; ?>
   </div>
+
+  <?php
+    // My forms
+    $stAF = pdo()->prepare("SELECT id, original_filename, uploaded_at FROM medical_forms WHERE adult_id=? ORDER BY uploaded_at DESC");
+    $stAF->execute([(int)$me['id']]);
+    $myForms = $stAF->fetchAll();
+  ?>
+  <h4>My Forms</h4>
+  <?php if (empty($myForms)): ?>
+    <p class="small">No medical forms on file for you.</p>
+  <?php else: ?>
+    <ul class="list">
+      <?php foreach ($myForms as $mf): ?>
+        <li>
+          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+          <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+
+  <h4>Children's Forms</h4>
+  <?php if (empty($children)): ?>
+    <p class="small">No children linked to your account.</p>
+  <?php else: ?>
+    <?php foreach ($children as $c): ?>
+      <?php
+        $stCF = pdo()->prepare("SELECT id, original_filename, uploaded_at FROM medical_forms WHERE youth_id=? ORDER BY uploaded_at DESC");
+        $stCF->execute([(int)$c['id']]);
+        $childForms = $stCF->fetchAll();
+      ?>
+      <details class="stack" style="margin-top:6px;">
+        <summary><?=h($c['first_name'].' '.$c['last_name'])?></summary>
+        <?php if (empty($childForms)): ?>
+          <p class="small">No medical forms on file.</p>
+        <?php else: ?>
+          <ul class="list">
+            <?php foreach ($childForms as $mf): ?>
+              <li>
+                <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+                <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+      </details>
+    <?php endforeach; ?>
+  <?php endif; ?>
 </div>
 
 <div class="card">
