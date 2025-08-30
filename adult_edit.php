@@ -268,7 +268,7 @@ header_html('Edit Adult');
     <ul class="list">
       <?php foreach ($adultForms as $mf): ?>
         <li>
-          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>" target="_blank" rel="noopener noreferrer"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
           <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
         </li>
       <?php endforeach; ?>

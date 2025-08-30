@@ -373,7 +373,7 @@ header_html('My Profile');
     <ul class="list">
       <?php foreach ($myForms as $mf): ?>
         <li>
-          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+          <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>" target="_blank" rel="noopener noreferrer"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
           <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
         </li>
       <?php endforeach; ?>
@@ -398,7 +398,7 @@ header_html('My Profile');
           <ul class="list">
             <?php foreach ($childForms as $mf): ?>
               <li>
-                <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
+                <a href="/medical_download.php?id=<?= (int)$mf['id'] ?>" target="_blank" rel="noopener noreferrer"><?=h($mf['original_filename'] ?? 'Medical Form')?></a>
                 <span class="small">uploaded <?=h($mf['uploaded_at'])?></span>
               </li>
             <?php endforeach; ?>
