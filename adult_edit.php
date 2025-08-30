@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $errors = [];
     if ($first === '') $errors[] = 'First name is required.';
     if ($last === '')  $errors[] = 'Last name is required.';
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Valid email is required.';
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $errors[] = 'Email is invalid.';
     if (!empty($errors)) $err = implode(' ', $errors);
   }
 
@@ -173,7 +173,7 @@ header_html('Edit Adult');
         <input type="text" name="last_name" value="<?=h($u['last_name'])?>" required>
       </label>
       <label>Email
-        <input type="email" name="email" value="<?=h($u['email'])?>" required>
+        <input type="email" name="email" value="<?=h($u['email'])?>">
       </label>
       <label>Preferred name
         <input type="text" name="preferred_name" value="<?=h($u['preferred_name'])?>">
@@ -309,9 +309,9 @@ header_html('Edit Adult');
       </label>
       <label>Relationship
         <select name="relationship">
-          <option value="guardian">guardian</option>
           <option value="father">father</option>
           <option value="mother">mother</option>
+          <option value="guardian">guardian</option>
         </select>
       </label>
     </div>

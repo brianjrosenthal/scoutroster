@@ -478,9 +478,9 @@ header_html('My Profile');
               </label>
               <label>Relationship
                 <select name="relationship">
-                  <option value="guardian">guardian</option>
                   <option value="father">father</option>
                   <option value="mother">mother</option>
+                  <option value="guardian">guardian</option>
                 </select>
               </label>
               <label>First name (if inviting)

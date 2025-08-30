@@ -92,7 +92,7 @@ header_html('Manage Adults');
         <?php foreach ($all as $a): ?>
           <tr>
             <td><?=h($a['first_name'].' '.$a['last_name'])?></td>
-            <td><?=h($a['email'])?></td>
+            <td><?=h($a['email'] ?: '---')?></td>
             <td><?= !empty($a['is_admin']) ? 'Admin' : '' ?></td>
             <td class="small">
               <a class="button" href="/adult_edit.php?id=<?= (int)$a['id'] ?>">Edit</a>
