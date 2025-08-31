@@ -33,7 +33,7 @@
       const g = form.querySelector('select[name="g"]');
       const reg = form.querySelector('select[name="registered"]');
 
-      if (q) q.addEventListener('input', debounce(submitForm, 1000));
+      if (q) q.addEventListener('input', debounce(submitForm, 500));
       if (g) g.addEventListener('change', submitForm);
       if (reg) reg.addEventListener('change', submitForm);
     }
