@@ -47,10 +47,36 @@ if ($registered === 'yes') {
 // For listing/export, select distinct adults
 $sqlSelectDistinctAdults = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email ".$sqlBase." ORDER BY u.last_name, u.first_name";
 
-// Fetch adults
+ // Fetch adults
 $st = pdo()->prepare($sqlSelectDistinctAdults);
 $st->execute($params);
 $adults = $st->fetchAll();
+
+// Build grade map for on-screen display (not used in CSV export)
+$gradesByAdult = [];
+if (!empty($adults)) {
+  $adultIds = array_column($adults, 'id');
+  $placeholders = implode(',', array_fill(0, count($adultIds), '?'));
+  // Reuse the same filters as listing, and restrict to these adult ids
+  $sqlGrades = "SELECT u.id AS adult_id, y.class_of " . $sqlBase . " AND y.id IS NOT NULL AND u.id IN ($placeholders)";
+  $stg = pdo()->prepare($sqlGrades);
+  $stg->execute(array_merge($params, $adultIds));
+  while ($r = $stg->fetch()) {
+    $aid = (int)$r['adult_id'];
+    $gradeInt = GradeCalculator::gradeForClassOf((int)$r['class_of']);
+    $label = GradeCalculator::gradeLabel($gradeInt);
+    if (!isset($gradesByAdult[$aid])) $gradesByAdult[$aid] = [];
+    if (!in_array($label, $gradesByAdult[$aid], true)) $gradesByAdult[$aid][] = $label;
+  }
+  // Sort grades K(0) .. 5 for nicer display
+  foreach ($gradesByAdult as $aid => $labels) {
+    usort($labels, function($a, $b) {
+      $toNum = function($lbl){ return ($lbl === 'K') ? 0 : (int)$lbl; };
+      return $toNum($a) <=> $toNum($b);
+    });
+    $gradesByAdult[$aid] = $labels;
+  }
+}
 
 // CSV export
 if ($export) {
@@ -114,6 +140,7 @@ header_html('Mailing List');
         <tr>
           <th>Adult</th>
           <th>Email</th>
+          <th>Grade</th>
         </tr>
       </thead>
       <tbody>
@@ -121,6 +148,8 @@ header_html('Mailing List');
           <tr>
             <td><?=h(($a['first_name'] ?? '').' '.($a['last_name'] ?? ''))?></td>
             <td><?=h($a['email'] ?? '')?></td>
+            <?php $grades = $gradesByAdult[(int)($a['id'] ?? 0)] ?? []; ?>
+            <td><?= h(!empty($grades) ? implode(', ', $grades) : '') ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>

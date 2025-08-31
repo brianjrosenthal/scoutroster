@@ -26,6 +26,7 @@ function header_html(string $title) {
     $nav .= $link('/my_profile.php','My Profile').' | ';
     if (!empty($u['is_admin'])) {
       $nav .= $link('/admin_adults.php','Manage Adults').' | ';
+      $nav .= $link('/admin_import_upload.php','Import Members').' | ';
       $nav .= $link('/admin_dens.php','Dens').' | ';
       $nav .= $link('/admin_events.php','Manage Events').' | ';
       $nav .= $link('/admin_mailing_list.php','Mailing List').' | ';

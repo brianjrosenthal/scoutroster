@@ -11,7 +11,7 @@ CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   first_name VARCHAR(100) NOT NULL,
   last_name  VARCHAR(100) NOT NULL,
-  email      VARCHAR(255) NOT NULL UNIQUE,
+  email      VARCHAR(255) DEFAULT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
   is_admin   TINYINT(1) NOT NULL DEFAULT 0,
 
@@ -86,7 +86,7 @@ CREATE TABLE parent_relationships (
   id INT AUTO_INCREMENT PRIMARY KEY,
   youth_id INT NOT NULL,
   adult_id INT NOT NULL,
-  relationship ENUM('father','mother','guardian') NOT NULL,
+  relationship ENUM('father','mother','guardian','parent') NOT NULL,
   CONSTRAINT fk_pr_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
   CONSTRAINT fk_pr_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY uniq_youth_adult (youth_id, adult_id)

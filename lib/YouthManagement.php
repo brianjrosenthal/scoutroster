@@ -93,7 +93,7 @@ class YouthManagement {
   // =========================
 
   // Roster search for logged-in users (admins and non-admins)
-  public static function searchRoster(UserContext $ctx, ?string $q, ?int $grade): array {
+  public static function searchRoster(UserContext $ctx, ?string $q, ?int $grade, bool $includeUnregistered = false): array {
     self::assertLogin($ctx);
 
     $params = [];
@@ -112,6 +112,10 @@ class YouthManagement {
       $classOfFilter = self::computeClassOfFromGrade((int)$grade);
       $sql .= " AND y.class_of = ?";
       $params[] = $classOfFilter;
+    }
+
+    if (!$includeUnregistered) {
+      $sql .= " AND y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> ''";
     }
 
     $sql .= " ORDER BY y.last_name, y.first_name";

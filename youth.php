@@ -32,6 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0,1..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
+$includeUnreg = !empty($_GET['include_unreg']);
 
 // Compute class_of target for grade filter, if provided
 $classOfFilter = null;
@@ -42,7 +43,7 @@ if ($g !== null) {
 }
 
 $ctx = UserContext::getLoggedInUserContext();
-$rows = YouthManagement::searchRoster($ctx, $q, $g);
+$rows = YouthManagement::searchRoster($ctx, $q, $g, $includeUnreg);
 $youthIds = array_map(static function($r){ return (int)$r['id']; }, $rows);
 $parentsByYouth = !empty($youthIds) ? UserManagement::listParentsForYouthIds($ctx, $youthIds) : [];
 
@@ -80,6 +81,7 @@ header_html('Youth Roster');
         </select>
       </label>
     </div>
+    <label class="inline"><input type="checkbox" name="include_unreg" value="1" <?= $includeUnreg ? 'checked' : '' ?>> Include unregistered youth</label>
     <div class="actions">
       <button class="primary">Filter</button>
       <a class="button" href="/youth.php">Reset</a>
@@ -129,7 +131,7 @@ header_html('Youth Roster');
                   if (!empty($p['email'])) $contact[] = h($p['email']);
                   $parentStrs[] = h($pname) . (empty($contact) ? '' : ' ('.implode(', ', $contact).')');
                 }
-                echo !empty($parentStrs) ? implode(' and ', $parentStrs) : '';
+                echo !empty($parentStrs) ? implode('<br>', $parentStrs) : '';
               ?>
             </td>
             <?php if (!empty($u['is_admin'])): ?>
@@ -149,5 +151,13 @@ header_html('Youth Roster');
     </table>
   </div>
 <?php endforeach; ?>
+
+<?php if (!empty($u['is_admin'])): ?>
+  <div class="card">
+    <div class="actions">
+      <a class="button" href="/admin_import_upload.php">Bulk Import</a>
+    </div>
+  </div>
+<?php endif; ?>
 
 <?php footer_html(); ?>
