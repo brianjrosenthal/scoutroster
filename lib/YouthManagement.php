@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/GradeCalculator.php';
+require_once __DIR__ . '/Search.php';
 
 class YouthManagement {
   private static function pdo(): PDO {
@@ -104,9 +105,12 @@ class YouthManagement {
             WHERE 1=1";
 
     if ($q !== null && trim($q) !== '') {
-      $like = '%' . trim($q) . '%';
-      $sql .= " AND (y.first_name LIKE ? OR y.last_name LIKE ? OR y.preferred_name LIKE ? OR y.school LIKE ?)";
-      array_push($params, $like, $like, $like, $like);
+      $tokens = \Search::tokenize($q);
+      $sql .= \Search::buildAndLikeClause(
+        ['y.first_name','y.last_name','y.preferred_name','y.school'],
+        $tokens,
+        $params
+      );
     }
     if ($grade !== null) {
       $classOfFilter = self::computeClassOfFromGrade((int)$grade);

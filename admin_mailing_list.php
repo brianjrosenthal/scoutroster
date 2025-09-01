@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/Search.php';
 require_admin();
 
 // Inputs
@@ -28,9 +29,12 @@ $sqlBase = "
 
 // Search across adult name/email and child name
 if ($q !== '') {
-  $sqlBase .= " AND (u.first_name LIKE ? OR u.last_name LIKE ? OR u.email LIKE ? OR y.first_name LIKE ? OR y.last_name LIKE ?)";
-  $like = '%'.$q.'%';
-  array_push($params, $like, $like, $like, $like, $like);
+  $tokens = Search::tokenize($q);
+  $sqlBase .= Search::buildAndLikeClause(
+    ['u.first_name','u.last_name','u.email','y.first_name','y.last_name'],
+    $tokens,
+    $params
+  );
 }
 // Grade filter
 if ($classOfFilter !== null) {

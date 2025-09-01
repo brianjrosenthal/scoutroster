@@ -22,6 +22,7 @@ function header_html(string $title) {
     $nav .= $link('/index.php','Home').' | ';
     $nav .= $link('/youth.php','Youth').' | ';
     $nav .= $link('/adults.php','Adults').' | ';
+    $nav .= $link('/reimbursements.php','Reimbursements').' | ';
     $nav .= $link('/my_profile.php','My Profile').' | ';
     if (!empty($u['is_admin'])) {
       $nav .= $link('/admin_adults.php','Manage Adults').' | ';

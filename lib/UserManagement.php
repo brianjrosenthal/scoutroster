@@ -516,6 +516,22 @@ class UserManagement {
   }
 
   // =========================
+  // Approver/Leadership helpers
+  // =========================
+
+  public static function isApprover(int $userId): bool {
+    $st = self::pdo()->prepare(
+      "SELECT 1
+       FROM adult_leadership_positions
+       WHERE adult_id = ?
+         AND position IN ('Cubmaster','Committee Chair','Treasurer')
+       LIMIT 1"
+    );
+    $st->execute([$userId]);
+    return (bool)$st->fetchColumn();
+  }
+
+  // =========================
   // Leadership Positions
   // =========================
 
