@@ -66,16 +66,29 @@ $st->execute([$id]);
 $allMembers = $st->fetchAll();
 
 $youthNames = [];
-$adultNames = [];
+$adultEntries = [];
 foreach ($allMembers as $row) {
   if ($row['participant_type'] === 'youth' && !empty($row['youth_id'])) {
     $youthNames[] = trim(($row['yln'] ?? '').', '.($row['yfn'] ?? ''));
   } elseif ($row['participant_type'] === 'adult' && !empty($row['adult_id'])) {
-    $adultNames[] = trim(($row['aln'] ?? '').', '.($row['afn'] ?? ''));
+    $adultEntries[] = [
+      'id' => (int)$row['adult_id'],
+      'name' => trim(($row['aln'] ?? '').', '.($row['afn'] ?? ''))
+    ];
   }
 }
+// Map RSVP comments by the adult who created them for this event
+$st = pdo()->prepare("SELECT created_by_user_id, comments FROM rsvps WHERE event_id=?");
+$st->execute([$id]);
+$rsvpCommentsByAdult = [];
+foreach ($st->fetchAll() as $rv) {
+  $aid = (int)($rv['created_by_user_id'] ?? 0);
+  $c = trim((string)($rv['comments'] ?? ''));
+  if ($aid > 0 && $c !== '') { $rsvpCommentsByAdult[$aid] = $c; }
+}
+
 sort($youthNames);
-sort($adultNames);
+usort($adultEntries, function($a,$b){ return strcmp($a['name'], $b['name']); });
 
 // Sum guest count
 $st = pdo()->prepare("SELECT SUM(n_guests) AS g FROM rsvps WHERE event_id=?");
@@ -84,7 +97,7 @@ $guestsTotal = (int)($st->fetch()['g'] ?? 0);
 
 // Counts
 $youthCount = count($youthNames);
-$adultCount = count($adultNames);
+$adultCount = count($adultEntries);
 
 header_html('Event');
 ?>
@@ -138,7 +151,14 @@ header_html('Event');
         <p class="small">No adults yet.</p>
       <?php else: ?>
         <ul>
-          <?php foreach ($adultNames as $n): ?><li><?=h($n)?></li><?php endforeach; ?>
+          <?php foreach ($adultEntries as $a): ?>
+  <li>
+    <?= h($a['name']) ?>
+    <?php if (!empty($rsvpCommentsByAdult[(int)$a['id']] ?? '')): ?>
+      <div class="small" style="font-style:italic;"><?= nl2br(h($rsvpCommentsByAdult[(int)$a['id']])) ?></div>
+    <?php endif; ?>
+  </li>
+<?php endforeach; ?>
         </ul>
       <?php endif; ?>
     </div>
