@@ -28,6 +28,18 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   return $base . ' (ends on ' . date('F j, Y', $e) . ' at ' . date('gA', $e) . ')';
 }
 
+/**
+ * Truncate plain text to a maximum length with an ellipsis.
+ */
+function truncatePlain(string $text, int $limit = 200): string {
+  $text = trim((string)$text);
+  if ($text === '') return '';
+  $len = function_exists('mb_strlen') ? mb_strlen($text, 'UTF-8') : strlen($text);
+  if ($len <= $limit) return $text;
+  $slice = function_exists('mb_substr') ? mb_substr($text, 0, $limit, 'UTF-8') : substr($text, 0, $limit);
+  return rtrim($slice) . '…';
+}
+
 header_html('Upcoming Events');
 ?>
 <h2>Upcoming Events</h2>
@@ -52,7 +64,9 @@ header_html('Upcoming Events');
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
         <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
         <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
-        <?php if (!empty($e['description'])): ?><p><?=nl2br(h($e['description']))?></p><?php endif; ?>
+        <?php if (!empty($e['description'])): ?>
+          <p><?= nl2br(h(truncatePlain($e['description'], 200))) ?></p>
+        <?php endif; ?>
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
         <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View / RSVP</a></p>
       </div>
