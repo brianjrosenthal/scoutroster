@@ -122,11 +122,48 @@ class UserManagement {
   public static function delete(UserContext $ctx, int $id): int {
     self::assertAdmin($ctx);
     if ($id === $ctx->id) { throw new RuntimeException('You cannot delete your own account.'); }
-    $st = self::pdo()->prepare("DELETE FROM users WHERE id=?");
-    $st->execute([$id]);
-    $count = (int)$st->rowCount();
-    if ($count > 0) self::log('user.delete', $id);
-    return $count;
+
+    $pdo = self::pdo();
+    try {
+      $pdo->beginTransaction();
+
+      // 1) Remove RSVP memberships where this adult appears as a participant
+      $stmt = $pdo->prepare('DELETE FROM rsvp_members WHERE adult_id = ?');
+      $stmt->execute([$id]);
+
+      // 2) Remove RSVPs created by this user (and their rsvp_members)
+      $st = $pdo->prepare('SELECT id FROM rsvps WHERE created_by_user_id = ?');
+      $st->execute([$id]);
+      $rsvpIds = [];
+      while ($r = $st->fetch()) { $rsvpIds[] = (int)$r['id']; }
+      if (!empty($rsvpIds)) {
+        $ph = implode(',', array_fill(0, count($rsvpIds), '?'));
+        $pdo->prepare("DELETE FROM rsvp_members WHERE rsvp_id IN ($ph)")->execute($rsvpIds);
+        $pdo->prepare("DELETE FROM rsvps WHERE id IN ($ph)")->execute($rsvpIds);
+      }
+
+      // 3) Reimbursement-related artifacts authored by this user on any requests
+      $pdo->prepare('DELETE FROM reimbursement_request_comments WHERE created_by = ?')->execute([$id]);
+      $pdo->prepare('DELETE FROM reimbursement_request_files WHERE created_by = ?')->execute([$id]);
+
+      // 4) Reimbursement requests created by this user (files/comments will cascade via FK on request_id)
+      $pdo->prepare('DELETE FROM reimbursement_requests WHERE created_by = ?')->execute([$id]);
+
+      // 5) Clear last_status_set_by references so deletion can proceed
+      $pdo->prepare('UPDATE reimbursement_requests SET last_status_set_by = NULL WHERE last_status_set_by = ?')->execute([$id]);
+
+      // 6) Finally remove the user record
+      $stDel = $pdo->prepare('DELETE FROM users WHERE id=?');
+      $stDel->execute([$id]);
+      $count = (int)$stDel->rowCount();
+
+      $pdo->commit();
+      if ($count > 0) self::log('user.delete', $id);
+      return $count;
+    } catch (Throwable $e) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      throw $e;
+    }
   }
 
   public static function setEmailVerifyToken(int $id, string $token): bool {
