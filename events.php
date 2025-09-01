@@ -62,6 +62,9 @@ header_html('Upcoming Events');
     <?php foreach ($events as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
+        <?php if (!empty($e['photo_path'])): ?>
+          <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
+        <?php endif; ?>
         <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
         <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
         <?php if (!empty($e['description'])): ?>

@@ -42,3 +42,9 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 @media (max-width:640px){
   .event-hero{float:none;display:block;margin:0 auto 8px auto;width:100%;max-width:100%}
 }
+
+/* Event thumbnail in events list: small image that doesn't widen the card */
+.event-thumb{float:right;margin:0 0 8px 12px;border-radius:8px;height:auto;width:160px;max-width:40%}
+@media (max-width:640px){
+  .event-thumb{float:none;display:block;margin:0 auto 8px auto;width:100%;max-width:100%}
+}
