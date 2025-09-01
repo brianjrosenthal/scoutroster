@@ -69,6 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
       Reimbursements::recordFile($ctx, $id, $storedRel, $name, $desc);
       $msg = 'File uploaded.';
+    } elseif ($action === 'update_payment') {
+      // Only creator can update; Reimbursements will enforce
+      $pd = (string)($_POST['payment_details'] ?? '');
+      Reimbursements::updatePaymentDetails($ctx, $id, $pd);
+      $msg = 'Payment details updated.';
+      // Refresh req after change
+      $req = Reimbursements::getWithAuth($ctx, $id);
     }
   } catch (Throwable $e) {
     $err = $e->getMessage() ?: 'Operation failed.';
@@ -111,6 +118,28 @@ header_html('Reimbursement Details');
       <strong>Description</strong>
       <div class="small" style="white-space:pre-wrap;"><?= h($req['description']) ?></div>
     </div>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Payment Details</h3>
+  <?php if (!empty($req['payment_details'])): ?>
+    <div class="small" style="white-space:pre-wrap;"><?= h($req['payment_details']) ?></div>
+  <?php else: ?>
+    <p class="small">No payment details provided.</p>
+  <?php endif; ?>
+
+  <?php if ($isOwner): ?>
+    <form method="post" class="stack" style="margin-top:8px;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="id" value="<?= (int)$id ?>">
+      <input type="hidden" name="action" value="update_payment">
+      <label>Update Payment Details (optional)
+        <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"><?= h((string)($req['payment_details'] ?? '')) ?></textarea>
+      </label>
+      <p class="small">No bank account information please. Do not include long account numbers.</p>
+      <div class="actions"><button class="button">Save Payment Details</button></div>
+    </form>
   <?php endif; ?>
 </div>
 

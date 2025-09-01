@@ -77,15 +77,16 @@ final class Reimbursements {
 
   // ----- CRUD / Actions -----
 
-  public static function create(UserContext $ctx, string $title, ?string $description = null): int {
+  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null): int {
     if (!$ctx) throw new RuntimeException('Login required');
     $title = trim($title);
     if ($title === '') throw new InvalidArgumentException('Title is required.');
+    $paymentDetails = self::validatePaymentDetails($paymentDetails);
     $st = self::pdo()->prepare(
-      "INSERT INTO reimbursement_requests (title, description, created_by, status, created_at, last_modified_at)
-       VALUES (?, ?, ?, 'submitted', NOW(), NOW())"
+      "INSERT INTO reimbursement_requests (title, description, payment_details, created_by, status, created_at, last_modified_at)
+       VALUES (?, ?, ?, ?, 'submitted', NOW(), NOW())"
     );
-    $st->execute([$title, $description, (int)$ctx->id]);
+    $st->execute([$title, $description, $paymentDetails, (int)$ctx->id]);
     $newId = (int)self::pdo()->lastInsertId();
 
     // Best-effort notification; non-fatal on errors or if no recipients
@@ -237,6 +238,31 @@ final class Reimbursements {
       if ($pdo->inTransaction()) $pdo->rollBack();
       throw $e;
     }
+  }
+
+  // Payment Details validation and update
+
+  private static function validatePaymentDetails(?string $s): ?string {
+    $s = $s === null ? null : trim($s);
+    if ($s === null || $s === '') return null;
+    if (preg_match('/\d{12,}/', $s)) {
+      throw new InvalidArgumentException('Payment Details appears to contain a bank account number. Please remove any long numeric strings.');
+    }
+    if (mb_strlen($s) > 500) {
+      throw new InvalidArgumentException('Payment Details must be 500 characters or less.');
+    }
+    return $s;
+  }
+
+  public static function updatePaymentDetails(UserContext $ctx, int $reqId, ?string $paymentDetails): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId);
+    if ((int)$req['created_by'] !== (int)$ctx->id) {
+      throw new RuntimeException('Only the request creator can edit payment details.');
+    }
+    $pd = self::validatePaymentDetails($paymentDetails);
+    $st = self::pdo()->prepare("UPDATE reimbursement_requests SET payment_details = ?, last_modified_at = NOW() WHERE id = ?");
+    $st->execute([$pd, (int)$req['id']]);
   }
 
   // Files: record an already moved file path (page handles move_uploaded_file)

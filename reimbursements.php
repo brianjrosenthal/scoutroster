@@ -17,8 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
   try {
     $title = trim((string)($_POST['title'] ?? ''));
     $description = trim((string)($_POST['description'] ?? '')) ?: null;
+    $paymentDetails = trim((string)($_POST['payment_details'] ?? '')) ?: null;
 
-    $newId = Reimbursements::create($ctx, $title, $description);
+    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails);
 
     // Optional file
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
@@ -138,6 +139,10 @@ header_html('Expense Reimbursements');
     </label>
     <label>Description (optional)
       <textarea name="description" rows="4"></textarea>
+    </label>
+    <label>Payment Details (optional)
+      <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"></textarea>
+      <span class="small">No bank account information please. Do not include long account numbers.</span>
     </label>
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
