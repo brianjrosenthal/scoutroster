@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
       try {
+        $eventId = $id > 0 ? $id : 0;
         if ($id > 0) {
           $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, description=?, max_cub_scouts=? WHERE id=?");
           $ok = $st->execute([
@@ -59,8 +60,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $id
           ]);
-          if ($ok) { header('Location: /admin_events.php'); exit; }
-          else { $err = 'Failed to update event.'; }
         } else {
           $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, description, max_cub_scouts) VALUES (?,?,?,?,?,?)");
           $ok = $st->execute([
@@ -69,8 +68,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
           ]);
-          if ($ok) { header('Location: /admin_events.php'); exit; }
-          else { $err = 'Failed to create event.'; }
+          if ($ok) { $eventId = (int)pdo()->lastInsertId(); }
+        }
+
+        if ($ok) {
+          // Optional event image upload
+          if (!empty($_FILES['photo']) && is_array($_FILES['photo']) && empty($_FILES['photo']['error'])) {
+            $f = $_FILES['photo'];
+            $tmp = $f['tmp_name'] ?? '';
+            $name = $f['name'] ?? 'photo';
+            if (is_uploaded_file($tmp)) {
+              $allowedExt = ['jpg','jpeg','png','webp','heic'];
+              $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+              if (in_array($ext, $allowedExt, true)) {
+                $destDir = __DIR__ . '/uploads/events/' . (int)$eventId;
+                if (!is_dir($destDir)) { @mkdir($destDir, 0775, true); }
+                $rand = bin2hex(random_bytes(12));
+                $storedRel = 'uploads/events/' . (int)$eventId . '/' . $rand . '.' . $ext;
+                $storedAbs = __DIR__ . '/' . $storedRel;
+                if (@move_uploaded_file($tmp, $storedAbs)) {
+                  $up = pdo()->prepare("UPDATE events SET photo_path=? WHERE id=?");
+                  $up->execute([$storedRel, (int)$eventId]);
+                }
+              }
+            }
+          }
+          header('Location: /admin_events.php'); exit;
+        } else {
+          $err = ($id > 0) ? 'Failed to update event.' : 'Failed to create event.';
         }
       } catch (Throwable $e) {
         $err = 'Error saving event.';
@@ -115,7 +140,7 @@ header_html($editing ? 'Edit Event' : 'Add Event');
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
 <div class="card">
-  <form method="post" class="stack">
+  <form method="post" class="stack" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="save">
     <input type="hidden" name="id" value="<?= (int)($editing['id'] ?? 0) ?>">
@@ -138,6 +163,14 @@ header_html($editing ? 'Edit Event' : 'Add Event');
     </label>
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
+    </label>
+    <?php if (!empty($editing['photo_path'])): ?>
+      <div class="small">Current Image:<br>
+        <img src="/<?= h($editing['photo_path']) ?>" alt="Event image" width="180" style="height:auto;border-radius:8px;">
+      </div>
+    <?php endif; ?>
+    <label>Event Image (optional)
+      <input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,.heic">
     </label>
     <div class="actions">
       <button class="primary" type="submit"><?= $editing ? 'Save' : 'Create' ?></button>
