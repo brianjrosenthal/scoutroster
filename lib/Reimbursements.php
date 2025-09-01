@@ -36,7 +36,7 @@ final class Reimbursements {
     $approver = self::isApprover($ctx);
 
     // Terminal states
-    if ($s === 'approved' || $s === 'rejected' || $s === 'revoked') return [];
+    if ($s === 'rejected' || $s === 'revoked' || $s === 'paid') return [];
 
     $next = [];
     if ($s === 'submitted') {
@@ -45,12 +45,14 @@ final class Reimbursements {
         $next[] = 'more_info_requested';
         $next[] = 'approved';
         $next[] = 'rejected';
+        $next[] = 'paid';
       }
     } elseif ($s === 'more_info_requested') {
       if ($creator) $next[] = 'resubmitted';
       if ($approver) {
         $next[] = 'approved';
         $next[] = 'rejected';
+        $next[] = 'paid';
       }
     } elseif ($s === 'resubmitted') {
       if ($creator) $next[] = 'revoked';
@@ -58,13 +60,18 @@ final class Reimbursements {
         $next[] = 'more_info_requested';
         $next[] = 'approved';
         $next[] = 'rejected';
+        $next[] = 'paid';
+      }
+    } elseif ($s === 'approved') {
+      if ($approver) {
+        $next[] = 'paid';
       }
     }
     return $next;
   }
 
   private static function validStatus(string $s): bool {
-    static $all = ['submitted','revoked','more_info_requested','resubmitted','approved','rejected'];
+    static $all = ['submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid'];
     return in_array($s, $all, true);
   }
 
@@ -146,6 +153,12 @@ final class Reimbursements {
     $st = self::pdo()->prepare("INSERT INTO reimbursement_request_comments (reimbursement_request_id, created_by, created_at, status_changed_to, comment_text)
                                 VALUES (?, ?, NOW(), NULL, ?)");
     $st->execute([(int)$req['id'], (int)$ctx->id, $text]);
+
+    try {
+      self::notifyNewComment((int)$req['id'], (int)$ctx->id, $text);
+    } catch (\Throwable $e) {
+      // ignore notification failures
+    }
   }
 
   public static function changeStatus(UserContext $ctx, int $reqId, string $newStatus, string $comment): void {
@@ -173,6 +186,12 @@ final class Reimbursements {
       $upd->execute([$newStatus, $comment, (int)$ctx->id, (int)$req['id']]);
 
       $pdo->commit();
+
+      try {
+        self::notifyStatusChange((int)$req['id'], (int)$ctx->id, $newStatus, $comment);
+      } catch (\Throwable $e) {
+        // ignore notification failures
+      }
     } catch (Throwable $e) {
       if ($pdo->inTransaction()) $pdo->rollBack();
       throw $e;
@@ -187,6 +206,12 @@ final class Reimbursements {
       (reimbursement_request_id, original_filename, stored_path, description, created_by, created_at)
       VALUES (?, ?, ?, ?, ?, NOW())");
     $st->execute([(int)$req['id'], $originalFilename, $storedPath, $description, (int)$ctx->id]);
+
+    try {
+      self::notifyNewFile((int)$req['id'], (int)$ctx->id, $originalFilename, $description);
+    } catch (\Throwable $e) {
+      // ignore notification failures
+    }
   }
 
   // ----- Utility for page logic -----
@@ -264,6 +289,174 @@ final class Reimbursements {
           . '<p><a href="'.$safeUrl.'">View this request</a></p>';
 
     // Send to each recipient, ignore per-recipient failures
+    foreach ($recips as $rcp) {
+      $to = (string)$rcp['email'];
+      $name = trim((string)($rcp['first_name'] ?? '').' '.(string)($rcp['last_name'] ?? ''));
+      try {
+        @send_email($to, $subject, $html, $name ?: $to);
+      } catch (\Throwable $e) {
+        // ignore
+      }
+    }
+  }
+
+  // Determine recipients for reimbursement events with initiator exclusion and deduplication
+  private static function recipientsForEvent(int $reqId, int $byUserId): array {
+    $st = self::pdo()->prepare("SELECT r.id, r.title, r.created_by FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st->execute([$reqId]);
+    $r = $st->fetch();
+    if (!$r) return [];
+
+    $creatorId = (int)$r['created_by'];
+    $recips = self::approverRecipients();
+
+    if ($byUserId !== $creatorId) {
+      // Include request creator (if they have an email) when an approver initiates the action
+      $stU = self::pdo()->prepare("SELECT id, email, first_name, last_name FROM users WHERE id=? LIMIT 1");
+      $stU->execute([$creatorId]);
+      if ($u = $stU->fetch()) {
+        if (!empty($u['email'])) {
+          $recips[] = [
+            'id' => (int)$u['id'],
+            'email' => (string)$u['email'],
+            'first_name' => (string)($u['first_name'] ?? ''),
+            'last_name'  => (string)($u['last_name'] ?? ''),
+          ];
+        }
+      }
+    }
+
+    // Exclude initiator and dedupe by user id; ensure non-empty email
+    $out = [];
+    $seen = [];
+    foreach ($recips as $rcp) {
+      $id = (int)$rcp['id'];
+      $email = trim((string)($rcp['email'] ?? ''));
+      if ($id === (int)$byUserId) continue;
+      if ($email === '') continue;
+      if (isset($seen[$id])) continue;
+      $seen[$id] = true;
+      $out[] = $rcp;
+    }
+    return $out;
+  }
+
+  private static function buildRequestLink(int $reqId): string {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    return $scheme.'://'.$host.'/reimbursement_view.php?id='.$reqId;
+  }
+
+  private static function loadUserName(int $userId): string {
+    $st = self::pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=? LIMIT 1");
+    $st->execute([$userId]);
+    $u = $st->fetch();
+    return trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
+  }
+
+  private static function notifyNewComment(int $reqId, int $byUserId, string $commentText): void {
+    $st = self::pdo()->prepare("SELECT r.id, r.title FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st->execute([$reqId]);
+    $r = $st->fetch();
+    if (!$r) return;
+
+    $recips = self::recipientsForEvent($reqId, $byUserId);
+    if (empty($recips)) return;
+
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+
+    $actorName = self::loadUserName($byUserId);
+    $subject = 'Pack 440 New Comment on Reimbursement #'.(int)$r['id'].' by '.($actorName ?: 'Unknown');
+
+    $safeTitle   = htmlspecialchars((string)$r['title'], ENT_QUOTES, 'UTF-8');
+    $safeComment = nl2br(htmlspecialchars($commentText, ENT_QUOTES, 'UTF-8'));
+    $safeUrl     = htmlspecialchars(self::buildRequestLink((int)$r['id']), ENT_QUOTES, 'UTF-8');
+    $safeActor   = htmlspecialchars($actorName, ENT_QUOTES, 'UTF-8');
+
+    $html = '<p><strong>'.$safeActor.'</strong> added a new comment on a reimbursement request.</p>'
+          . '<p><strong>Title:</strong> '.$safeTitle.'</p>'
+          . '<p><strong>Comment:</strong><br>'.$safeComment.'</p>'
+          . '<p><a href="'.$safeUrl.'">View this request</a></p>';
+
+    foreach ($recips as $rcp) {
+      $to = (string)$rcp['email'];
+      $name = trim((string)($rcp['first_name'] ?? '').' '.(string)($rcp['last_name'] ?? ''));
+      try {
+        @send_email($to, $subject, $html, $name ?: $to);
+      } catch (\Throwable $e) {
+        // ignore
+      }
+    }
+  }
+
+  private static function notifyNewFile(int $reqId, int $byUserId, string $originalFilename, ?string $description): void {
+    $st = self::pdo()->prepare("SELECT r.id, r.title FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st->execute([$reqId]);
+    $r = $st->fetch();
+    if (!$r) return;
+
+    $recips = self::recipientsForEvent($reqId, $byUserId);
+    if (empty($recips)) return;
+
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+
+    $actorName = self::loadUserName($byUserId);
+    $subject = 'Pack 440 New File on Reimbursement #'.(int)$r['id'].' by '.($actorName ?: 'Unknown');
+
+    $safeTitle = htmlspecialchars((string)$r['title'], ENT_QUOTES, 'UTF-8');
+    $safeFile  = htmlspecialchars($originalFilename, ENT_QUOTES, 'UTF-8');
+    $safeDesc  = nl2br(htmlspecialchars((string)($description ?? ''), ENT_QUOTES, 'UTF-8'));
+    $safeUrl   = htmlspecialchars(self::buildRequestLink((int)$r['id']), ENT_QUOTES, 'UTF-8');
+    $safeActor = htmlspecialchars($actorName, ENT_QUOTES, 'UTF-8');
+
+    $html = '<p><strong>'.$safeActor.'</strong> uploaded a new file to a reimbursement request.</p>'
+          . '<p><strong>Title:</strong> '.$safeTitle.'</p>'
+          . '<p><strong>File:</strong> '.$safeFile.'</p>';
+    if ($description !== null && $description !== '') {
+      $html .= '<p><strong>Description:</strong><br>'.$safeDesc.'</p>';
+    }
+    $html .= '<p><a href="'.$safeUrl.'">View this request</a></p>';
+
+    foreach ($recips as $rcp) {
+      $to = (string)$rcp['email'];
+      $name = trim((string)($rcp['first_name'] ?? '').' '.(string)($rcp['last_name'] ?? ''));
+      try {
+        @send_email($to, $subject, $html, $name ?: $to);
+      } catch (\Throwable $e) {
+        // ignore
+      }
+    }
+  }
+
+  private static function notifyStatusChange(int $reqId, int $byUserId, string $newStatus, string $commentText): void {
+    $st = self::pdo()->prepare("SELECT r.id, r.title FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st->execute([$reqId]);
+    $r = $st->fetch();
+    if (!$r) return;
+
+    $recips = self::recipientsForEvent($reqId, $byUserId);
+    if (empty($recips)) return;
+
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+
+    $actorName = self::loadUserName($byUserId);
+    $statusLabel = strtoupper(str_replace('_', ' ', $newStatus));
+    $subject = 'Pack 440 Reimbursement #'.(int)$r['id'].' Status Changed to '.$statusLabel.' by '.($actorName ?: 'Unknown');
+
+    $safeTitle   = htmlspecialchars((string)$r['title'], ENT_QUOTES, 'UTF-8');
+    $safeComment = nl2br(htmlspecialchars($commentText, ENT_QUOTES, 'UTF-8'));
+    $safeUrl     = htmlspecialchars(self::buildRequestLink((int)$r['id']), ENT_QUOTES, 'UTF-8');
+    $safeActor   = htmlspecialchars($actorName, ENT_QUOTES, 'UTF-8');
+    $safeStatus  = htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8');
+
+    $html = '<p><strong>'.$safeActor.'</strong> changed the reimbursement status to <strong>'.$safeStatus.'</strong>.</p>'
+          . '<p><strong>Title:</strong> '.$safeTitle.'</p>'
+          . '<p><strong>Comment:</strong><br>'.$safeComment.'</p>'
+          . '<p><a href="'.$safeUrl.'">View this request</a></p>';
+
     foreach ($recips as $rcp) {
       $to = (string)$rcp['email'];
       $name = trim((string)($rcp['first_name'] ?? '').' '.(string)($rcp['last_name'] ?? ''));
