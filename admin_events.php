@@ -133,12 +133,18 @@ $events = [];
 $st = pdo()->query("SELECT * FROM events ORDER BY starts_at DESC");
 $events = $st->fetchAll();
 
-header_html($editing ? 'Edit Event' : 'Add Event');
+$showEditor = ($editingId > 0) || (($_GET['show'] ?? '') === 'add') || (($_POST['action'] ?? '') === 'save' && !empty($err));
+
+header_html('Manage Events');
 ?>
-<h2><?= $editing ? 'Edit Event' : 'Add Event' ?></h2>
+<h2>Manage Events</h2>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
+<?php if (!$showEditor): ?>
+  <p><a class="button primary" href="/admin_events.php?show=add">Add Event</a></p>
+<?php endif; ?>
 
+<?php if ($showEditor): ?>
 <div class="card">
   <form method="post" class="stack" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
@@ -179,6 +185,7 @@ header_html($editing ? 'Edit Event' : 'Add Event');
     </div>
   </form>
 </div>
+<?php endif; ?>
 
 <div class="card">
   <h3>All Events</h3>

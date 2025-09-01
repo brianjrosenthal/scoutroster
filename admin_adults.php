@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/Search.php';
 require_admin();
 
 $msg = null;
 $err = null;
+
+$q = trim($_GET['q'] ?? '');
 
 // Handle POST (invite/create adult)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -52,14 +55,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 header_html('Manage Adults');
 ?>
 <h2>Manage Adults</h2>
-<p><a class="button" href="/admin_adult_add.php">Create Adult</a></p>
+<div class="card">
+  <form method="get" class="stack">
+    <label>Search
+      <input type="text" name="q" value="<?=h($q)?>" placeholder="Name or email">
+    </label>
+    <div class="actions">
+      <a class="button" href="/admin_adults.php">Reset</a>
+      <a class="button" href="/admin_adult_add.php">Create Adult</a>
+    </div>
+  </form>
+</div>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
 
 <div class="card">
   <h3>All Adults</h3>
-  <?php $all = UserManagement::listAllBasic(); ?>
+  <?php
+    $params = [];
+    $sql = "SELECT id, first_name, last_name, email, is_admin, email_verified_at FROM users WHERE 1=1";
+    if ($q !== '') {
+      $tokens = Search::tokenize($q);
+      $sql .= Search::buildAndLikeClause(['first_name','last_name','email'], $tokens, $params);
+    }
+    $sql .= " ORDER BY last_name, first_name";
+    $st = pdo()->prepare($sql);
+    $st->execute($params);
+    $all = $st->fetchAll();
+  ?>
   <?php if (empty($all)): ?>
     <p class="small">No adults found.</p>
   <?php else: ?>

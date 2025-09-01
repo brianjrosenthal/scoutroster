@@ -149,7 +149,6 @@ header_html('Adults Roster');
       </label>
     </div>
     <div class="actions">
-      <button class="primary">Filter</button>
       <a class="button" href="/adults.php">Reset</a>
       <?php if ($isAdmin): ?>
         <a class="button" href="/admin_adults.php">Add Adult</a>
