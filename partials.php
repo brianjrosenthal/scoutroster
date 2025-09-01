@@ -23,8 +23,10 @@ function header_html(string $title) {
     $nav .= $link('/youth.php','Youth').' | ';
     $nav .= $link('/adults.php','Adults').' | ';
     $nav .= $link('/reimbursements.php','Reimbursements').' | ';
+    $nav .= $link('/events.php','Events').' | ';
     $nav .= $link('/my_profile.php','My Profile').' | ';
     if (!empty($u['is_admin'])) {
+      $nav .= $link('/admin_events.php','Manage Events').' | ';
       $nav .= $link('/admin_adults.php','Manage Adults').' | ';
       $nav .= $link('/admin_import_upload.php','Import Members').' | ';
       $nav .= $link('/admin_mailing_list.php','Mailing List').' | ';
