@@ -257,18 +257,6 @@ header_html('Event Invite');
 ?>
 <h2><?= h($event['name']) ?></h2>
 
-<div class="card">
-  <?php if (!empty($event['photo_path'])): ?>
-    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
-  <?php endif; ?>
-  <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
-  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?=h($event['location'])?></p><?php endif; ?>
-  <?php if (!empty($event['description'])): ?>
-    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
-  <?php endif; ?>
-  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
-</div>
-
 <?php if ($saved): ?>
   <div class="card">
     <p class="flash">Thank you! Your RSVP has been saved.</p>
@@ -278,9 +266,8 @@ header_html('Event Invite');
         $inviteeEmail = trim((string)($invitee['email'] ?? ''));
         $isVerified = !empty($invitee['email_verified_at']);
         if ($inviteeEmail !== '' && !$isVerified) {
-          // Offer activation
           ?>
-            <p>You can activate your account to manage your profile and RSVP in the future.</p>
+            <p><strong>Would you like to activate your account with Pack 440? If so, click "Send Activation Email" below to set a password for this site.</strong></p>
             <form method="post" action="/verify_resend.php" class="inline">
               <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
               <input type="hidden" name="email" value="<?= h(strtolower($inviteeEmail)) ?>">
@@ -295,12 +282,22 @@ header_html('Event Invite');
         }
       }
     ?>
-    <div class="actions" style="margin-top:10px;">
-      <a class="button" href="/event.php?id=<?= (int)$eventId ?>">View Event</a>
-      <a class="button" href="/events.php">All Events</a>
-    </div>
   </div>
-<?php else: ?>
+<?php endif; ?>
+
+<div class="card">
+  <?php if (!empty($event['photo_path'])): ?>
+    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
+  <?php endif; ?>
+  <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
+  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?=h($event['location'])?></p><?php endif; ?>
+  <?php if (!empty($event['description'])): ?>
+    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
+  <?php endif; ?>
+  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
+</div>
+
+<?php if (!$saved): ?>
   <div class="card">
     <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
     <?php
