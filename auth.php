@@ -27,7 +27,15 @@ function current_user() {
 }
 
 function require_login() {
-  if (!current_user()) { header('Location: /login.php'); exit; }
+  if (!current_user()) {
+    $req = $_SERVER['REQUEST_URI'] ?? '/index.php';
+    if (!is_string($req) || $req === '' || $req[0] !== '/') { $req = '/index.php'; }
+    // Avoid redirect loop to login itself
+    if (strpos($req, '/login.php') === 0) { $req = '/index.php'; }
+    $loc = '/login.php?next=' . urlencode($req);
+    header('Location: ' . $loc);
+    exit;
+  }
 }
 
 function require_admin() {

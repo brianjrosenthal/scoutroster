@@ -2,7 +2,19 @@
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 
-if (current_user()) { header('Location: /index.php'); exit; }
+// Validate optional next target from GET (relative path only)
+$nextRaw = $_GET['next'] ?? '';
+$nextGet = '';
+if (is_string($nextRaw)) {
+  $n = trim($nextRaw);
+  if ($n !== '' && $n[0] === '/' && strpos($n, '//') !== 0) {
+    $nextGet = $n;
+    if (strpos($nextGet, '/login.php') === 0) { $nextGet = ''; }
+  }
+}
+
+// If already logged in, honor safe next target if present
+if (current_user()) { header('Location: ' . ($nextGet ?: '/index.php')); exit; }
 
 $error = null;
 $created = !empty($_GET['created']);
@@ -15,6 +27,17 @@ $resendEmail = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
+
+  // Validate optional next target from POST (relative path only)
+  $nextRawPost = $_POST['next'] ?? '';
+  $nextPost = '';
+  if (is_string($nextRawPost)) {
+    $n = trim($nextRawPost);
+    if ($n !== '' && $n[0] === '/' && strpos($n, '//') !== 0) {
+      $nextPost = $n;
+      if (strpos($nextPost, '/login.php') === 0) { $nextPost = ''; }
+    }
+  }
   $email = strtolower(trim($_POST['email'] ?? ''));
   $pass  = $_POST['password'] ?? '';
   $u = UserManagement::findAuthByEmail($email);
@@ -36,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (class_exists('UserContext')) {
         UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
       }
-      header('Location: /index.php'); exit;
+      header('Location: ' . ($nextPost ?: '/index.php')); exit;
     }
   } else {
     $error = 'Invalid email or password.';
@@ -57,6 +80,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php if (!empty($canResend)): ?>
       <form method="post" action="/verify_resend.php" class="stack" style="margin-top:8px;">
         <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+      <?php if (!empty($nextGet)): ?>
+        <input type="hidden" name="next" value="<?= h($nextGet) ?>">
+      <?php endif; ?>
         <?php if (!empty($resendEmail)): ?>
           <input type="hidden" name="email" value="<?=h($resendEmail)?>">
         <?php else: ?>
@@ -71,6 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <form method="post" class="stack">
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+      <?php if (!empty($nextGet)): ?>
+        <input type="hidden" name="next" value="<?= h($nextGet) ?>">
+      <?php endif; ?>
       <label>Email
         <input type="email" name="email" required>
       </label>
