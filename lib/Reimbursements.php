@@ -123,6 +123,47 @@ final class Reimbursements {
     return $st->fetchAll();
   }
 
+  // List up to $limit pending requests for approvers, newest first,
+  // including submitter name and the latest comment (or description fallback).
+  public static function listPendingForApprover(int $limit = 5): array {
+    $limit = max(1, min(50, (int)$limit));
+    $pdo = self::pdo();
+
+    // Pending statuses per spec
+    $sql = "SELECT r.id, r.title, r.status, r.last_modified_at, r.description, r.created_by,
+                   u.first_name, u.last_name
+            FROM reimbursement_requests r
+            JOIN users u ON u.id = r.created_by
+            WHERE r.status IN ('submitted','resubmitted')
+            ORDER BY r.last_modified_at DESC
+            LIMIT {$limit}";
+    $st = $pdo->query($sql);
+    $rows = $st ? $st->fetchAll() : [];
+    if (!$rows) return [];
+
+    $stc = $pdo->prepare("SELECT comment_text
+                          FROM reimbursement_request_comments
+                          WHERE reimbursement_request_id = ?
+                          ORDER BY created_at DESC
+                          LIMIT 1");
+
+    foreach ($rows as &$r) {
+      $latest = '';
+      $stc->execute([(int)$r['id']]);
+      $c = $stc->fetch();
+      if ($c && isset($c['comment_text'])) {
+        $latest = (string)$c['comment_text'];
+      } else {
+        $latest = (string)($r['description'] ?? '');
+      }
+      $r['submitter_name'] = trim((string)($r['first_name'] ?? '').' '.(string)($r['last_name'] ?? ''));
+      $r['latest_note'] = $latest;
+    }
+    unset($r);
+
+    return $rows;
+  }
+
   public static function fetchFiles(UserContext $ctx, int $reqId): array {
     $req = self::getWithAuth($ctx, $reqId);
     $st = self::pdo()->prepare("SELECT f.*, u.first_name, u.last_name
