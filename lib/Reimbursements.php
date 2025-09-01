@@ -79,7 +79,16 @@ final class Reimbursements {
        VALUES (?, ?, ?, 'submitted', NOW(), NOW())"
     );
     $st->execute([$title, $description, (int)$ctx->id]);
-    return (int)self::pdo()->lastInsertId();
+    $newId = (int)self::pdo()->lastInsertId();
+
+    // Best-effort notification; non-fatal on errors or if no recipients
+    try {
+      self::notifyNewRequest($newId);
+    } catch (\Throwable $e) {
+      // swallow to avoid blocking creation
+    }
+
+    return $newId;
   }
 
   public static function getById(int $id): ?array {
@@ -184,5 +193,85 @@ final class Reimbursements {
 
   public static function canUploadFiles(?UserContext $ctx, array $req): bool {
     return self::canView($ctx, $req); // spec: "All users should be able to add supporting files" -> any viewer
+  }
+
+  // ============ Notifications / Recipients ============
+
+  // Internal: fetch all recipients (Treasurer/Cubmaster with email), safe if none
+  private static function approverRecipients(): array {
+    $st = self::pdo()->prepare(
+      "SELECT DISTINCT u.id, u.email, u.first_name, u.last_name
+       FROM adult_leadership_positions alp
+       JOIN users u ON u.id = alp.adult_id
+       WHERE alp.position IN ('Treasurer','Cubmaster') AND u.email IS NOT NULL"
+    );
+    $st->execute();
+    $out = [];
+    while ($r = $st->fetch()) {
+      if (!empty($r['email'])) {
+        $out[] = [
+          'id' => (int)$r['id'],
+          'email' => (string)$r['email'],
+          'first_name' => (string)($r['first_name'] ?? ''),
+          'last_name' => (string)($r['last_name'] ?? ''),
+        ];
+      }
+    }
+    return $out;
+  }
+
+  // Public: for UI display on reimbursements.php
+  public static function listApproverRecipients(): array {
+    return self::approverRecipients();
+  }
+
+  // Notify treasurer/cubmaster on new request
+  private static function notifyNewRequest(int $reqId): void {
+    // Load request and creator
+    $st = self::pdo()->prepare("SELECT r.id, r.title, r.description, r.created_by FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st->execute([$reqId]);
+    $r = $st->fetch();
+    if (!$r) return;
+
+    $stU = self::pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=? LIMIT 1");
+    $stU->execute([(int)$r['created_by']]);
+    $u = $stU->fetch();
+    $creatorName = trim((string)($u['first_name'] ?? '') . ' ' . (string)($u['last_name'] ?? ''));
+
+    $recips = self::approverRecipients();
+    if (empty($recips)) return; // No recipients configured; do nothing
+
+    // Build link
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $url    = $scheme.'://'.$host.'/reimbursement_view.php?id='.(int)$r['id'];
+
+    // Subject per spec
+    $subject = 'Pack 440 New Reimbursement Request from ' . ($creatorName ?: 'Unknown');
+
+    // Compose HTML body (escape values)
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+
+    $safeTitle = htmlspecialchars((string)$r['title'], ENT_QUOTES, 'UTF-8');
+    $safeDesc  = nl2br(htmlspecialchars((string)($r['description'] ?? ''), ENT_QUOTES, 'UTF-8'));
+    $safeUrl   = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+    $safeCreator = htmlspecialchars($creatorName, ENT_QUOTES, 'UTF-8');
+
+    $html = '<p>A new reimbursement request has been submitted by <strong>'.$safeCreator.'</strong>.</p>'
+          . '<p><strong>Title:</strong> '.$safeTitle.'</p>'
+          . '<p><strong>Description:</strong><br>'.$safeDesc.'</p>'
+          . '<p><a href="'.$safeUrl.'">View this request</a></p>';
+
+    // Send to each recipient, ignore per-recipient failures
+    foreach ($recips as $rcp) {
+      $to = (string)$rcp['email'];
+      $name = trim((string)($rcp['first_name'] ?? '').' '.(string)($rcp['last_name'] ?? ''));
+      try {
+        @send_email($to, $subject, $html, $name ?: $to);
+      } catch (\Throwable $e) {
+        // ignore
+      }
+    }
   }
 }

@@ -64,6 +64,18 @@ header_html('Expense Reimbursements');
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
+<?php
+  // Display intended email recipients for new submissions
+  $recips = Reimbursements::listApproverRecipients();
+  $names = [];
+  foreach ($recips as $r) {
+    $n = trim(($r['first_name'] ?? '').' '.($r['last_name'] ?? ''));
+    $e = (string)($r['email'] ?? '');
+    $names[] = $n . ($e !== '' ? ' <'.$e.'>' : '');
+  }
+?>
+<p class="small">Requests will be sent to: <?= !empty($names) ? h(implode(', ', $names)) : '(none configured yet)' ?></p>
+
 <div class="card">
   <div class="actions">
     <?php if ($isAdmin || $isApprover): ?>
