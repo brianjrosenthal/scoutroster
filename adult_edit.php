@@ -1,13 +1,20 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
-require_admin();
+require_once __DIR__.'/lib/GradeCalculator.php';
+require_login();
 
 $err = null;
 $msg = null;
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) { http_response_code(400); exit('Missing id'); }
+
+// Permissions: admin can edit everything; adult can manage their own leadership positions
+$me = current_user();
+$canEditAll = !empty($me['is_admin']);
+$canEditLeadership = $canEditAll || ((int)($me['id'] ?? 0) === (int)$id);
+if (!$canEditLeadership) { http_response_code(403); exit('Forbidden'); }
 
  // Load current record
 $u = UserManagement::findFullById($id);
@@ -19,8 +26,58 @@ $nn = function($v) {
   return ($v === '' ? null : $v);
 };
 
+ // Handle POST (leadership positions)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['lp_add','lp_remove'], true)) {
+  require_csrf();
+  $act = $_POST['action'];
+  try {
+    if (!$canEditLeadership) { throw new RuntimeException('Forbidden'); }
+    if ($act === 'lp_add') {
+      $ptype = trim((string)($_POST['position_type'] ?? ''));
+      $pos = '';
+      if ($ptype === '' ) {
+        throw new InvalidArgumentException('Please select a position.');
+      }
+      if ($ptype === 'Other') {
+        $other = trim((string)($_POST['position_other'] ?? ''));
+        if ($other === '') {
+          throw new InvalidArgumentException('Please enter a title for Other.');
+        }
+        $pos = $other;
+      } elseif ($ptype === 'Den Leader' || $ptype === 'Assistant Den Leader') {
+        $gLbl = trim((string)($_POST['grade'] ?? ''));
+        // Normalize to K or 0..5 label
+        $g = GradeCalculator::parseGradeLabel($gLbl);
+        if ($g === null) {
+          throw new InvalidArgumentException('Please select a valid grade for '.$ptype.'.');
+        }
+        $display = GradeCalculator::gradeLabel((int)$g);
+        $pos = $ptype.' (Grade '.$display.')';
+      } else {
+        // Fixed titles
+        $allowed = [
+          'Cubmaster','Committee Chair','Treasurer','Assistant Cubmaster','Social Chair','Safety Chair',
+          'Den Leader','Assistant Den Leader'
+        ];
+        if (!in_array($ptype, $allowed, true)) {
+          throw new InvalidArgumentException('Invalid position.');
+        }
+        $pos = $ptype;
+      }
+      UserManagement::addLeadershipPosition(UserContext::getLoggedInUserContext(), $id, $pos);
+      $msg = 'Leadership position added.';
+    } elseif ($act === 'lp_remove') {
+      $lpId = (int)($_POST['leadership_id'] ?? 0);
+      UserManagement::removeLeadershipPosition(UserContext::getLoggedInUserContext(), $id, $lpId);
+      $msg = 'Leadership position removed.';
+    }
+  } catch (Throwable $e) {
+    $err = $e->getMessage() ?: 'Unable to update leadership positions.';
+  }
+}
+
 // Handle POST (update)
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] === 'save_profile')) {
   require_csrf();
 
   // Required base fields
@@ -163,6 +220,7 @@ header_html('Edit Adult');
 
 <div class="card">
   <form method="post" class="stack">
+    <input type="hidden" name="action" value="save_profile">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <h3>Basic</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
@@ -249,7 +307,11 @@ header_html('Edit Adult');
     </div>
 
     <div class="actions">
-      <button class="primary" type="submit">Save</button>
+      <?php if ($canEditAll): ?>
+        <button class="primary" type="submit">Save</button>
+      <?php else: ?>
+        <span class="small">Only admins can edit profile fields.</span>
+      <?php endif; ?>
       <a class="button" href="/adults.php">Cancel</a>
     </div>
   </form>
@@ -343,6 +405,98 @@ header_html('Edit Adult');
       <button class="primary">Link Child</button>
     </div>
   </form>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Leadership Positions</h3>
+  <?php
+    try {
+      $positions = UserManagement::listLeadershipPositions(UserContext::getLoggedInUserContext(), $id);
+    } catch (Throwable $e) {
+      $positions = [];
+      if (!$err) $err = 'Unable to load leadership positions.';
+    }
+  ?>
+  <?php if (empty($positions)): ?>
+    <p class="small">No leadership positions.</p>
+  <?php else: ?>
+    <ul class="list">
+      <?php foreach ($positions as $p): ?>
+        <li>
+          <?= h($p['position']) ?>
+          <?php if ($canEditLeadership): ?>
+            <form method="post" style="display:inline; margin-left:8px;" onsubmit="return confirm('Remove this position?');">
+              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="action" value="lp_remove">
+              <input type="hidden" name="leadership_id" value="<?= (int)$p['id'] ?>">
+              <button class="button danger">Remove</button>
+            </form>
+          <?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+
+  <?php if ($canEditLeadership): ?>
+    <form method="post" class="stack" style="margin-top:8px;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="lp_add">
+      <label>Position
+        <select name="position_type" id="position_type">
+          <option value="">-- Select --</option>
+          <option value="Cubmaster">Cubmaster</option>
+          <option value="Assistant Cubmaster">Assistant Cubmaster</option>
+          <option value="Committee Chair">Committee Chair</option>
+          <option value="Treasurer">Treasurer</option>
+          <option value="Social Chair">Social Chair</option>
+          <option value="Safety Chair">Safety Chair</option>
+          <option value="Den Leader">Den Leader</option>
+          <option value="Assistant Den Leader">Assistant Den Leader</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+
+      <div id="lp_grade_wrap" style="display:none; margin-top:8px;">
+        <label>Grade
+          <select name="grade" id="lp_grade_select">
+            <option value="">-- Select Grade --</option>
+            <?php for ($i=0; $i<=5; $i++): $lbl = GradeCalculator::gradeLabel($i); ?>
+              <option value="<?= h($lbl) ?>"><?= $i === 0 ? 'K' : $i ?></option>
+            <?php endfor; ?>
+          </select>
+        </label>
+      </div>
+
+      <div id="lp_other_wrap" style="display:none; margin-top:8px;">
+        <label>Other title
+          <input type="text" name="position_other" maxlength="255" placeholder="Enter title">
+        </label>
+      </div>
+
+      <div class="actions" style="margin-top:8px;">
+        <button class="button">Add Position</button>
+      </div>
+      <p class="small">Duplicates are not allowed for the same adult.</p>
+    </form>
+    <script>
+      (function(){
+        const typeSel = document.getElementById('position_type');
+        const gradeWrap = document.getElementById('lp_grade_wrap');
+        const otherWrap = document.getElementById('lp_other_wrap');
+        function update() {
+          const v = (typeSel && typeSel.value) || '';
+          const needsGrade = (v === 'Den Leader' || v === 'Assistant Den Leader');
+          const needsOther = (v === 'Other');
+          if (gradeWrap) gradeWrap.style.display = needsGrade ? '' : 'none';
+          if (otherWrap) otherWrap.style.display = needsOther ? '' : 'none';
+        }
+        if (typeSel) {
+          typeSel.addEventListener('change', update);
+          update();
+        }
+      })();
+    </script>
+  <?php endif; ?>
 </div>
 
 <?php footer_html(); ?>

@@ -514,4 +514,54 @@ class UserManagement {
     self::log('user.invite_sent', (int)$u['id']);
     return true;
   }
+
+  // =========================
+  // Leadership Positions
+  // =========================
+
+  public static function listLeadershipPositions(?UserContext $ctx, int $adultId): array {
+    // Admins can view anyone; users can view their own
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+
+    $st = self::pdo()->prepare('SELECT id, position, created_at FROM adult_leadership_positions WHERE adult_id=? ORDER BY position');
+    $st->execute([$adultId]);
+    return $st->fetchAll();
+  }
+
+  public static function addLeadershipPosition(?UserContext $ctx, int $adultId, string $position): void {
+    // Admins or self can add
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+
+    $pos = trim($position);
+    if ($pos === '') { throw new InvalidArgumentException('Position is required.'); }
+    if (mb_strlen($pos) > 255) { throw new InvalidArgumentException('Position must be 255 characters or fewer.'); }
+
+    // Check duplicate (case-insensitive match is typical with default collation)
+    $dup = self::pdo()->prepare('SELECT 1 FROM adult_leadership_positions WHERE adult_id=? AND position = ? LIMIT 1');
+    $dup->execute([$adultId, $pos]);
+    if ($dup->fetchColumn()) {
+      throw new InvalidArgumentException('Position already exists for this adult.');
+    }
+
+    // Insert
+    $ins = self::pdo()->prepare('INSERT INTO adult_leadership_positions (adult_id, position, den_id, created_at) VALUES (?, ?, NULL, NOW())');
+    $ok = $ins->execute([$adultId, $pos]);
+    if (!$ok) {
+      // If a unique index enforces this, surface a friendly message
+      throw new RuntimeException('Unable to add position.');
+    }
+  }
+
+  public static function removeLeadershipPosition(?UserContext $ctx, int $adultId, int $leadershipId): void {
+    // Admins or self can remove
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+
+    // Ensure the position belongs to this adult
+    $st = self::pdo()->prepare('DELETE FROM adult_leadership_positions WHERE id=? AND adult_id=?');
+    $st->execute([$leadershipId, $adultId]);
+    // No error if 0 rows affected; treat as no-op
+  }
 }

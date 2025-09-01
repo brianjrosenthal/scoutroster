@@ -131,6 +131,7 @@ CREATE TABLE adult_leadership_positions (
 
 CREATE INDEX idx_alp_adult ON adult_leadership_positions(adult_id);
 CREATE INDEX idx_alp_den ON adult_leadership_positions(den_id);
+CREATE UNIQUE INDEX uniq_alp_adult_position ON adult_leadership_positions(adult_id, position);
 
 -- Medical forms (PDF uploads)
 CREATE TABLE medical_forms (
