@@ -147,18 +147,18 @@ header_html('Event');
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
     <div>
       <h4>Adults</h4>
-      <?php if (empty($adultNames)): ?>
+      <?php if (empty($adultEntries)): ?>
         <p class="small">No adults yet.</p>
       <?php else: ?>
         <ul>
           <?php foreach ($adultEntries as $a): ?>
-  <li>
-    <?= h($a['name']) ?>
-    <?php if (!empty($rsvpCommentsByAdult[(int)$a['id']] ?? '')): ?>
-      <div class="small" style="font-style:italic;"><?= nl2br(h($rsvpCommentsByAdult[(int)$a['id']])) ?></div>
-    <?php endif; ?>
-  </li>
-<?php endforeach; ?>
+            <li>
+              <?= h($a['name']) ?>
+              <?php if (!empty($rsvpCommentsByAdult[(int)$a['id']] ?? '')): ?>
+                <div class="small" style="font-style:italic;"><?= nl2br(h($rsvpCommentsByAdult[(int)$a['id']])) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
         </ul>
       <?php endif; ?>
     </div>
