@@ -159,6 +159,7 @@ CREATE TABLE events (
   starts_at DATETIME NOT NULL,
   ends_at   DATETIME DEFAULT NULL,
   location VARCHAR(255) DEFAULT NULL,
+  location_address TEXT DEFAULT NULL,
   description TEXT DEFAULT NULL,
   photo_path VARCHAR(512) DEFAULT NULL,
   max_cub_scouts INT DEFAULT NULL,

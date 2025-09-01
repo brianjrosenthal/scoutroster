@@ -53,8 +53,18 @@ $lines[] = 'BEGIN:VEVENT';
 $lines[] = 'UID:event-' . (int)$eventId . '@' . $host;
 $lines[] = 'DTSTAMP:' . gmdate('Ymd\THis\Z');
 $lines[] = 'SUMMARY:' . ics_escape_text((string)$e['name']);
-if (!empty($e['location'])) {
-  $lines[] = 'LOCATION:' . ics_escape_text((string)$e['location']);
+$locName = trim((string)($e['location'] ?? ''));
+$locAddr = trim((string)($e['location_address'] ?? ''));
+$locCombined = '';
+if ($locName !== '' && $locAddr !== '') {
+  $locCombined = $locName . "\n" . $locAddr;
+} elseif ($locAddr !== '') {
+  $locCombined = $locAddr;
+} elseif ($locName !== '') {
+  $locCombined = $locName;
+}
+if ($locCombined !== '') {
+  $lines[] = 'LOCATION:' . ics_escape_text($locCombined);
 }
 $desc = trim((string)($e['description'] ?? ''));
 $descWithUrl = $desc !== '' ? ($desc . "\n\n" . $eventUrl) : $eventUrl;

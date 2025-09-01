@@ -155,8 +155,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $icsLines[] = 'UID:event-' . (int)$eventId . '@' . $host;
     $icsLines[] = 'DTSTAMP:' . gmdate('Ymd\THis\Z');
     $icsLines[] = 'SUMMARY:' . ics_escape_text((string)$event['name']);
-    if (!empty($event['location'])) {
-      $icsLines[] = 'LOCATION:' . ics_escape_text((string)$event['location']);
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
+    if ($locCombined !== '') {
+      $icsLines[] = 'LOCATION:' . ics_escape_text($locCombined);
     }
     $desc = trim((string)($event['description'] ?? ''));
     $descWithUrl = $desc !== '' ? ($desc . "\n\n" . $eventUrl) : $eventUrl;
@@ -190,23 +193,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $endZ = $dt->format('Ymd\THis\Z');
     }
 
+    $locParam = $locCombined !== '' ? preg_replace("/\r\n|\r|\n/", ', ', $locCombined) : '';
     $googleLink = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       . '&text=' . rawurlencode((string)$event['name'])
       . '&dates=' . rawurlencode($startZ . '/' . $endZ)
       . '&details=' . rawurlencode($descWithUrl)
-      . '&location=' . rawurlencode((string)($event['location'] ?? ''));
+      . '&location=' . rawurlencode($locParam);
     $outlookLink = 'https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent'
       . '&subject=' . rawurlencode((string)$event['name'])
       . '&startdt=' . rawurlencode(dt_to_utc_iso((string)$event['starts_at'], $tzId))
       . '&enddt=' . rawurlencode(dt_to_utc_iso($hasEnd ? (string)$event['ends_at'] : (string)$event['starts_at'], $tzId))
       . '&body=' . rawurlencode($descWithUrl)
-      . '&location=' . rawurlencode((string)($event['location'] ?? ''));
+      . '&location=' . rawurlencode($locParam);
     $icsDownloadLink = $baseUrl . '/event_ics.php?event_id='.(int)$eventId . ($organizer !== '' ? ('&organizer='.rawurlencode($organizer)) : '');
 
     // Email HTML template
     $whenText = Settings::formatDateTime((string)$event['starts_at'])
       . (!empty($event['ends_at']) ? (' – ' . Settings::formatDateTime((string)$event['ends_at'])) : '');
-    $whereText = (string)($event['location'] ?? '');
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
+    $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
 
     $sent = 0;
     $fail = 0;
@@ -222,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
       $safeEvent = htmlspecialchars((string)$event['name'], ENT_QUOTES, 'UTF-8');
       $safeWhen = htmlspecialchars($whenText, ENT_QUOTES, 'UTF-8');
-      $safeWhere = htmlspecialchars($whereText, ENT_QUOTES, 'UTF-8');
+      // whereHtml already safely escaped with nl2br(htmlspecialchars(...))
       $safeDeep = htmlspecialchars($deepLink, ENT_QUOTES, 'UTF-8');
       $safeGoogle = htmlspecialchars($googleLink, ENT_QUOTES, 'UTF-8');
       $safeOutlook = htmlspecialchars($outlookLink, ENT_QUOTES, 'UTF-8');
@@ -239,7 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     </div>
     <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
-      ($whereText !== '' ? '<div><strong>Where:</strong> '. $safeWhere .'</div>' : '') .'
+      ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
     </div>
     <div style="text-align:center;margin:0 0 12px;">
       <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>

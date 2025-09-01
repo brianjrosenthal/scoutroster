@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $starts_at = from_datetime_local_value($_POST['starts_at'] ?? '');
     $ends_at   = from_datetime_local_value($_POST['ends_at'] ?? '');
     $location  = trim($_POST['location'] ?? '');
+    $location_address = trim($_POST['location_address'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $max_cub_scouts = trim($_POST['max_cub_scouts'] ?? '');
 
@@ -52,19 +53,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $eventId = $id > 0 ? $id : 0;
         if ($id > 0) {
-          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, description=?, max_cub_scouts=? WHERE id=?");
+          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=? WHERE id=?");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
+            ($location_address !== '' ? $location_address : null),
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $id
           ]);
         } else {
-          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, description, max_cub_scouts) VALUES (?,?,?,?,?,?)");
+          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts) VALUES (?,?,?,?,?,?,?)");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
+            ($location_address !== '' ? $location_address : null),
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
           ]);
@@ -110,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'starts_at' => $starts_at,
         'ends_at' => $ends_at,
         'location' => $location,
+        'location_address' => $location_address,
         'description' => $description,
         'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
       ];
@@ -166,6 +170,9 @@ header_html('Manage Events');
     </div>
     <label>Location
       <input type="text" name="location" value="<?=h($editing['location'] ?? '')?>">
+    </label>
+    <label>Location Address
+      <textarea name="location_address" rows="3" placeholder="Street&#10;City, State ZIP"><?=h($editing['location_address'] ?? '')?></textarea>
     </label>
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
