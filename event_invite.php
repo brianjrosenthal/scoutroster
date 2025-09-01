@@ -18,24 +18,22 @@ function b64url_decode(string $str): string {
   if ($pad > 0) $str .= str_repeat('=', 4 - $pad);
   return base64_decode(strtr($str, '-_', '+/')) ?: '';
 }
-function invite_signature(int $uid, int $eventId, int $exp): string {
-  $payload = $uid . ':' . $eventId . ':' . $exp;
+function invite_signature(int $uid, int $eventId): string {
+  $payload = $uid . ':' . $eventId;
   return b64url_encode(hash_hmac('sha256', $payload, INVITE_HMAC_KEY, true));
 }
-function validate_invite(int $uid, int $eventId, int $exp, string $sig): ?string {
-  if ($uid <= 0 || $eventId <= 0 || $exp <= 0 || $sig === '') return 'Invalid link';
-  if (time() > $exp) return 'This link has expired.';
-  $expected = invite_signature($uid, $eventId, $exp);
+function validate_invite(int $uid, int $eventId, string $sig): ?string {
+  if ($uid <= 0 || $eventId <= 0 || $sig === '') return 'Invalid link';
+  $expected = invite_signature($uid, $eventId);
   if (!hash_equals($expected, $sig)) return 'Invalid link';
   return null;
 }
 
 $uid = isset($_GET['uid']) ? (int)$_GET['uid'] : (int)($_POST['uid'] ?? 0);
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
-$exp = isset($_GET['exp']) ? (int)$_GET['exp'] : (int)($_POST['exp'] ?? 0);
 $sig = isset($_GET['sig']) ? (string)$_GET['sig'] : (string)($_POST['sig'] ?? '');
 
-$validationError = validate_invite($uid, $eventId, $exp, $sig);
+$validationError = validate_invite($uid, $eventId, $sig);
 if ($validationError) {
   header_html('Event Invite');
   echo '<h2>Event Invite</h2>';
@@ -150,7 +148,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     require_csrf();
 
     // Re-validate HMAC and expiry
-    $validationError = validate_invite($uid, $eventId, $exp, $sig);
+    $validationError = validate_invite($uid, $eventId, $sig);
     if ($validationError) throw new RuntimeException($validationError);
 
     $adults = $_POST['adults'] ?? [];
@@ -314,7 +312,6 @@ header_html('Event Invite');
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
       <input type="hidden" name="uid" value="<?= (int)$uid ?>">
       <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-      <input type="hidden" name="exp" value="<?= (int)$exp ?>">
       <input type="hidden" name="sig" value="<?= h($sig) ?>">
 
       <h3>Adults</h3>

@@ -28,8 +28,8 @@ if (!$event) { http_response_code(404); exit('Event not found'); }
 function b64url_encode_str(string $bin): string {
   return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
 }
-function invite_signature_build(int $uid, int $eventId, int $exp): string {
-  $payload = $uid . ':' . $eventId . ':' . $exp;
+function invite_signature_build(int $uid, int $eventId): string {
+  $payload = $uid . ':' . $eventId;
   return b64url_encode_str(hash_hmac('sha256', $payload, INVITE_HMAC_KEY, true));
 }
 function ics_escape_text(string $s): string {
@@ -80,8 +80,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $oneAdultId = (int)($_POST['adult_id'] ?? 0);
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
-    $expiresHours = (int)($_POST['expires_in_hours'] ?? 168);
-    if ($expiresHours <= 0) $expiresHours = 168;
 
     if ($subject === '') $subject = $subjectDefault;
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
@@ -124,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $st = pdo()->prepare("SELECT id, first_name, last_name, email FROM users WHERE id=? LIMIT 1");
       $st->execute([$oneAdultId]);
       $row = $st->fetch();
-      if ($row) $recipients = [$row];
+      if ($row && !empty($row['email'])) $recipients = [$row];
     } else {
       throw new RuntimeException('Invalid audience.');
     }
@@ -218,9 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $uid = (int)$r['id'];
       $email = trim((string)$r['email']);
       $name  = trim(((string)($r['first_name'] ?? '')).' '.((string)($r['last_name'] ?? '')));
-      $exp = time() + ($expiresHours * 3600);
-      $sig = invite_signature_build($uid, $eventId, $exp);
-      $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&exp=' . $exp . '&sig=' . $sig;
+      $sig = invite_signature_build($uid, $eventId);
+      $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
 
       $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
       $safeEvent = htmlspecialchars((string)$event['name'], ENT_QUOTES, 'UTF-8');
@@ -305,14 +302,21 @@ header_html('Send Event Invitations');
       </div>
       <label class="inline"><input type="radio" name="audience" value="one_adult" <?= $aud==='one_adult'?'checked':'' ?>> One adult</label>
       <div>
-        <?php $opts = UserManagement::listAllForSelect(); ?>
+        <?php
+          $st = pdo()->query("SELECT id, first_name, last_name, email FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY last_name, first_name");
+          $opts = $st->fetchAll();
+        ?>
         <select name="adult_id">
           <option value="0">Select adult...</option>
           <?php foreach ($opts as $o): ?>
-            <?php $nm = trim(($o['first_name'] ?? '').' '.($o['last_name'] ?? '')); ?>
-            <option value="<?= (int)$o['id'] ?>" <?= ($adultSel===(int)$o['id'] ? 'selected' : '') ?>>
-              <?= h(($nm !== '' ? $nm : 'User #'.(int)$o['id']).(!empty($o['email']) ? ' <'.$o['email'].'>' : '')) ?>
-            </option>
+            <?php
+              $ln = trim((string)($o['last_name'] ?? ''));
+              $fn = trim((string)($o['first_name'] ?? ''));
+              $email = trim((string)($o['email'] ?? ''));
+              $label = ($ln !== '' || $fn !== '') ? ($ln.', '.$fn) : ('User #'.(int)$o['id']);
+              $label .= ' <'.$email.'>';
+            ?>
+            <option value="<?= (int)$o['id'] ?>" <?= ($adultSel===(int)$o['id'] ? 'selected' : '') ?>><?= h($label) ?></option>
           <?php endforeach; ?>
         </select>
         <span class="small">(Only used when selecting "One adult")</span>
@@ -327,9 +331,6 @@ header_html('Send Event Invitations');
       <input type="email" name="organizer" value="<?= h($_POST['organizer'] ?? $defaultOrganizer) ?>">
     </label>
 
-    <label>Link Expiration (hours)
-      <input type="number" name="expires_in_hours" min="1" value="<?= (int)($_POST['expires_in_hours'] ?? 168) ?>">
-    </label>
 
     <div class="actions">
       <button class="primary">Send Invitations</button>
