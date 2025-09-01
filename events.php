@@ -10,6 +10,24 @@ $st = pdo()->prepare("SELECT * FROM events WHERE starts_at >= ? ORDER BY starts_
 $st->execute([$now]);
 $events = $st->fetchAll();
 
+// Helper to render start/end per spec
+function renderEventWhen(string $startsAt, ?string $endsAt): string {
+  $s = strtotime($startsAt);
+  if ($s === false) return $startsAt;
+  $base = date('F j, Y gA', $s);
+  if (!$endsAt) return $base;
+
+  $e = strtotime($endsAt);
+  if ($e === false) return $base;
+
+  if (date('Y-m-d', $s) === date('Y-m-d', $e)) {
+    // Same-day end time
+    return $base . ' (ends at ' . date('gA', $e) . ')';
+  }
+  // Different-day end time
+  return $base . ' (ends on ' . date('F j, Y', $e) . ' at ' . date('gA', $e) . ')';
+}
+
 header_html('Upcoming Events');
 ?>
 <h2>Upcoming Events</h2>
@@ -32,7 +50,7 @@ header_html('Upcoming Events');
     <?php foreach ($events as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
-        <p><strong>When:</strong> <?=h(Settings::formatDateTime($e['starts_at']))?><?php if(!empty($e['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($e['ends_at']))?><?php endif; ?></p>
+        <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
         <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
         <?php if (!empty($e['description'])): ?><p><?=nl2br(h($e['description']))?></p><?php endif; ?>
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
