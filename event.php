@@ -123,6 +123,7 @@ header_html('Event');
     <a class="button" href="/events.php">Back to Events</a>
     <?php if ($isAdmin): ?>
       <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
+      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
     <?php endif; ?>
   </div>
 </div>

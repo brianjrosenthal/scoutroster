@@ -207,6 +207,7 @@ header_html($editing ? 'Edit Event' : 'Add Event');
             <td class="small">
               <a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View</a>
               <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit</a>
+              <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
               <form method="post" style="display:inline" onsubmit="return confirm('Delete this event?');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
                 <input type="hidden" name="action" value="delete">
