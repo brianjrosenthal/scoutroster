@@ -10,6 +10,7 @@ $error = null;
 $success = null;
 $email = strtolower(trim($_GET['email'] ?? $_POST['email'] ?? ''));
 $token = $_GET['token'] ?? $_POST['token'] ?? '';
+$activated = !empty($_GET['activated'] ?? $_POST['activated'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
@@ -68,9 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-header_html('Reset Password');
+header_html($activated ? 'Set Password' : 'Reset Password');
 ?>
-<h2>Reset Password</h2>
+<h2><?= $activated ? 'Set Password' : 'Reset Password' ?></h2>
+<?php if ($activated && !$success && $mode !== 'done'): ?><p class="flash">Your email has been verified. The next step is to set a password for your account.</p><?php endif; ?>
 <?php if ($error): ?><p class="error"><?=h($error)?></p><?php endif; ?>
 <?php if ($success): ?><p class="flash"><?=h($success)?></p><?php endif; ?>
 
@@ -82,6 +84,7 @@ header_html('Reset Password');
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
       <input type="hidden" name="email" value="<?=h($email)?>">
       <input type="hidden" name="token" value="<?=h($token)?>">
+      <input type="hidden" name="activated" value="<?= $activated ? '1' : '' ?>">
       <label>New password
         <input type="password" name="new_password" required minlength="8">
       </label>
@@ -89,7 +92,7 @@ header_html('Reset Password');
         <input type="password" name="confirm_password" required minlength="8">
       </label>
       <div class="actions">
-        <button class="primary">Set new password</button>
+        <button class="primary"><?= $activated ? 'Set Password' : 'Set new password' ?></button>
         <a class="button" href="/login.php">Cancel</a>
       </div>
     </form>

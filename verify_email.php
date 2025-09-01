@@ -22,7 +22,7 @@ try {
 
   $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
   $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  $resetUrl = $scheme.'://'.$host.'/reset_password.php?email='.urlencode((string)$u['email']).'&token='.urlencode($plain);
+  $resetUrl = $scheme.'://'.$host.'/reset_password.php?email='.urlencode((string)$u['email']).'&token='.urlencode($plain).'&activated=1';
   header('Location: '.$resetUrl); exit;
 } catch (Throwable $e) {
   // Fallback: if reset token creation fails, at least mark verified and land on login
