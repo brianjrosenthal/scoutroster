@@ -2,6 +2,8 @@
 require_once __DIR__.'/partials.php';
 require_login();
 
+require_once __DIR__ . '/lib/Text.php';
+
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
 
@@ -113,7 +115,9 @@ header_html('Event');
   <?php endif; ?>
   <p><strong>When:</strong> <?=h(Settings::formatDateTime($e['starts_at']))?><?php if(!empty($e['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($e['ends_at']))?><?php endif; ?></p>
   <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
-  <?php if (!empty($e['description'])): ?><p><?=nl2br(h($e['description']))?></p><?php endif; ?>
+  <?php if (!empty($e['description'])): ?>
+    <div><?= Text::renderMarkup((string)$e['description']) ?></div>
+  <?php endif; ?>
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
   <div class="actions">
     <a class="button" href="/events.php">Back to Events</a>

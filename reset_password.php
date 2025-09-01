@@ -35,7 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
           try {
             UserManagement::finalizePasswordReset((int)$u['id'], $new);
-            $success = 'Your password has been reset. You can now sign in.';
+            // Also verify the email so the account becomes activated via the reset flow
+            try {
+              UserManagement::markVerifiedNow((int)$u['id']);
+            } catch (Throwable $ve) {
+              // Non-fatal: if verification update fails, still allow login with new password
+            }
+            $success = 'Your password has been reset and your email has been verified. You can now sign in.';
             $mode = 'done';
           } catch (Throwable $e) {
             $error = 'Failed to reset password. Please try again.';

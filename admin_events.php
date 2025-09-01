@@ -164,6 +164,7 @@ header_html($editing ? 'Edit Event' : 'Add Event');
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
     </label>
+    <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
     <?php if (!empty($editing['photo_path'])): ?>
       <div class="small">Current Image:<br>
         <img src="/<?= h($editing['photo_path']) ?>" alt="Event image" width="180" style="height:auto;border-radius:8px;">
