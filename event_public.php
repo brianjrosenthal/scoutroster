@@ -188,10 +188,10 @@ header_html('Event - Public RSVP');
 
 <?php if ($allowPublic && !$eventStarted && !$saved): ?>
   <div class="bottom-banner">
-    <div class="prompt">Will you be attending?</div>
+    <div class="prompt">RSVP:</div>
     <div class="actions">
       <button id="rsvpYesBtn" class="primary">YES</button>
-      <button id="rsvpMaybeBtn" title="You can change later">MAYBE</button>
+      <button id="rsvpMaybeBtn" class="primary" title="You can change later">MAYBE</button>
       <button id="rsvpNoBtn">NO</button>
     </div>
   </div>
@@ -200,7 +200,7 @@ header_html('Event - Public RSVP');
   <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
       <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>
-      <h3>RSVP to <?= h($event['name']) ?></h3>
+      <h3>RSVP <strong id="rsvpAnswerHeading">YES</strong> to <?= h($event['name']) ?></h3>
       <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
       <form method="post" class="stack">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -248,12 +248,13 @@ header_html('Event - Public RSVP');
       const maybeBtn = document.getElementById('rsvpMaybeBtn');
       const noBtn = document.getElementById('rsvpNoBtn');
       const answerInput = document.querySelector('#rsvpModal form input[name="answer"]');
+      const heading = document.getElementById('rsvpAnswerHeading');
       const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
 
-      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; openModal(); });
-      if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; openModal(); });
-      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; openModal(); });
+      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; if (heading) heading.textContent = 'YES'; openModal(); });
+      if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; if (heading) heading.textContent = 'MAYBE'; openModal(); });
+      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; if (heading) heading.textContent = 'NO'; openModal(); });
 
       if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });

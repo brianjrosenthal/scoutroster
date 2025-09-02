@@ -180,6 +180,27 @@ header_html('Event');
   <p class="flash">Your RSVP has been saved.</p>
 <?php endif; ?>
 
+<?php
+$myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
+if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
+?>
+<div class="card">
+  <?php if ($myRsvp): ?>
+    <p>
+      You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
+      <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
+      <a class="button" id="rsvpEditBtn">Edit</a>
+    </p>
+  <?php else: ?>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <strong>RSVP:</strong>
+      <button class="primary" id="rsvpYesBtn">Yes</button>
+      <button id="rsvpMaybeBtn" class="primary">Maybe</button>
+      <button id="rsvpNoBtn">No</button>
+    </div>
+  <?php endif; ?>
+</div>
+
 <div class="card">
   <?php if (!empty($e['photo_path'])): ?>
     <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
@@ -209,33 +230,10 @@ header_html('Event');
       <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
       <?php if ($allowPublic): ?>
         <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
-      <?php else: ?>
-        <span class="small" style="margin-left:8px;opacity:0.75;">Public RSVP disabled</span>
       <?php endif; ?>
       <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
     <?php endif; ?>
   </div>
-</div>
-
-<?php
-$myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
-if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
-?>
-<div class="card">
-  <?php if ($myRsvp): ?>
-    <p>
-      You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
-      <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
-      <a class="button" id="rsvpEditBtn">Edit</a>
-    </p>
-  <?php else: ?>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <strong>RSVP:</strong>
-      <button class="primary" id="rsvpYesBtn">Yes</button>
-      <button id="rsvpMaybeBtn">Maybe</button>
-      <button id="rsvpNoBtn">No</button>
-    </div>
-  <?php endif; ?>
 </div>
 
 <div class="card">
@@ -303,7 +301,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content">
     <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>
-    <h3>RSVP to <?= h($e['name']) ?></h3>
+    <h3>RSVP <strong id="rsvpAnswerHeading"><?= h(strtoupper($myAnswer)) ?></strong> to <?= h($e['name']) ?></h3>
     <form method="post" class="stack" action="/rsvp_edit.php">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
@@ -373,14 +371,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     const noBtn = document.getElementById('rsvpNoBtn');
     const editBtn = document.getElementById('rsvpEditBtn');
     const answerInput = document.getElementById('rsvpAnswerInput');
+    const heading = document.getElementById('rsvpAnswerHeading');
 
     const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
     const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
 
-    if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; openModal(); });
-    if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; openModal(); });
-    if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; openModal(); });
-    if (editBtn) editBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+    if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; if (heading) heading.textContent = 'YES'; openModal(); });
+    if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; if (heading) heading.textContent = 'MAYBE'; openModal(); });
+    if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; if (heading) heading.textContent = 'NO'; openModal(); });
+    if (editBtn) editBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      if (heading && answerInput) heading.textContent = (answerInput.value || 'yes').toUpperCase();
+      openModal();
+    });
 
     if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
     if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
