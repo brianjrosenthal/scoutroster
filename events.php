@@ -54,8 +54,8 @@ header_html('Upcoming Events');
 ?>
 <div class="card">
   <p class="small">
-    Subscribe to the Google Calendar URL:
-    <a href="<?= h($gcal) ?>" target="_blank" rel="noopener"><?= h($gcal) ?></a>
+    Subscribe to the Google Calendar with the URL
+    <a href="<?= h($gcal) ?>" target="_blank" rel="noopener">here</a>
   </p>
 </div>
 <?php endif; ?>
