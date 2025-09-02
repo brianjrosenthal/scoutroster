@@ -67,6 +67,17 @@ $st = pdo()->prepare("
 $st->execute([$id]);
 $allMembers = $st->fetchAll();
 
+// Public RSVPs (logged-out)
+$st = pdo()->prepare("SELECT first_name, last_name, total_adults, total_kids, comment FROM rsvps_logged_out WHERE event_id=? ORDER BY last_name, first_name, id");
+$st->execute([$id]);
+$publicRsvps = $st->fetchAll();
+
+$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=?");
+$st->execute([$id]);
+$_pubTotals = $st->fetch();
+$pubAdults = (int)($_pubTotals['a'] ?? 0);
+$pubKids = (int)($_pubTotals['k'] ?? 0);
+
 $youthNames = [];
 $adultEntries = [];
 foreach ($allMembers as $row) {
@@ -100,6 +111,8 @@ $guestsTotal = (int)($st->fetch()['g'] ?? 0);
 // Counts
 $youthCount = count($youthNames);
 $adultCount = count($adultEntries);
+$adultCountCombined = $adultCount + $pubAdults;
+$youthCountCombined = $youthCount + $pubKids;
 
 header_html('Event');
 ?>
@@ -136,6 +149,7 @@ header_html('Event');
     <a class="button" href="/events.php">Back to Events</a>
     <?php if ($isAdmin): ?>
       <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
+      <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
       <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
     <?php endif; ?>
   </div>
@@ -157,8 +171,8 @@ header_html('Event');
 <div class="card">
   <h3>RSVPs</h3>
   <p class="small">
-    Adults: <?= (int)$adultCount ?> &nbsp;&nbsp; | &nbsp;&nbsp;
-    Cub Scouts: <?= (int)$youthCount ?><?= !empty($e['max_cub_scouts']) ? ' / '.(int)$e['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
+    Adults: <?= (int)$adultCountCombined ?> &nbsp;&nbsp; | &nbsp;&nbsp;
+    Cub Scouts: <?= (int)$youthCountCombined ?><?= !empty($e['max_cub_scouts']) ? ' / '.(int)$e['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
     Other Guests: <?= (int)$guestsTotal ?>
   </p>
 
@@ -187,6 +201,25 @@ header_html('Event');
       <?php else: ?>
         <ul>
           <?php foreach ($youthNames as $n): ?><li><?=h($n)?></li><?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div>
+    <div>
+      <h4>Public RSVPs</h4>
+      <?php if (empty($publicRsvps)): ?>
+        <p class="small">No public RSVPs yet.</p>
+      <?php else: ?>
+        <ul>
+          <?php foreach ($publicRsvps as $pr): ?>
+            <li>
+              <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
+              — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
+              <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
+              <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
+                <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
         </ul>
       <?php endif; ?>
     </div>
