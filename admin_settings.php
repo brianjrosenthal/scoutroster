@@ -23,6 +23,11 @@ $SETTINGS_DEF = [
     'hint'  => 'Times are displayed in this time zone.',
     'type'  => 'timezone',
   ],
+  'google_calendar_url' => [
+    'label' => 'Google Calendar URL',
+    'hint'  => 'Public URL to your Pack\'s Google Calendar. If set, the Events page will show a subscribe link.',
+    'type'  => 'text',
+  ],
 ];
 
 // Handle save

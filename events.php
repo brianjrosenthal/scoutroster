@@ -48,12 +48,17 @@ header_html('Upcoming Events');
   <p><a class="button" href="/admin_events.php">Add Event</a></p>
 <?php endif; ?>
 
+<?php
+  $gcal = Settings::get('google_calendar_url', '');
+  if ($gcal !== ''):
+?>
 <div class="card">
   <p class="small">
-    Subscribe to the pack calendar:
-    <a href="/calendar_feed.php">/calendar_feed.php</a> (add this URL to Google/Apple Calendar)
+    Subscribe to the Google Calendar URL:
+    <a href="<?= h($gcal) ?>" target="_blank" rel="noopener"><?= h($gcal) ?></a>
   </p>
 </div>
+<?php endif; ?>
 
 <?php if (empty($events)): ?>
   <p class="small">No upcoming events.</p>
