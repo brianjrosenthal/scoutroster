@@ -114,7 +114,20 @@ header_html('Event');
     <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
   <p><strong>When:</strong> <?=h(Settings::formatDateTime($e['starts_at']))?><?php if(!empty($e['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($e['ends_at']))?><?php endif; ?></p>
-  <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
+  <?php
+    $locName = trim((string)($e['location'] ?? ''));
+    $locAddr = trim((string)($e['location_address'] ?? ''));
+    if ($locName !== '' || $locAddr !== ''):
+  ?>
+    <p><strong>Where:</strong>
+      <?php if ($locName !== ''): ?>
+        <?= h($locName) ?><?php if ($locAddr !== '') echo '<br>'; ?>
+      <?php endif; ?>
+      <?php if ($locAddr !== ''): ?>
+        <?= nl2br(h($locAddr)) ?>
+      <?php endif; ?>
+    </p>
+  <?php endif; ?>
   <?php if (!empty($e['description'])): ?>
     <div><?= Text::renderMarkup((string)$e['description']) ?></div>
   <?php endif; ?>
