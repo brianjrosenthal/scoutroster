@@ -135,7 +135,11 @@ $pubKids   = (int)($rowTotals['k'] ?? 0);
 
 header_html('Event - Public RSVP');
 ?>
+<?php if ($allowPublic): ?>
 <h2><?= h($event['name']) ?></h2>
+<?php else: ?>
+<h2>Public RSVP</h2>
+<?php endif; ?>
 
 <?php if ($saved): ?>
   <div class="card">
@@ -187,6 +191,7 @@ header_html('Event - Public RSVP');
   <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
 <?php endif; ?>
 
+<?php if ($allowPublic): ?>
 <div class="card">
   <?php if (!empty($event['photo_path'])): ?>
     <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
@@ -211,5 +216,6 @@ header_html('Event - Public RSVP');
   <?php endif; ?>
   <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
 </div>
+<?php endif; ?>
 
 <?php footer_html(); ?>
