@@ -255,7 +255,7 @@ sort($adultNames);
 
 header_html('Event Invite');
 ?>
-<h2><?= h($event['name']) ?></h2>
+<h2>RSVP to <?= h($event['name']) ?></h2>
 
 <?php if ($saved): ?>
   <div class="card">
@@ -292,7 +292,7 @@ header_html('Event Invite');
       $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
       $displayName = $name !== '' ? $name : 'Guest';
     ?>
-    <p><strong>Hello <?= h($displayName) ?>!</strong>  Please RSVP by selecting who will attend:</p>
+    <p><strong>Hello <?= h($displayName) ?>!</strong>  Please select who will attend:</p>
     <form method="post" class="stack">
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
       <input type="hidden" name="uid" value="<?= (int)$uid ?>">
