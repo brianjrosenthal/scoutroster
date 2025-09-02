@@ -292,7 +292,7 @@ header_html('Event Invite');
       $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
       $displayName = $name !== '' ? $name : 'Guest';
     ?>
-    <p>Hello <?= h($displayName) ?>, please RSVP by selecting who will attend:</p>
+    <p><strong>Hello <?= h($displayName) ?>!</strong>  Please RSVP by selecting who will attend:</p>
     <form method="post" class="stack">
       <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
       <input type="hidden" name="uid" value="<?= (int)$uid ?>">
