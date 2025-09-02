@@ -255,7 +255,7 @@ sort($adultNames);
 
 header_html('Event Invite');
 ?>
-<h2>RSVP to <?= h($event['name']) ?></h2>
+<h2>RSVP: <?= h($event['name']) ?></h2>
 
 <?php if ($saved): ?>
   <div class="card">
