@@ -48,18 +48,6 @@ header_html('Upcoming Events');
   <p><a class="button" href="/admin_events.php">Add Event</a></p>
 <?php endif; ?>
 
-<?php
-  $gcal = Settings::get('google_calendar_url', '');
-  if ($gcal !== ''):
-?>
-<div class="card">
-  <p>
-   Subscribe to the Google Calendar
-    <a href="<?= h($gcal) ?>" target="_blank" rel="noopener">here</a>
-  </p>
-</div>
-<?php endif; ?>
-
 <?php if (empty($events)): ?>
   <p class="small">No upcoming events.</p>
 <?php else: ?>
@@ -81,5 +69,17 @@ header_html('Upcoming Events');
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
+<?php
+  $gcal = Settings::get('google_calendar_url', '');
+  if ($gcal !== ''):
+?>
+<div class="card">
+  <p>
+   Subscribe to the Google Calendar
+    <a href="<?= h($gcal) ?>" target="_blank" rel="noopener">here</a>
+  </p>
+</div>
+<?php endif; ?>
+
 
 <?php footer_html(); ?>
