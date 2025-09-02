@@ -285,18 +285,6 @@ header_html('Event Invite');
   </div>
 <?php endif; ?>
 
-<div class="card">
-  <?php if (!empty($event['photo_path'])): ?>
-    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
-  <?php endif; ?>
-  <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
-  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?=h($event['location'])?></p><?php endif; ?>
-  <?php if (!empty($event['description'])): ?>
-    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
-  <?php endif; ?>
-  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
-</div>
-
 <?php if (!$saved): ?>
   <div class="card">
     <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
@@ -311,27 +299,35 @@ header_html('Event Invite');
       <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
       <input type="hidden" name="sig" value="<?= h($sig) ?>">
 
-      <h3>Adults</h3>
-      <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$uid ?>" <?= in_array((int)$uid, $selectedAdults, true) ? 'checked' : '' ?>> <?= h($name !== '' ? $name : 'You') ?></label>
-      <?php foreach ($coParents as $a): ?>
-        <?php $aname = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')); ?>
-        <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$a['id'] ?>" <?= in_array((int)$a['id'], $selectedAdults, true) ? 'checked' : '' ?>> <?= h($aname) ?></label>
-      <?php endforeach; ?>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
+        <div>
+          <h3>Adults</h3>
+          <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$uid ?>" <?= in_array((int)$uid, $selectedAdults, true) ? 'checked' : '' ?>> <?= h($name !== '' ? $name : 'You') ?></label>
+          <?php foreach ($coParents as $a): ?>
+            <?php $aname = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')); ?>
+            <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$a['id'] ?>" <?= in_array((int)$a['id'], $selectedAdults, true) ? 'checked' : '' ?>> <?= h($aname) ?></label>
+          <?php endforeach; ?>
+        </div>
 
-      <h3>Children</h3>
-      <?php if (empty($children)): ?>
-        <p class="small">No children on file for you.</p>
-      <?php else: ?>
-        <?php foreach ($children as $c): ?>
-          <?php $cname = trim(($c['first_name'] ?? '').' '.($c['last_name'] ?? '')); ?>
-          <label class="inline"><input type="checkbox" name="youth[]" value="<?= (int)$c['id'] ?>" <?= in_array((int)$c['id'], $selectedYouth, true) ? 'checked' : '' ?>> <?= h($cname) ?></label>
-        <?php endforeach; ?>
-      <?php endif; ?>
+        <div>
+          <h3>Children</h3>
+          <?php if (empty($children)): ?>
+            <p class="small">No children on file for you.</p>
+          <?php else: ?>
+            <?php foreach ($children as $c): ?>
+              <?php $cname = trim(($c['first_name'] ?? '').' '.($c['last_name'] ?? '')); ?>
+              <label class="inline"><input type="checkbox" name="youth[]" value="<?= (int)$c['id'] ?>" <?= in_array((int)$c['id'], $selectedYouth, true) ? 'checked' : '' ?>> <?= h($cname) ?></label>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </div>
 
-      <h3>Guests</h3>
-      <label>Number of other guests
-        <input type="number" name="n_guests" value="<?= (int)$nGuests ?>" min="0">
-      </label>
+        <div>
+          <h3>Guests</h3>
+          <label class="inline">Other guests
+            <input type="number" name="n_guests" value="<?= (int)$nGuests ?>" min="0" style="max-width:130px;">
+          </label>
+        </div>
+      </div>
 
       <h3>Comments</h3>
       <label>
@@ -344,6 +340,19 @@ header_html('Event Invite');
     </form>
   </div>
 <?php endif; ?>
+
+<div class="card">
+  <?php if (!empty($event['photo_path'])): ?>
+    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
+  <?php endif; ?>
+  <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
+  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?=h($event['location'])?></p><?php endif; ?>
+  <?php if (!empty($event['description'])): ?>
+    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
+  <?php endif; ?>
+  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
+</div>
+
 
 <div class="card">
   <h3>Current RSVPs</h3>
