@@ -53,8 +53,8 @@ header_html('Upcoming Events');
   if ($gcal !== ''):
 ?>
 <div class="card">
-  <p class="small">
-    Subscribe to the Google Calendar with the URL
+  <p>
+    NOTE: You can Subscribe to the Google Calendar with the URL
     <a href="<?= h($gcal) ?>" target="_blank" rel="noopener">here</a>
   </p>
 </div>
