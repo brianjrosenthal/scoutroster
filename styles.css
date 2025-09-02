@@ -48,3 +48,8 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 @media (max-width:640px){
   .event-thumb{float:none;display:block;margin:0 auto 8px auto;width:100%;max-width:100%}
 }
+
+/* Public event page enhancements */
+.bottom-banner{position:fixed;left:0;right:0;bottom:0;background:#111;color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 -4px 12px rgba(0,0,0,.15);z-index:1000}
+.bottom-banner .actions{display:flex;gap:8px;align-items:center}
+.event-hero-top{display:block;width:100%;height:auto;border-radius:8px;margin:0 0 12px 0}

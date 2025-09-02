@@ -136,9 +136,12 @@ $pubKids   = (int)($rowTotals['k'] ?? 0);
 header_html('Event - Public RSVP');
 ?>
 <?php if ($allowPublic): ?>
-<h2><?= h($event['name']) ?></h2>
+  <?php if (!empty($event['photo_path'])): ?>
+    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero-top">
+  <?php endif; ?>
+  <h2><?= h($event['name']) ?></h2>
 <?php else: ?>
-<h2>Public RSVP</h2>
+  <h2>Public RSVP</h2>
 <?php endif; ?>
 
 <?php if ($saved): ?>
@@ -150,53 +153,14 @@ header_html('Event - Public RSVP');
 <?php if (!$allowPublic): ?>
   <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
 <?php elseif (!$eventStarted && !$saved): ?>
-<div class="card">
-  <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
-  <form method="post" class="stack">
-    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-    <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
-      <div>
-        <label>First and Last Name (required)
-          <input type="text" name="name" value="<?= h($nameInput) ?>" required>
-        </label>
-        <label>Email (required)
-          <input type="email" name="email" value="<?= h($email) ?>" required>
-        </label>
-        <label>Phone (optional)
-          <input type="text" name="phone" value="<?= h($phone) ?>">
-        </label>
-      </div>
-      <div>
-        <label>Total Adults
-          <input type="number" name="total_adults" value="<?= (int)$totalAdults ?>" min="0" style="max-width:130px;">
-        </label>
-        <label>Total Kids
-          <input type="number" name="total_kids" value="<?= (int)$totalKids ?>" min="0" style="max-width:130px;">
-        </label>
-      </div>
-    </div>
-
-    <label>Leave a comment (optional)
-      <textarea name="comment" rows="3"><?= h($comment) ?></textarea>
-    </label>
-
-    <div class="actions">
-      <button class="primary">RSVP</button>
-    </div>
-  </form>
-</div>
+  <!-- RSVP form available via modal; see bottom banner -->
 <?php elseif ($eventStarted): ?>
   <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
 <?php endif; ?>
 
 <?php if ($allowPublic): ?>
 <div class="card">
-  <?php if (!empty($event['photo_path'])): ?>
-    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
-  <?php endif; ?>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTime($event['starts_at'])) ?><?php if (!empty($event['ends_at'])): ?> &ndash; <?= h(Settings::formatDateTime($event['ends_at'])) ?><?php endif; ?></p>
+  <p><strong>When:</strong> <?= h(Settings::formatRangeShort((string)$event['starts_at'], (!empty($event['ends_at']) ? (string)$event['ends_at'] : null))) ?></p>
   <?php
     $locName = trim((string)($event['location'] ?? ''));
     $locAddr = trim((string)($event['location_address'] ?? ''));
@@ -216,6 +180,81 @@ header_html('Event - Public RSVP');
   <?php endif; ?>
   <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
 </div>
+<?php endif; ?>
+
+<?php if ($allowPublic && !$eventStarted && !$saved): ?>
+  <div class="bottom-banner">
+    <div>Will you be attending?</div>
+    <div class="actions">
+      <button id="rsvpYesBtn" class="primary">YES</button>
+      <button id="rsvpMaybeBtn" disabled aria-disabled="true" title="Maybe coming soon">MAYBE</button>
+      <button id="rsvpNoBtn">NO</button>
+    </div>
+  </div>
+  <div style="height:64px"></div>
+
+  <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>
+      <h3>RSVP to <?= h($event['name']) ?></h3>
+      <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
+      <form method="post" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
+          <div>
+            <label>First and Last Name (required)
+              <input type="text" name="name" value="<?= h($nameInput) ?>" required>
+            </label>
+            <label>Email (required)
+              <input type="email" name="email" value="<?= h($email) ?>" required>
+            </label>
+            <label>Phone (optional)
+              <input type="text" name="phone" value="<?= h($phone) ?>">
+            </label>
+          </div>
+          <div>
+            <label>Total Adults
+              <input type="number" name="total_adults" value="<?= (int)$totalAdults ?>" min="0" style="max-width:130px;">
+            </label>
+            <label>Total Kids
+              <input type="number" name="total_kids" value="<?= (int)$totalKids ?>" min="0" style="max-width:130px;">
+            </label>
+          </div>
+        </div>
+
+        <label>Leave a comment (optional)
+          <textarea name="comment" rows="3"><?= h($comment) ?></textarea>
+        </label>
+
+        <div class="actions">
+          <button class="primary">RSVP</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const modal = document.getElementById('rsvpModal');
+      const closeBtn = document.getElementById('rsvpModalClose');
+      const yesBtn = document.getElementById('rsvpYesBtn');
+      const noBtn = document.getElementById('rsvpNoBtn');
+      const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
+      const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
+
+      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); alert('RSVP "No" not implemented yet.'); });
+
+      if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+      if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+
+      <?php if ($error): ?>
+        openModal();
+      <?php endif; ?>
+    })();
+  </script>
 <?php endif; ?>
 
 <?php footer_html(); ?>
