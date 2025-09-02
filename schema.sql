@@ -163,6 +163,7 @@ CREATE TABLE events (
   description TEXT DEFAULT NULL,
   photo_path VARCHAR(512) DEFAULT NULL,
   max_cub_scouts INT DEFAULT NULL,
+  allow_non_user_rsvp TINYINT(1) NOT NULL DEFAULT 1,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (starts_at)
 ) ENGINE=InnoDB;

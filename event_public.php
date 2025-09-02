@@ -24,16 +24,21 @@ $st->execute([$eventId]);
 $event = $st->fetch();
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
-// Disallow after event starts
-$disallowRsvp = false;
+# Public RSVP flag and event start checks
+$allowPublic = (int)($event['allow_non_user_rsvp'] ?? 1) === 1;
+
+$eventStarted = false;
 try {
   $tz = new DateTimeZone(Settings::timezoneId());
   $startsAt = new DateTime($event['starts_at'], $tz);
   $nowTz = new DateTime('now', $tz);
-  if ($nowTz >= $startsAt) { $disallowRsvp = true; }
+  if ($nowTz >= $startsAt) { $eventStarted = true; }
 } catch (Throwable $e) {
   // allow if parse fails
 }
+
+// Legacy combined flag (kept for compatibility if referenced below)
+$disallowRsvp = $eventStarted || !$allowPublic;
 
 // Inputs/state
 $error = null;
@@ -49,7 +54,7 @@ $comment     = trim((string)($_POST['comment'] ?? ''));
 if ($totalAdults < 0) $totalAdults = 0;
 if ($totalKids < 0) $totalKids = 0;
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$disallowRsvp) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
   try {
     require_csrf();
 
@@ -138,7 +143,9 @@ header_html('Event - Public RSVP');
   </div>
 <?php endif; ?>
 
-<?php if (!$disallowRsvp && !$saved): ?>
+<?php if (!$allowPublic): ?>
+  <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
+<?php elseif (!$eventStarted && !$saved): ?>
 <div class="card">
   <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
   <form method="post" class="stack">
@@ -176,7 +183,7 @@ header_html('Event - Public RSVP');
     </div>
   </form>
 </div>
-<?php elseif ($disallowRsvp): ?>
+<?php elseif ($eventStarted): ?>
   <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
 <?php endif; ?>
 

@@ -44,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $location_address = trim($_POST['location_address'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $max_cub_scouts = trim($_POST['max_cub_scouts'] ?? '');
+    $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
 
     $errors = [];
     if ($name === '') $errors[] = 'Name is required.';
@@ -53,23 +54,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $eventId = $id > 0 ? $id : 0;
         if ($id > 0) {
-          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=? WHERE id=?");
+          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=? WHERE id=?");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
             ($location_address !== '' ? $location_address : null),
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
+            $allow_non_user_rsvp,
             $id
           ]);
         } else {
-          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts) VALUES (?,?,?,?,?,?,?)");
+          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp) VALUES (?,?,?,?,?,?,?,?)");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
             ($location_address !== '' ? $location_address : null),
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
+            $allow_non_user_rsvp,
           ]);
           if ($ok) { $eventId = (int)pdo()->lastInsertId(); }
         }
@@ -116,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'location_address' => $location_address,
         'description' => $description,
         'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
+        'allow_non_user_rsvp' => $allow_non_user_rsvp,
       ];
     }
   } elseif ($action === 'delete') {
@@ -168,6 +172,10 @@ header_html('Manage Events');
         <input type="number" name="max_cub_scouts" min="0" value="<?=h($editing['max_cub_scouts'] ?? '')?>">
       </label>
     </div>
+    <label>
+      <input type="checkbox" name="allow_non_user_rsvp" <?php $v = $editing['allow_non_user_rsvp'] ?? 1; echo ((int)$v === 1 ? 'checked' : ''); ?>>
+      Allow public RSVP (non-user)
+    </label>
     <label>Location
       <input type="text" name="location" value="<?=h($editing['location'] ?? '')?>">
     </label>

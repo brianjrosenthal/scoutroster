@@ -15,6 +15,7 @@ $st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
 $st->execute([$id]);
 $e = $st->fetch();
 if (!$e) { http_response_code(404); exit('Event not found'); }
+$allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
 
 // Flash after RSVP save
 $flashSaved = !empty($_GET['rsvp']);
@@ -149,7 +150,11 @@ header_html('Event');
     <a class="button" href="/events.php">Back to Events</a>
     <?php if ($isAdmin): ?>
       <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
-      <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
+      <?php if ($allowPublic): ?>
+        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
+      <?php else: ?>
+        <span class="small" style="margin-left:8px;opacity:0.75;">Public RSVP disabled</span>
+      <?php endif; ?>
       <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
     <?php endif; ?>
   </div>
