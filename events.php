@@ -64,7 +64,30 @@ header_html('Upcoming Events');
           <p><?= nl2br(h(truncatePlain($e['description'], 200))) ?></p>
         <?php endif; ?>
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
-        <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View / RSVP</a></p>
+        <?php
+          // Show current RSVP summary if user has one; otherwise show RSVP CTA
+          $st2 = pdo()->prepare("SELECT id, answer, n_guests FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+          $st2->execute([(int)$e['id'], (int)$u['id']]);
+          $my = $st2->fetch();
+          if ($my):
+            $rsvpId = (int)$my['id'];
+            $ad = 0; $kids = 0;
+            $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
+            $q->execute([$rsvpId]); $ad = (int)($q->fetch()['c'] ?? 0);
+            $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
+            $q->execute([$rsvpId]); $kids = (int)($q->fetch()['c'] ?? 0);
+            $guests = (int)($my['n_guests'] ?? 0);
+        ?>
+          <p class="small">
+            You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
+            <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
+            <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
+            <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
+          </p>
+          <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">Edit</a></p>
+        <?php else: ?>
+          <p><a class="button primary" href="/event.php?id=<?= (int)$e['id'] ?>">RSVP</a></p>
+        <?php endif; ?>
       </div>
     <?php endforeach; ?>
   </div>

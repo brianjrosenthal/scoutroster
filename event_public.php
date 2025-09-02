@@ -50,6 +50,8 @@ $phone = trim((string)($_POST['phone'] ?? ''));
 $totalAdults = isset($_POST['total_adults']) ? (int)$_POST['total_adults'] : 0;
 $totalKids   = isset($_POST['total_kids']) ? (int)$_POST['total_kids'] : 0;
 $comment     = trim((string)($_POST['comment'] ?? ''));
+$answer      = strtolower(trim((string)($_POST['answer'] ?? '')));
+if (!in_array($answer, ['yes','maybe','no'], true)) { $answer = 'yes'; }
 
 if ($totalAdults < 0) $totalAdults = 0;
 if ($totalKids < 0) $totalKids = 0;
@@ -76,12 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
     $tokenHash = hash('sha256', $plainToken);
 
     $ins = pdo()->prepare("
-      INSERT INTO rsvps_logged_out (event_id, first_name, last_name, email, phone, total_adults, total_kids, comment, token_hash)
-      VALUES (?,?,?,?,?,?,?,?,?)
+      INSERT INTO rsvps_logged_out (event_id, first_name, last_name, email, phone, total_adults, total_kids, answer, comment, token_hash)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
     ");
     $ins->execute([
       (int)$eventId, $firstName, $lastName, $email !== '' ? $email : null,
       $phone !== '' ? $phone : null, (int)$totalAdults, (int)$totalKids,
+      $answer,
       $comment !== '' ? $comment : null, $tokenHash
     ]);
     $rsvpId = (int)pdo()->lastInsertId();
@@ -118,7 +121,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
         <p><a href="'.$safeEdit.'">'.$safeEdit.'</a></p>
       </div>';
 
-    @send_email($email, 'Thank you for your RSVP to '.$event['name'], $html);
+    $subj = 'Thank you for your RSVP ('.ucfirst($answer).') to '.$event['name'];
+    @send_email($email, $subj, $html);
 
     $saved = true;
   } catch (Throwable $e) {
@@ -184,10 +188,10 @@ header_html('Event - Public RSVP');
 
 <?php if ($allowPublic && !$eventStarted && !$saved): ?>
   <div class="bottom-banner">
-    <div>Will you be attending?</div>
+    <div class="prompt">Will you be attending?</div>
     <div class="actions">
       <button id="rsvpYesBtn" class="primary">YES</button>
-      <button id="rsvpMaybeBtn" disabled aria-disabled="true" title="Maybe coming soon">MAYBE</button>
+      <button id="rsvpMaybeBtn" title="You can change later">MAYBE</button>
       <button id="rsvpNoBtn">NO</button>
     </div>
   </div>
@@ -201,6 +205,7 @@ header_html('Event - Public RSVP');
       <form method="post" class="stack">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+        <input type="hidden" name="answer" value="<?= h($answer) ?>">
 
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
           <div>
@@ -240,12 +245,15 @@ header_html('Event - Public RSVP');
       const modal = document.getElementById('rsvpModal');
       const closeBtn = document.getElementById('rsvpModalClose');
       const yesBtn = document.getElementById('rsvpYesBtn');
+      const maybeBtn = document.getElementById('rsvpMaybeBtn');
       const noBtn = document.getElementById('rsvpNoBtn');
+      const answerInput = document.querySelector('#rsvpModal form input[name="answer"]');
       const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
 
-      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
-      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); alert('RSVP "No" not implemented yet.'); });
+      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; openModal(); });
+      if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; openModal(); });
+      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; openModal(); });
 
       if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });

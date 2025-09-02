@@ -53,6 +53,10 @@ $selectedYouth = [];
 $comments = '';
 $nGuests = 0;
 
+// Default answer for hidden field (from existing RSVP or from ?answer= param)
+$defaultAnswer = strtolower((string)($myRsvp['answer'] ?? ($_GET['answer'] ?? 'yes')));
+if (!in_array($defaultAnswer, ['yes','maybe','no'], true)) { $defaultAnswer = 'yes'; }
+
 if ($myRsvp) {
   $comments = (string)($myRsvp['comments'] ?? '');
   $nGuests = (int)($myRsvp['n_guests'] ?? 0);
@@ -75,6 +79,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $comments = trim($_POST['comments'] ?? '');
   $nGuests = (int)($_POST['n_guests'] ?? 0);
   if ($nGuests < 0) $nGuests = 0;
+
+  // RSVP answer comes from the launching button; keep existing if not provided
+  $answer = strtolower(trim((string)($_POST['answer'] ?? '')));
+  if (!in_array($answer, ['yes','maybe','no'], true)) {
+    $answer = (string)($myRsvp['answer'] ?? 'yes');
+  }
 
   // Normalize to ints
   $adults = array_values(array_unique(array_map('intval', (array)$adults)));
@@ -118,12 +128,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   if (!$error) {
     try {
       if ($myRsvp) {
-        $st = pdo()->prepare("UPDATE rsvps SET comments=?, n_guests=? WHERE id=?");
-        $st->execute([$comments !== '' ? $comments : null, $nGuests, (int)$myRsvp['id']]);
+        $st = pdo()->prepare("UPDATE rsvps SET comments=?, n_guests=?, answer=? WHERE id=?");
+        $st->execute([$comments !== '' ? $comments : null, $nGuests, $answer, (int)$myRsvp['id']]);
         $rsvpId = (int)$myRsvp['id'];
       } else {
-        $st = pdo()->prepare("INSERT INTO rsvps (event_id, created_by_user_id, comments, n_guests) VALUES (?,?,?,?)");
-        $st->execute([$eventId, (int)$me['id'], $comments !== '' ? $comments : null, $nGuests]);
+        $st = pdo()->prepare("INSERT INTO rsvps (event_id, created_by_user_id, comments, n_guests, answer) VALUES (?,?,?,?,?)");
+        $st->execute([$eventId, (int)$me['id'], $comments !== '' ? $comments : null, $nGuests, $answer]);
         $rsvpId = (int)pdo()->lastInsertId();
       }
 
@@ -158,6 +168,7 @@ header_html('Edit RSVP');
   <form method="post" class="stack">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+    <input type="hidden" name="answer" value="<?= h($defaultAnswer) ?>">
 
     <h3>Adults</h3>
     <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$me['id'] ?>" <?= in_array((int)$me['id'], $selectedAdults, true) ? 'checked' : '' ?>> You (<?=h($me['first_name'].' '.$me['last_name'])?>)</label>

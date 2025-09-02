@@ -54,12 +54,41 @@ if ($myRsvp) {
   }
 }
 
-// Load overall RSVP lists
+/**
+ * Build selectable participants for modal (logged-in editor)
+ * - Children of current user
+ * - Co-parents (other adults linked to same children) + self
+ */
+$st = pdo()->prepare("
+  SELECT y.*
+  FROM parent_relationships pr
+  JOIN youth y ON y.id = pr.youth_id
+  WHERE pr.adult_id = ?
+  ORDER BY y.last_name, y.first_name
+");
+$st->execute([(int)$me['id']]);
+$myChildren = $st->fetchAll();
+
+$st = pdo()->prepare("
+  SELECT DISTINCT u2.*
+  FROM parent_relationships pr1
+  JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
+  JOIN users u2 ON u2.id = pr2.adult_id
+  WHERE pr1.adult_id = ? AND pr2.adult_id <> ?
+  ORDER BY u2.last_name, u2.first_name
+");
+$st->execute([(int)$me['id'], (int)$me['id']]);
+$coParents = $st->fetchAll();
+
+/**
+ * Load overall RSVP lists (YES only)
+ */
 $st = pdo()->prepare("
   SELECT rm.participant_type, rm.youth_id, rm.adult_id,
          y.first_name AS yfn, y.last_name AS yln,
          u.first_name AS afn, u.last_name AS aln
   FROM rsvp_members rm
+  JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer = 'yes'
   LEFT JOIN youth y ON y.id = rm.youth_id
   LEFT JOIN users u ON u.id = rm.adult_id
   WHERE rm.event_id = ?
@@ -68,16 +97,24 @@ $st = pdo()->prepare("
 $st->execute([$id]);
 $allMembers = $st->fetchAll();
 
-// Public RSVPs (logged-out)
-$st = pdo()->prepare("SELECT first_name, last_name, total_adults, total_kids, comment FROM rsvps_logged_out WHERE event_id=? ORDER BY last_name, first_name, id");
+// Public RSVPs (logged-out) - list YES only
+$st = pdo()->prepare("SELECT first_name, last_name, total_adults, total_kids, comment FROM rsvps_logged_out WHERE event_id=? AND answer='yes' ORDER BY last_name, first_name, id");
 $st->execute([$id]);
 $publicRsvps = $st->fetchAll();
 
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=?");
+// Public YES totals
+$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='yes'");
 $st->execute([$id]);
-$_pubTotals = $st->fetch();
-$pubAdults = (int)($_pubTotals['a'] ?? 0);
-$pubKids = (int)($_pubTotals['k'] ?? 0);
+$_pubYesTotals = $st->fetch();
+$pubAdultsYes = (int)($_pubYesTotals['a'] ?? 0);
+$pubKidsYes = (int)($_pubYesTotals['k'] ?? 0);
+
+// Public MAYBE totals
+$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='maybe'");
+$st->execute([$id]);
+$_pubMaybeTotals = $st->fetch();
+$pubAdultsMaybe = (int)($_pubMaybeTotals['a'] ?? 0);
+$pubKidsMaybe = (int)($_pubMaybeTotals['k'] ?? 0);
 
 $youthNames = [];
 $adultEntries = [];
@@ -104,16 +141,36 @@ foreach ($st->fetchAll() as $rv) {
 sort($youthNames);
 usort($adultEntries, function($a,$b){ return strcmp($a['name'], $b['name']); });
 
-// Sum guest count
-$st = pdo()->prepare("SELECT SUM(n_guests) AS g FROM rsvps WHERE event_id=?");
+// Sum guest count (YES only)
+$st = pdo()->prepare("SELECT COALESCE(SUM(n_guests),0) AS g FROM rsvps WHERE event_id=? AND answer='yes'");
 $st->execute([$id]);
 $guestsTotal = (int)($st->fetch()['g'] ?? 0);
 
-// Counts
+// Counts (YES)
 $youthCount = count($youthNames);
 $adultCount = count($adultEntries);
-$adultCountCombined = $adultCount + $pubAdults;
-$youthCountCombined = $youthCount + $pubKids;
+$adultCountCombined = $adultCount + $pubAdultsYes;
+$youthCountCombined = $youthCount + $pubKidsYes;
+
+// MAYBE totals (adults, youth, guests)
+$st = pdo()->prepare("
+  SELECT COUNT(DISTINCT CASE WHEN rm.participant_type='adult' THEN rm.adult_id END) AS a,
+         COUNT(DISTINCT CASE WHEN rm.participant_type='youth' THEN rm.youth_id END) AS y
+  FROM rsvp_members rm
+  JOIN rsvps r ON r.id = rm.rsvp_id
+  WHERE rm.event_id = ? AND r.answer = 'maybe'
+");
+$st->execute([$id]);
+$_maybeIn = $st->fetch();
+$maybeAdultsIn = (int)($_maybeIn['a'] ?? 0);
+$maybeYouthIn  = (int)($_maybeIn['y'] ?? 0);
+
+$maybeAdultsTotal = $maybeAdultsIn + $pubAdultsMaybe;
+$maybeYouthTotal  = $maybeYouthIn + $pubKidsMaybe;
+
+$st = pdo()->prepare("SELECT COALESCE(SUM(n_guests),0) AS g FROM rsvps WHERE event_id=? AND answer='maybe'");
+$st->execute([$id]);
+$maybeGuestsTotal = (int)($st->fetch()['g'] ?? 0);
 
 header_html('Event');
 ?>
@@ -160,16 +217,24 @@ header_html('Event');
   </div>
 </div>
 
+<?php
+$myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
+if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
+?>
 <div class="card">
-  <h3>Your RSVP</h3>
   <?php if ($myRsvp): ?>
     <p>
-      You are attending<?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
+      You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
-      <a href="/rsvp_edit.php?event_id=<?= (int)$e['id'] ?>">(edit)</a>
+      <a class="button" id="rsvpEditBtn">Edit</a>
     </p>
   <?php else: ?>
-    <p>You have not RSVPed yet. <a class="button" href="/rsvp_edit.php?event_id=<?= (int)$e['id'] ?>">RSVP now</a></p>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <strong>RSVP:</strong>
+      <button class="primary" id="rsvpYesBtn">Yes</button>
+      <button id="rsvpMaybeBtn">Maybe</button>
+      <button id="rsvpNoBtn">No</button>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -179,6 +244,9 @@ header_html('Event');
     Adults: <?= (int)$adultCountCombined ?> &nbsp;&nbsp; | &nbsp;&nbsp;
     Cub Scouts: <?= (int)$youthCountCombined ?><?= !empty($e['max_cub_scouts']) ? ' / '.(int)$e['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
     Other Guests: <?= (int)$guestsTotal ?>
+    <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
+      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP’d maybe)</em>
+    <?php endif; ?>
   </p>
 
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
@@ -230,5 +298,93 @@ header_html('Event');
     </div>
   </div>
 </div>
+
+<!-- RSVP modal (posts to rsvp_edit.php) -->
+<div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>
+    <h3>RSVP to <?= h($e['name']) ?></h3>
+    <form method="post" class="stack" action="/rsvp_edit.php">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+      <input type="hidden" name="answer" id="rsvpAnswerInput" value="<?= h($myAnswer) ?>">
+
+      <h4>Adults</h4>
+      <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$me['id'] ?>"
+        <?= $myRsvp ? (in_array((int)$me['id'], array_map(fn($row)=> (int)$row['id'], [['id'=>$me['id']]]), true) ? '' : '') : '' ?>
+      > You (<?= h($me['first_name'].' '.$me['last_name']) ?>)</label>
+      <?php foreach ($coParents as $a): ?>
+        <?php $aid = (int)$a['id']; $an = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')); ?>
+        <label class="inline"><input type="checkbox" name="adults[]" value="<?= $aid ?>"
+          <?php
+            // preselect if present in my RSVP
+            $selAdults = [];
+            if ($myRsvp) {
+              $st = pdo()->prepare("SELECT adult_id FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
+              $st->execute([(int)$myRsvp['id']]);
+              foreach ($st->fetchAll() as $ra) { if (!empty($ra['adult_id'])) $selAdults[] = (int)$ra['adult_id']; }
+            }
+            echo in_array($aid, $selAdults, true) ? 'checked' : '';
+          ?>
+        > <?= h($an) ?></label>
+      <?php endforeach; ?>
+
+      <h4>Children</h4>
+      <?php
+        $selYouth = [];
+        if ($myRsvp) {
+          $st = pdo()->prepare("SELECT youth_id FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
+          $st->execute([(int)$myRsvp['id']]);
+          foreach ($st->fetchAll() as $ry) { if (!empty($ry['youth_id'])) $selYouth[] = (int)$ry['youth_id']; }
+        }
+      ?>
+      <?php if (empty($myChildren)): ?>
+        <p class="small">You have no children on file.</p>
+      <?php else: ?>
+        <?php foreach ($myChildren as $c): ?>
+          <?php $cid = (int)$c['id']; $cn = trim(($c['first_name'] ?? '').' '.($c['last_name'] ?? '')); ?>
+          <label class="inline"><input type="checkbox" name="youth[]" value="<?= $cid ?>" <?= in_array($cid, $selYouth, true) ? 'checked' : '' ?>> <?= h($cn) ?></label>
+        <?php endforeach; ?>
+      <?php endif; ?>
+
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:start;">
+        <label>Number of other guests
+          <input type="number" name="n_guests" value="<?= (int)($myRsvp['n_guests'] ?? 0) ?>" min="0">
+        </label>
+      </div>
+
+      <label>Comments
+        <textarea name="comments" rows="3"><?= h((string)($myRsvp['comments'] ?? '')) ?></textarea>
+      </label>
+
+      <div class="actions">
+        <button class="primary">Save RSVP</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  (function(){
+    const modal = document.getElementById('rsvpModal');
+    const closeBtn = document.getElementById('rsvpModalClose');
+    const yesBtn = document.getElementById('rsvpYesBtn');
+    const maybeBtn = document.getElementById('rsvpMaybeBtn');
+    const noBtn = document.getElementById('rsvpNoBtn');
+    const editBtn = document.getElementById('rsvpEditBtn');
+    const answerInput = document.getElementById('rsvpAnswerInput');
+
+    const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
+    const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
+
+    if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; openModal(); });
+    if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; openModal(); });
+    if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; openModal(); });
+    if (editBtn) editBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+
+    if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+    if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+  })();
+</script>
 
 <?php footer_html(); ?>

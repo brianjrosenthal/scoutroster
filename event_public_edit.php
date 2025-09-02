@@ -77,11 +77,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $totalAdults = (int)($_POST['total_adults'] ?? 0);
     $totalKids   = (int)($_POST['total_kids'] ?? 0);
     $comment     = trim((string)($_POST['comment'] ?? ''));
+    $answer      = strtolower(trim((string)($_POST['answer'] ?? '')));
     if ($totalAdults < 0) $totalAdults = 0;
     if ($totalKids < 0) $totalKids = 0;
+    if (!in_array($answer, ['yes','maybe','no'], true)) {
+      $answer = (string)($rsvp['answer'] ?? 'yes');
+    }
 
-    $upd = pdo()->prepare("UPDATE rsvps_logged_out SET total_adults=?, total_kids=?, comment=? WHERE id=?");
-    $upd->execute([$totalAdults, $totalKids, ($comment !== '' ? $comment : null), $id]);
+    $upd = pdo()->prepare("UPDATE rsvps_logged_out SET total_adults=?, total_kids=?, answer=?, comment=? WHERE id=?");
+    $upd->execute([$totalAdults, $totalKids, $answer, ($comment !== '' ? $comment : null), $id]);
 
     // Reload current values
     $st = pdo()->prepare("SELECT * FROM rsvps_logged_out WHERE id=? LIMIT 1");
@@ -113,6 +117,13 @@ header_html('Edit RSVP');
     <input type="hidden" name="id" value="<?= (int)$id ?>">
     <input type="hidden" name="token" value="<?= h($token) ?>">
     <input type="hidden" name="sig" value="<?= h($sig) ?>">
+
+    <label>Your response</label>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;align-items:start;margin-bottom:8px;">
+      <label class="inline"><input type="radio" name="answer" value="yes" <?= ((($rsvp['answer'] ?? 'yes') === 'yes') ? 'checked' : '') ?>> Yes</label>
+      <label class="inline"><input type="radio" name="answer" value="maybe" <?= ((($rsvp['answer'] ?? 'yes') === 'maybe') ? 'checked' : '') ?>> Maybe</label>
+      <label class="inline"><input type="radio" name="answer" value="no" <?= ((($rsvp['answer'] ?? 'yes') === 'no') ? 'checked' : '') ?>> No</label>
+    </div>
 
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:start;">
       <label>Total Adults
