@@ -176,11 +176,16 @@ header_html('Edit Youth');
       </label>
       <label>Grade
         <select name="grade" required>
-          <?php for($i=0;$i<=5;$i++): $lbl = \GradeCalculator::gradeLabel($i); ?>
-            <option value="<?=h($lbl)?>" <?= ($currentGrade === $i ? 'selected' : '') ?>>
-              <?= $i === 0 ? 'K' : $i ?>
+          <?php
+            // Support Pre-K (K in 3..1 years), K, and Grades 1..12
+            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
+            foreach ($grades as $i):
+              $lbl = \GradeCalculator::gradeLabel($i);
+          ?>
+            <option value="<?= h($lbl) ?>" <?= ($currentGrade === $i ? 'selected' : '') ?>>
+              <?= h($lbl) ?>
             </option>
-          <?php endfor; ?>
+          <?php endforeach; ?>
         </select>
         <small class="small">class_of will be computed from the selected grade.</small>
       </label>

@@ -46,17 +46,26 @@ class GradeCalculator {
    */
   public static function gradeForClassOf(int $classOf, DateTime $now = null): int {
     $currentFifthClassOf = self::schoolYearEndYear($now);
-    $grade = 5 - ($classOf - $currentFifthClassOf);
-    if ($grade < 0) $grade = 0;
-    if ($grade > 5) $grade = 5;
-    return $grade;
+    // General formula: grade = 5 - (class_of - currentFifthClassOf)
+    // This can yield:
+    //   -3..-1 => Pre-K (K in 3..1 years)
+    //    0     => K
+    //    1..12 => Grades 1..12
+    return 5 - ($classOf - $currentFifthClassOf);
   }
 
   /**
    * Returns a human label for a grade number (0..5).
    */
   public static function gradeLabel(int $grade): string {
-    if ($grade <= 0) return 'K';
+    if ($grade <= -1) {
+      $years = abs($grade);
+      // Cap display at 3 years for label consistency
+      if ($years > 3) $years = 3;
+      return 'Pre-K (K in ' . $years . ' ' . ($years === 1 ? 'year' : 'years') . ')';
+    }
+    if ($grade === 0) return 'K';
+    // Allow up through high school labels; beyond 12 just show the number
     return (string)$grade;
   }
 
@@ -64,12 +73,29 @@ class GradeCalculator {
    * Parse a label ('K','0','1'..'5') into an integer grade 0..5. Returns null if invalid.
    */
   public static function parseGradeLabel(string $label): ?int {
-    $label = strtoupper(trim($label));
-    if ($label === 'K') return 0;
-    if (ctype_digit($label)) {
-      $n = (int)$label;
-      if ($n >= 0 && $n <= 5) return $n;
+    $raw = trim($label);
+    $upper = strtoupper($raw);
+
+    // K
+    if ($upper === 'K') return 0;
+
+    // Numeric (supports negative for Pre-K, e.g., -1, -2, -3)
+    if (preg_match('/^-?\d+$/', $raw)) {
+      $n = (int)$raw;
+      // Accept a reasonable range for our app
+      if ($n >= -12 && $n <= 20) return $n;
     }
+
+    // PRE-K variants (optionally with "K in N years")
+    if (strpos($upper, 'PRE-K') === 0 || strpos($upper, 'PREK') === 0) {
+      if (preg_match('/K\s+IN\s+(\d+)\s+YEAR/i', $upper, $m)) {
+        $years = max(1, min(12, (int)$m[1]));
+        return -$years;
+      }
+      // Default to 1 year if unspecified
+      return -1;
+    }
+
     return null;
   }
 }

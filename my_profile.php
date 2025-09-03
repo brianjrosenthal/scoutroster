@@ -602,9 +602,14 @@ header_html('My Profile');
       </label>
       <label>Grade
         <select name="grade" required>
-          <?php for($i=0;$i<=5;$i++): $lbl = ($i===0 ? 'K' : (string)$i); ?>
-            <option value="<?=h($lbl)?>"><?= $i===0 ? 'K' : $i ?></option>
-          <?php endfor; ?>
+          <?php
+            // Support Pre-K (K in 3..1 years), K, and Grades 1..12
+            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
+            foreach ($grades as $g):
+              $lbl = \GradeCalculator::gradeLabel($g);
+          ?>
+            <option value="<?= h($lbl) ?>"><?= h($lbl) ?></option>
+          <?php endforeach; ?>
         </select>
       </label>
       <label>Gender
