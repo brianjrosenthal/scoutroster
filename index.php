@@ -7,6 +7,7 @@ $siteTitle = Settings::siteTitle();
 
 require_once __DIR__ . '/lib/Reimbursements.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
+require_once __DIR__ . '/lib/Volunteers.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -235,6 +236,136 @@ header_html('Home');
     </div>
   <?php endif; ?>
 </div>
+
+<?php
+  // Volunteer CTA (only if not dismissed for 60 days)
+  $suppressVolunteer = false;
+  try {
+    if (isset($_COOKIE['volunteer_prompt_dismiss_until'])) {
+      $dt = (int)$_COOKIE['volunteer_prompt_dismiss_until'];
+      if ($dt > time()) $suppressVolunteer = true;
+    }
+  } catch (Throwable $e) {
+    $suppressVolunteer = false;
+  }
+
+  $volCandidate = null;
+  $volRolesOpen = [];
+  if (!$suppressVolunteer) {
+    try {
+      $sql = "
+        SELECT e.*
+        FROM events e
+        WHERE e.starts_at >= NOW()
+          AND e.id IN (
+            SELECT r1.event_id
+            FROM rsvps r1
+            WHERE r1.answer='yes' AND r1.created_by_user_id = ?
+            UNION
+            SELECT r2.event_id
+            FROM rsvps r2
+            JOIN rsvp_members rm ON rm.rsvp_id = r2.id AND rm.event_id = r2.event_id
+            WHERE r2.answer='yes' AND rm.participant_type='adult' AND rm.adult_id = ?
+          )
+        ORDER BY e.starts_at
+      ";
+      $stCand = pdo()->prepare($sql);
+      $stCand->execute([(int)$me['id'], (int)$me['id']]);
+      $cands = $stCand->fetchAll() ?: [];
+      foreach ($cands as $ev) {
+        $eid = (int)$ev['id'];
+        // Must have open roles
+        if (!Volunteers::openRolesExist($eid)) continue;
+        // Skip if the user already has any signup for this event
+        $chk = pdo()->prepare("SELECT 1 FROM volunteer_signups WHERE event_id=? AND user_id=? LIMIT 1");
+        $chk->execute([$eid, (int)$me['id']]);
+        if ((bool)$chk->fetchColumn()) continue;
+
+        $roles = Volunteers::rolesWithCounts($eid);
+        $open = [];
+        foreach ($roles as $r) {
+          if ((int)($r['open_count'] ?? 0) > 0) $open[] = $r;
+        }
+        if (empty($open)) continue;
+
+        $volCandidate = $ev;
+        $volRolesOpen = $open;
+        break;
+      }
+    } catch (Throwable $e) {
+      $volCandidate = null;
+      $volRolesOpen = [];
+    }
+  }
+?>
+
+<?php if ($volCandidate): ?>
+  <?php
+    $roleSummaries = [];
+    foreach ($volRolesOpen as $r) {
+      $roleSummaries[] = h((string)$r['title']) . ' (' . (int)$r['open_count'] . ')';
+    }
+    $roleSummaryText = implode(', ', $roleSummaries);
+  ?>
+  <div id="volCta" class="card" style="margin-top:16px;">
+    <h3>Volunteer at <?= h($volCandidate['name'] ?? '') ?></h3>
+    <p>
+      The event "<?= h($volCandidate['name'] ?? '') ?>" needs people to volunteer to help with the following:
+      <?= $roleSummaryText ?>. Would you be able to help?
+    </p>
+    <div class="actions">
+      <button class="button primary" id="volOpenBtn">Sign-up</button>
+    </div>
+  </div>
+
+  <div id="volModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-content">
+      <button class="close" id="volCloseBtn" aria-label="Close">&times;</button>
+      <h3>Volunteer at <?= h($volCandidate['name'] ?? '') ?></h3>
+      <div class="stack">
+        <?php foreach ($volRolesOpen as $r): ?>
+          <form method="post" action="/volunteer_actions.php" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:8px;">
+            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="action" value="signup">
+            <input type="hidden" name="event_id" value="<?= (int)($volCandidate['id'] ?? 0) ?>">
+            <input type="hidden" name="role_id" value="<?= (int)($r['id'] ?? 0) ?>">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+              <div>
+                <strong><?= h((string)$r['title']) ?></strong>
+                <span class="small">(<?= (int)($r['open_count'] ?? 0) ?> remaining)</span>
+              </div>
+              <button class="button">Sign Up</button>
+            </div>
+          </form>
+        <?php endforeach; ?>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      var openBtn = document.getElementById('volOpenBtn');
+      var modal = document.getElementById('volModal');
+      var closeBtn = document.getElementById('volCloseBtn');
+      var cta = document.getElementById('volCta');
+      function show(){ if(modal){ modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } }
+      function hide(){ if(modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
+      function setDismissCookie(days){
+        var maxAge = days*24*60*60;
+        var now = Math.floor(Date.now()/1000);
+        var until = now + maxAge;
+        document.cookie = 'volunteer_prompt_dismiss_until=' + until + '; Max-Age=' + maxAge + '; Path=/; SameSite=Lax';
+      }
+      if (openBtn) openBtn.addEventListener('click', function(e){ e.preventDefault(); show(); });
+      if (closeBtn) closeBtn.addEventListener('click', function(e){
+        e.preventDefault(); setDismissCookie(60); hide(); if (cta) cta.style.display='none';
+      });
+      if (modal) modal.addEventListener('click', function(e){
+        if (e.target === modal) { setDismissCookie(60); hide(); if (cta) cta.style.display='none'; }
+      });
+    })();
+  </script>
+<?php endif; ?>
 
 <?php
   // Upcoming Events (next 2 months, max 5)
