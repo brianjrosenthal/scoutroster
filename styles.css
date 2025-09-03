@@ -74,6 +74,6 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 header nav{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 header nav .nav-left,header nav .nav-right{display:flex;align-items:center;gap:12px}
 header nav .nav-right{margin-left:auto}
-.admin-bar{background:#222;color:#fff;padding:6px 16px}
+.admin-bar{background:#222;color:#fff;padding:6px 16px;display:flex;justify-content:flex-end}
 .admin-bar a{color:#fff;text-decoration:none}
 .hidden{display:none}

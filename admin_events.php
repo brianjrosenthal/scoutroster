@@ -46,6 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $max_cub_scouts = trim($_POST['max_cub_scouts'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
     $evite_rsvp_url = trim($_POST['evite_rsvp_url'] ?? '');
+    $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
     $errors = [];
     if ($name === '') $errors[] = 'Name is required.';
@@ -55,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $eventId = $id > 0 ? $id : 0;
         if ($id > 0) {
-          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=?, evite_rsvp_url=? WHERE id=?");
+          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=?, evite_rsvp_url=?, google_maps_url=? WHERE id=?");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
@@ -64,10 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $allow_non_user_rsvp,
             ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+            ($google_maps_url !== '' ? $google_maps_url : null),
             $id
           ]);
         } else {
-          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, evite_rsvp_url) VALUES (?,?,?,?,?,?,?,?,?)");
+          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, evite_rsvp_url, google_maps_url) VALUES (?,?,?,?,?,?,?,?,?,?)");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
@@ -76,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $allow_non_user_rsvp,
             ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+            ($google_maps_url !== '' ? $google_maps_url : null),
           ]);
           if ($ok) { $eventId = (int)pdo()->lastInsertId(); }
         }
@@ -124,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
         'allow_non_user_rsvp' => $allow_non_user_rsvp,
         'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+        'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
       ];
     }
   } elseif ($action === 'delete') {
@@ -186,6 +190,10 @@ header_html('Manage Events');
     <label>Location Address
       <textarea name="location_address" rows="3" placeholder="Street&#10;City, State ZIP"><?=h($editing['location_address'] ?? '')?></textarea>
     </label>
+    <label>Google Maps Link Override
+      <input type="url" name="google_maps_url" value="<?= h($editing['google_maps_url'] ?? '') ?>" placeholder="https://maps.google.com/...">
+    </label>
+    <p class="small">If provided, the “map” link uses this URL instead of the auto-generated address search.</p>
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
     </label>

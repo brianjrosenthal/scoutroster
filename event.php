@@ -243,13 +243,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   <?php
     $locName = trim((string)($e['location'] ?? ''));
     $locAddr = trim((string)($e['location_address'] ?? ''));
+    $mapsUrl = trim((string)($e['google_maps_url'] ?? ''));
+    $mapHref = $mapsUrl !== '' ? $mapsUrl : ($locAddr !== '' ? 'https://www.google.com/maps/search/?api=1&query='.urlencode($locAddr) : '');
     if ($locName !== '' || $locAddr !== ''):
   ?>
     <p><strong>Where:</strong>
       <?php if ($locName !== ''): ?>
         <?= h($locName) ?>
-        <?php if ($locAddr !== ''): ?>
-          <a class="small" href="https://www.google.com/maps/search/?api=1&query=<?= h(urlencode($locAddr)) ?>" target="_blank" rel="noopener">map</a><br>
+        <?php if ($mapHref !== ''): ?>
+          <a class="small" href="<?= h($mapHref) ?>" target="_blank" rel="noopener">map</a><br>
         <?php endif; ?>
       <?php endif; ?>
       <?php if ($locAddr !== ''): ?>

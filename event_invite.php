@@ -552,12 +552,14 @@ header_html('Event Invite');
   <?php
     $locName = trim((string)($event['location'] ?? ''));
     $locAddr = trim((string)($event['location_address'] ?? ''));
+    $mapsUrl = trim((string)($event['google_maps_url'] ?? ''));
+    $mapHref = $mapsUrl !== '' ? $mapsUrl : ($locAddr !== '' ? 'https://www.google.com/maps/search/?api=1&query='.urlencode($locAddr) : '');
     if ($locName !== '' || $locAddr !== ''):
   ?>
     <p><strong>Where:</strong>
       <?php if ($locName !== ''): ?>
-        <?= h($locName) ?><?php if ($locAddr !== ''): ?>
-          <a class="small" href="https://www.google.com/maps/search/?api=1&query=<?= h(urlencode($locAddr)) ?>" target="_blank" rel="noopener">map</a><br>
+        <?= h($locName) ?><?php if ($mapHref !== ''): ?>
+          <a class="small" href="<?= h($mapHref) ?>" target="_blank" rel="noopener">map</a><br>
         <?php endif; ?>
       <?php endif; ?>
       <?php if ($locAddr !== ''): ?>
