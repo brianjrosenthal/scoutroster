@@ -549,7 +549,22 @@ header_html('Event Invite');
     <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
   <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
-  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?=h($event['location'])?></p><?php endif; ?>
+  <?php
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    if ($locName !== '' || $locAddr !== ''):
+  ?>
+    <p><strong>Where:</strong>
+      <?php if ($locName !== ''): ?>
+        <?= h($locName) ?><?php if ($locAddr !== ''): ?>
+          <a class="small" href="https://www.google.com/maps/search/?api=1&query=<?= h(urlencode($locAddr)) ?>" target="_blank" rel="noopener">map</a><br>
+        <?php endif; ?>
+      <?php endif; ?>
+      <?php if ($locAddr !== ''): ?>
+        <?= nl2br(h($locAddr)) ?>
+      <?php endif; ?>
+    </p>
+  <?php endif; ?>
   <?php if (!empty($event['description'])): ?>
     <div><?= Text::renderMarkup((string)$event['description']) ?></div>
   <?php endif; ?>

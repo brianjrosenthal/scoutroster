@@ -183,7 +183,7 @@ header_html('Event - Public RSVP');
   ?>
     <p><strong>Where:</strong>
       <?php if ($locName !== ''): ?>
-        <?= h($locName) ?><?php if ($locAddr !== '') echo '<br>'; ?>
+        <?= h($locName) ?><?php if ($locAddr !== ''): ?> <a class="small" href="https://www.google.com/maps/search/?api=1&query=<?= h(urlencode($locAddr)) ?>" target="_blank" rel="noopener">map</a><br><?php endif; ?>
       <?php endif; ?>
       <?php if ($locAddr !== ''): ?>
         <?= nl2br(h($locAddr)) ?>

@@ -59,7 +59,9 @@ header_html('Upcoming Events');
           <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
         <?php endif; ?>
         <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
-        <?php if (!empty($e['location'])): ?><p><strong>Where:</strong> <?=h($e['location'])?></p><?php endif; ?>
+        <?php if (!empty($e['location'])): $locAddr = trim((string)($e['location_address'] ?? '')); ?>
+          <p><strong>Where:</strong> <?= h($e['location']) ?><?php if ($locAddr !== ''): ?> <a class="small" href="https://www.google.com/maps/search/?api=1&query=<?= h(urlencode($locAddr)) ?>" target="_blank" rel="noopener">map</a><?php endif; ?></p>
+        <?php endif; ?>
         <?php if (!empty($e['description'])): ?>
           <p><?= nl2br(h(truncatePlain($e['description'], 200))) ?></p>
         <?php endif; ?>
