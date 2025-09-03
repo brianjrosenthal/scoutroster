@@ -69,3 +69,11 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 .bottom-banner .prompt{flex:0 0 auto;text-align:center;font-weight:600;margin-right:10px}
 .bottom-banner .actions{display:flex;gap:10px;align-items:center}
 .event-hero-top{display:block;width:100%;height:auto;max-height:360px;object-fit:cover;border-radius:8px;margin:0 0 12px 0}
+
+/* Top nav layout: split left/right groups; admin bar styling */
+header nav{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header nav .nav-left,header nav .nav-right{display:flex;align-items:center;gap:12px}
+header nav .nav-right{margin-left:auto}
+.admin-bar{background:#222;color:#fff;padding:6px 16px}
+.admin-bar a{color:#fff;text-decoration:none}
+.hidden{display:none}

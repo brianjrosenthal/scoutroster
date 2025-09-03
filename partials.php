@@ -16,26 +16,25 @@ function header_html(string $title) {
     return $active ? '<strong>'.$a.'</strong>' : $a;
   };
 
-  // Build nav
-  $nav = '';
+  // Build nav (left/right groups). Remove Change Password. Move My Profile to the far right next to Logout.
+  $navLeft = [];
+  $navRight = [];
   if ($u) {
-    $nav .= $link('/index.php','Home').' | ';
-    $nav .= $link('/youth.php','Youth').' | ';
-    $nav .= $link('/adults.php','Adults').' | ';
-    $nav .= $link('/reimbursements.php','Reimbursements').' | ';
-    $nav .= $link('/events.php','Events').' | ';
-    $nav .= $link('/my_profile.php','My Profile').' | ';
+    $navLeft[] = $link('/index.php','Home');
+    $navLeft[] = $link('/youth.php','Youth');
+    $navLeft[] = $link('/adults.php','Adults');
+    $navLeft[] = $link('/reimbursements.php','Reimbursements');
+    $navLeft[] = $link('/events.php','Events');
     if (!empty($u['is_admin'])) {
-      $nav .= $link('/admin_events.php','Manage Events').' | ';
-      $nav .= $link('/admin_adults.php','Manage Adults').' | ';
-      $nav .= $link('/admin_import_upload.php','Import Members').' | ';
-      $nav .= $link('/admin_mailing_list.php','Mailing List').' | ';
-      $nav .= $link('/admin_settings.php','Settings').' | ';
+      $navLeft[] = '<a href="#" id="adminToggle">Admin</a>';
     }
-    $nav .= $link('/change_password.php','Change Password').' | '.$link('/logout.php','Log out');
+    $navRight[] = $link('/my_profile.php','My Profile');
+    $navRight[] = $link('/logout.php','Log out');
   } else {
-    $nav .= $link('/login.php','Login');
+    $navLeft[] = $link('/login.php','Login');
   }
+  $navHtml = '<span class="nav-left">'.implode(' ', $navLeft).'</span>'
+           . '<span class="nav-right">'.implode(' ', $navRight).'</span>';
 
   $siteTitle = Settings::siteTitle();
 
@@ -48,7 +47,20 @@ function header_html(string $title) {
   if (!$cssVer) { $cssVer = date('Ymd'); }
   echo '<link rel="stylesheet" href="/styles.css?v='.h($cssVer).'">';
   echo '</head><body>';
-  echo '<header><h1><a href="/index.php">'.h($siteTitle).'</a></h1><nav>'.$nav.'</nav></header>';
+  echo '<header><h1><a href="/index.php">'.h($siteTitle).'</a></h1><nav>'.$navHtml.'</nav></header>';
+
+  // Admin bar (second row) toggled by the "Admin" link
+  if ($u && !empty($u['is_admin'])) {
+    echo '<div id="adminBar" class="admin-bar hidden">';
+    echo $link('/admin_events.php','Manage Events').' | ';
+    echo $link('/admin_adults.php','Manage Adults').' | ';
+    echo $link('/admin_import_upload.php','Import Members').' | ';
+    echo $link('/admin_mailing_list.php','Mailing List').' | ';
+    echo $link('/admin_settings.php','Settings');
+    echo '</div>';
+    echo '<script>document.addEventListener("DOMContentLoaded",function(){var t=document.getElementById("adminToggle");var b=document.getElementById("adminBar");if(t&&b){t.addEventListener("click",function(e){e.preventDefault();b.classList.toggle("hidden");});}});</script>';
+  }
+
   echo '<main>';
 }
 
