@@ -14,6 +14,7 @@ if ($isApprover) {
   $pending = Reimbursements::listPendingForApprover(5);
 }
 
+$me = current_user();
 header_html('Home');
 ?>
 <?php if (trim($announcement) !== ''): ?>
@@ -21,7 +22,7 @@ header_html('Home');
 <?php endif; ?>
 
 <div class="card">
-  <h2>Welcome to <?=h($siteTitle)?></h2>
+  <h2>Welcome back, <?= h($me['first_name'] ?? '') ?> to <?= h($siteTitle) ?></h2>
   <p class="small">Use the navigation above to view rosters, events, and your profile.</p>
 </div>
 
@@ -92,6 +93,93 @@ header_html('Home');
   $cubmasterLabel = $cubmasterName !== '' ? $cubmasterName : 'the Cubmaster';
   $committeeChairLabel = $committeeChairName !== '' ? $committeeChairName : 'the Committee Chair';
 ?>
+
+<div class="card" style="margin-top:16px;">
+  <h3>My Family</h3>
+
+  <h4>Children</h4>
+  <?php
+    // Use the previously fetched $kids, if available
+    $children = is_array($kids ?? null) ? $kids : [];
+  ?>
+  <?php if (empty($children)): ?>
+    <p class="small">No children on file. You can add a child from your <a href="/my_profile.php">My Profile</a> page.</p>
+  <?php else: ?>
+    <ul>
+      <?php foreach ($children as $c): ?>
+        <?php
+          $fullName = trim((string)($c['first_name'] ?? '').' '.(string)($c['last_name'] ?? ''));
+          $classOf = (int)($c['class_of'] ?? 0);
+          $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
+          $gradeLabel = $grade !== null ? GradeCalculator::gradeLabel($grade) : '';
+          $yReg = trim((string)($c['bsa_registration_number'] ?? ''));
+        ?>
+        <li>
+          <strong><?= h($fullName) ?></strong>
+          <?php if ($gradeLabel !== ''): ?>
+            <span class="small"> — Grade <?= h($gradeLabel) ?></span>
+          <?php endif; ?>
+          <?php if ($yReg !== ''): ?>
+            <div class="small">BSA Registration ID: <?= h($yReg) ?></div>
+          <?php else: ?>
+            <div class="small">BSA Registration ID: unregistered</div>
+          <?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+
+  <h4 style="margin-top:12px;">Co-Parents</h4>
+  <?php
+    $coParents = [];
+    try {
+      $childIds = array_map(function($k){ return (int)($k['id'] ?? 0); }, $children);
+      $childIds = array_values(array_filter($childIds));
+      if (!empty($childIds)) {
+        $ph = implode(',', array_fill(0, count($childIds), '?'));
+        $params = $childIds;
+        $params[] = (int)($me['id'] ?? 0);
+        $sql = "SELECT u.id, u.first_name, u.last_name, u.bsa_membership_number,
+                       GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
+                FROM users u
+                JOIN parent_relationships pr ON pr.adult_id = u.id
+                LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
+                WHERE pr.youth_id IN ($ph) AND u.id <> ?
+                GROUP BY u.id, u.first_name, u.last_name, u.bsa_membership_number
+                ORDER BY u.last_name, u.first_name";
+        $st = pdo()->prepare($sql);
+        $st->execute($params);
+        $coParents = $st->fetchAll();
+      }
+    } catch (Throwable $e) {
+      $coParents = [];
+    }
+  ?>
+  <?php if (empty($coParents)): ?>
+    <p class="small">No co-parents on file.</p>
+  <?php else: ?>
+    <ul>
+      <?php foreach ($coParents as $p): ?>
+        <?php
+          $pName = trim((string)($p['first_name'] ?? '').' '.(string)($p['last_name'] ?? ''));
+          $positions = trim((string)($p['positions'] ?? ''));
+          $aReg = trim((string)($p['bsa_membership_number'] ?? ''));
+        ?>
+        <li>
+          <strong><?= h($pName) ?></strong>
+          <?php if ($positions !== ''): ?>
+            <div class="small">Positions: <?= h($positions) ?></div>
+          <?php endif; ?>
+          <?php if ($aReg !== ''): ?>
+            <div class="small">BSA Registration ID: <?= h($aReg) ?></div>
+          <?php else: ?>
+            <div class="small">BSA Registration ID: N/A</div>
+          <?php endif; ?>
+        </li>
+      <?php endforeach; ?>
+    </ul>
+  <?php endif; ?>
+</div>
 
 <?php if ($showRegisterSection): ?>
 <div class="card" style="margin-top:16px;">
