@@ -108,9 +108,13 @@ header_html('Add Youth');
       </label>
       <label>Grade
         <select name="grade" required>
-          <?php for($i=0;$i<=5;$i++): $lbl = \GradeCalculator::gradeLabel($i); ?>
-            <option value="<?=h($lbl)?>"><?= $i === 0 ? 'K' : $i ?></option>
-          <?php endfor; ?>
+          <?php
+            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
+            foreach ($grades as $i):
+              $lbl = \GradeCalculator::gradeLabel($i);
+          ?>
+            <option value="<?= h($lbl) ?>" data-grade="<?= (int)$i ?>"><?= h($lbl) ?></option>
+          <?php endforeach; ?>
         </select>
         <small class="small">class_of will be computed from the grade based on the current school year.</small>
       </label>
@@ -163,5 +167,35 @@ header_html('Add Youth');
     </div>
   </form>
 </div>
+
+<script>
+(function(){
+  var form = document.querySelector('form');
+  if (!form) return;
+  var gradeSel = form.querySelector('select[name="grade"]');
+  var sib = form.querySelector('input[name="sibling"]');
+  function enforce(){
+    if (!gradeSel || !sib) return;
+    var opt = gradeSel.options[gradeSel.selectedIndex];
+    var g = parseInt((opt && opt.getAttribute('data-grade')) || '0', 10);
+    if (isNaN(g)) return;
+    if (g < 0 || g > 5) { sib.checked = true; }
+  }
+  if (gradeSel) {
+    gradeSel.addEventListener('change', enforce);
+    enforce();
+  }
+  form.addEventListener('submit', function(e){
+    if (!gradeSel || !sib) return;
+    var opt = gradeSel.options[gradeSel.selectedIndex];
+    var g = parseInt((opt && opt.getAttribute('data-grade')) || '0', 10);
+    if ((g < 0 || g > 5) && !sib.checked) {
+      e.preventDefault();
+      alert('Pre-K or grades 6–12 require the "Sibling" box to be checked.');
+      sib.focus();
+    }
+  });
+})();
+</script>
 
 <?php footer_html(); ?>

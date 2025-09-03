@@ -237,6 +237,22 @@ header_html('Home');
   <?php endif; ?>
 </div>
 
+?> 
+<?php if (trim((string)($me['photo_path'] ?? '')) === ''): ?>
+<div class="card" style="margin-top:16px;">
+  <h3>Add a profile photo</h3>
+  <p>Complete your profile by adding a profile photo to your account.</p>
+  <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)($me['id'] ?? 0) ?>&return_to=<?= h('/index.php') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
+    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+    <label>Upload photo
+      <input type="file" name="photo" accept="image/*" required>
+    </label>
+    <div class="actions">
+      <button class="button primary">Submit</button>
+    </div>
+  </form>
+</div>
+<?php endif; ?>
 <?php
   // Volunteer CTA (only if not dismissed for 60 days)
   $suppressVolunteer = false;

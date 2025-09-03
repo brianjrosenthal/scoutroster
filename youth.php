@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0,1..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
-$includeUnreg = !empty($_GET['include_unreg']);
+$onlyRegSib = array_key_exists('only_reg_sib', $_GET) ? (!empty($_GET['only_reg_sib'])) : true;
+$includeUnreg = !$onlyRegSib;
 
 // Compute class_of target for grade filter, if provided
 $classOfFilter = null;
@@ -81,7 +82,10 @@ header_html('Youth Roster');
         </select>
       </label>
     </div>
-    <label class="inline"><input type="checkbox" name="include_unreg" value="1" <?= $includeUnreg ? 'checked' : '' ?>> Include unregistered youth</label>
+    <label class="inline">
+      <input type="hidden" name="only_reg_sib" value="0">
+      <input type="checkbox" name="only_reg_sib" value="1" <?= $onlyRegSib ? 'checked' : '' ?>> Include only registered members and siblings
+    </label>
     <div class="actions">
       <button class="primary">Filter</button>
       <a class="button" href="/youth.php">Reset</a>
