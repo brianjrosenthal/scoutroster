@@ -33,7 +33,7 @@ header_html('Home');
   $showRegisterSection = false;
   try {
     $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path
+      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.sibling
       FROM parent_relationships pr
       JOIN youth y ON y.id = pr.youth_id
       WHERE pr.adult_id = ?
@@ -139,6 +139,7 @@ header_html('Home');
         'class_of' => (int)($c['class_of'] ?? 0),
         'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
         'photo_path' => trim((string)($c['photo_path'] ?? '')),
+        'sibling' => (int)($c['sibling'] ?? 0),
       ];
     }
 
@@ -209,7 +210,13 @@ header_html('Home');
                 $yReg = trim((string)($m['bsa_registration_number'] ?? ''));
               ?>
               <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
-              <div>BSA Registration ID: <?= $yReg !== '' ? h($yReg) : 'unregistered' ?></div>
+              <?php if ($yReg !== ''): ?>
+                <div>BSA Registration ID: <?= h($yReg) ?></div>
+              <?php elseif (!empty($m['sibling'])): ?>
+                <div>Sibling</div>
+              <?php else: ?>
+                <div>BSA Registration ID: unregistered</div>
+              <?php endif; ?>
             <?php else: ?>
               <?php $positions = trim((string)($m['positions'] ?? '')); ?>
               <?php if ($positions !== ''): ?><div>Positions: <?= h($positions) ?></div><?php endif; ?>
