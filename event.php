@@ -186,11 +186,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 ?>
 <div class="card">
   <?php if ($myRsvp): ?>
-    <p class="flash">
-      You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
+    <div class="rsvp-status rsvp-<?= h($myAnswer) ?>">
+      You RSVP’d <strong><?= h(ucfirst($myAnswer)) ?></strong><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
       <a class="button" id="rsvpEditBtn">Edit</a>
-    </p>
+    </div>
   <?php else: ?>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <strong>RSVP:</strong>
