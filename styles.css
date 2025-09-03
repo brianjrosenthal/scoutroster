@@ -29,6 +29,20 @@ details summary{cursor:pointer;color:#2563eb}
 input,select,textarea{width:100%;padding:8px;border:1px solid #d9d9e3;border-radius:8px;background:#fff}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal.hidden{display:none}
+
+/* My Family subcards */
+.family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.person-card{background:#fff;border:1px solid #e8e8ef;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.person-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.person-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.person-header-left{display:flex;align-items:center;gap:10px}
+.person-name{font-weight:600}
+.avatar{width:56px;height:56px;border-radius:50%;object-fit:cover;background:#f2f3f7;border:1px solid #e8e8ef}
+.avatar.avatar-initials{display:flex;align-items:center;justify-content:center;font-weight:700;color:#555}
+.badge.child{background:#e6fbf0;color:#0b7042}
+.badge.parent{background:#e6f0ff;color:#1e40af}
+.person-meta{font-size:12px;color:#555;display:grid;gap:2px;margin-top:6px}
+.person-actions{margin-top:8px;display:flex;justify-content:flex-end}
 .modal-content{background:#fff;max-width:520px;width:100%;border-radius:16px;padding:16px;position:relative}
 .modal .close{position:absolute;right:8px;top:8px;background:#eee;color:#333;border-radius:50%;width:32px;height:32px;line-height:28px;font-size:20px;border:0}
 .small{font-size:12px;color:#555}

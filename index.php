@@ -97,40 +97,12 @@ header_html('Home');
 <div class="card" style="margin-top:16px;">
   <h3>My Family</h3>
 
-  <h4>Children</h4>
   <?php
-    // Use the previously fetched $kids, if available
+    // Build unified family set (children + co-parents)
     $children = is_array($kids ?? null) ? $kids : [];
-  ?>
-  <?php if (empty($children)): ?>
-    <p class="small">No children on file. You can add a child from your <a href="/my_profile.php">My Profile</a> page.</p>
-  <?php else: ?>
-    <ul>
-      <?php foreach ($children as $c): ?>
-        <?php
-          $fullName = trim((string)($c['first_name'] ?? '').' '.(string)($c['last_name'] ?? ''));
-          $classOf = (int)($c['class_of'] ?? 0);
-          $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
-          $gradeLabel = $grade !== null ? GradeCalculator::gradeLabel($grade) : '';
-          $yReg = trim((string)($c['bsa_registration_number'] ?? ''));
-        ?>
-        <li>
-          <strong><?= h($fullName) ?></strong>
-          <?php if ($gradeLabel !== ''): ?>
-            <span class="small"> — Grade <?= h($gradeLabel) ?></span>
-          <?php endif; ?>
-          <?php if ($yReg !== ''): ?>
-            <div class="small">BSA Registration ID: <?= h($yReg) ?></div>
-          <?php else: ?>
-            <div class="small">BSA Registration ID: unregistered</div>
-          <?php endif; ?>
-        </li>
-      <?php endforeach; ?>
-    </ul>
-  <?php endif; ?>
+    $isAdmin = ((int)($me['is_admin'] ?? 0) === 1);
 
-  <h4 style="margin-top:12px;">Co-Parents</h4>
-  <?php
+    // Fetch co-parents and include photo_path for avatar
     $coParents = [];
     try {
       $childIds = array_map(function($k){ return (int)($k['id'] ?? 0); }, $children);
@@ -139,13 +111,13 @@ header_html('Home');
         $ph = implode(',', array_fill(0, count($childIds), '?'));
         $params = $childIds;
         $params[] = (int)($me['id'] ?? 0);
-        $sql = "SELECT u.id, u.first_name, u.last_name, u.bsa_membership_number,
+        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_path, u.bsa_membership_number,
                        GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
                 FROM users u
                 JOIN parent_relationships pr ON pr.adult_id = u.id
                 LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
                 WHERE pr.youth_id IN ($ph) AND u.id <> ?
-                GROUP BY u.id, u.first_name, u.last_name, u.bsa_membership_number
+                GROUP BY u.id, u.first_name, u.last_name, u.photo_path, u.bsa_membership_number
                 ORDER BY u.last_name, u.first_name";
         $st = pdo()->prepare($sql);
         $st->execute($params);
@@ -154,30 +126,98 @@ header_html('Home');
     } catch (Throwable $e) {
       $coParents = [];
     }
+
+    // Normalize to a single array for rendering
+    $family = [];
+
+    foreach ($children as $c) {
+      $family[] = [
+        'type' => 'child',
+        'first_name' => (string)($c['first_name'] ?? ''),
+        'last_name' => (string)($c['last_name'] ?? ''),
+        'youth_id' => (int)($c['id'] ?? 0),
+        'class_of' => (int)($c['class_of'] ?? 0),
+        'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
+        'photo_path' => null,
+      ];
+    }
+
+    foreach ($coParents as $p) {
+      $family[] = [
+        'type' => 'parent',
+        'first_name' => (string)($p['first_name'] ?? ''),
+        'last_name' => (string)($p['last_name'] ?? ''),
+        'adult_id' => (int)($p['id'] ?? 0),
+        'positions' => trim((string)($p['positions'] ?? '')),
+        'bsa_membership_number' => trim((string)($p['bsa_membership_number'] ?? '')),
+        'photo_path' => trim((string)($p['photo_path'] ?? '')),
+      ];
+    }
   ?>
-  <?php if (empty($coParents)): ?>
-    <p class="small">No co-parents on file.</p>
+
+  <?php if (empty($family)): ?>
+    <p class="small">No family members on file yet. You can manage family from your <a href="/my_profile.php">My Profile</a> page.</p>
   <?php else: ?>
-    <ul>
-      <?php foreach ($coParents as $p): ?>
+    <div class="family-grid">
+      <?php foreach ($family as $m): ?>
         <?php
-          $pName = trim((string)($p['first_name'] ?? '').' '.(string)($p['last_name'] ?? ''));
-          $positions = trim((string)($p['positions'] ?? ''));
-          $aReg = trim((string)($p['bsa_membership_number'] ?? ''));
+          $fname = (string)($m['first_name'] ?? '');
+          $lname = (string)($m['last_name'] ?? '');
+          $name = trim($fname.' '.$lname);
+          $initials = strtoupper((string)substr($fname, 0, 1) . (string)substr($lname, 0, 1));
+          $badge = ($m['type'] === 'child') ? 'Child' : 'Parent';
+          $badgeClass = ($m['type'] === 'child') ? 'child' : 'parent';
+
+          $editUrl = null; $canEdit = false;
+          if ($m['type'] === 'child') {
+            $editUrl = '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0);
+            $canEdit = true;
+          } else {
+            if ($isAdmin) {
+              $editUrl = '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
+              $canEdit = true;
+            }
+          }
         ?>
-        <li>
-          <strong><?= h($pName) ?></strong>
-          <?php if ($positions !== ''): ?>
-            <div class="small">Positions: <?= h($positions) ?></div>
+        <div class="person-card">
+          <div class="person-header">
+            <div class="person-header-left">
+              <?php if (($m['type'] === 'parent') && ($m['photo_path'] ?? '') !== ''): ?>
+                <img class="avatar" src="<?= h($m['photo_path']) ?>" alt="<?= h($name) ?>">
+              <?php else: ?>
+                <div class="avatar avatar-initials" aria-hidden="true"><?= h($initials) ?></div>
+              <?php endif; ?>
+              <div class="person-name"><?= h($name) ?></div>
+            </div>
+            <span class="badge <?= h($badgeClass) ?>"><?= h($badge) ?></span>
+          </div>
+
+          <div class="person-meta">
+            <?php if ($m['type'] === 'child'): ?>
+              <?php
+                $classOf = (int)($m['class_of'] ?? 0);
+                $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
+                $gradeLabel = ($grade !== null) ? GradeCalculator::gradeLabel($grade) : null;
+                $yReg = trim((string)($m['bsa_registration_number'] ?? ''));
+              ?>
+              <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
+              <div>BSA Registration ID: <?= $yReg !== '' ? h($yReg) : 'unregistered' ?></div>
+            <?php else: ?>
+              <?php $positions = trim((string)($m['positions'] ?? '')); ?>
+              <?php if ($positions !== ''): ?><div>Positions: <?= h($positions) ?></div><?php endif; ?>
+              <?php $aReg = trim((string)($m['bsa_membership_number'] ?? '')); ?>
+              <div>BSA Registration ID: <?= $aReg !== '' ? h($aReg) : 'N/A' ?></div>
+            <?php endif; ?>
+          </div>
+
+          <?php if ($canEdit && $editUrl): ?>
+          <div class="person-actions">
+            <a class="small" href="<?= h($editUrl) ?>">Edit</a>
+          </div>
           <?php endif; ?>
-          <?php if ($aReg !== ''): ?>
-            <div class="small">BSA Registration ID: <?= h($aReg) ?></div>
-          <?php else: ?>
-            <div class="small">BSA Registration ID: N/A</div>
-          <?php endif; ?>
-        </li>
+        </div>
       <?php endforeach; ?>
-    </ul>
+    </div>
   <?php endif; ?>
 </div>
 
