@@ -44,10 +44,22 @@ foreach ($coParents as $cp) { $adultIdsAllowed[] = (int)$cp['id']; }
 $adultIdsAllowed = array_values(array_unique($adultIdsAllowed));
 $adultIdsAllowedSet = array_flip($adultIdsAllowed);
 
-// Load existing RSVP group created by me (one-per-event per creator)
-$st = pdo()->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-$st->execute([$eventId, (int)$me['id']]);
-$myRsvp = $st->fetch();
+ // Load existing RSVP group associated with me:
+ // 1) Prefer my created group; 2) else any group where I'm included as an adult member
+ $st = pdo()->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+ $st->execute([$eventId, (int)$me['id']]);
+ $myRsvp = $st->fetch();
+ if (!$myRsvp) {
+   $st = pdo()->prepare("
+     SELECT r.*
+     FROM rsvps r
+     JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
+     WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
+     LIMIT 1
+   ");
+   $st->execute([$eventId, (int)$me['id']]);
+   $myRsvp = $st->fetch();
+ }
 
 $selectedAdults = [];
 $selectedYouth = [];

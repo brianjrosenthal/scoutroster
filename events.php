@@ -65,10 +65,23 @@ header_html('Upcoming Events');
         <?php endif; ?>
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
         <?php
-          // Show current RSVP summary if user has one; otherwise show RSVP CTA
-          $st2 = pdo()->prepare("SELECT id, answer, n_guests FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+          // Show current RSVP summary if user has one (membership-based); otherwise show RSVP CTA
+          $st2 = pdo()->prepare("SELECT id, answer, n_guests, created_by_user_id FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
           $st2->execute([(int)$e['id'], (int)$u['id']]);
           $my = $st2->fetch();
+
+          if (!$my) {
+            $st2 = pdo()->prepare("
+              SELECT r.id, r.answer, r.n_guests, r.created_by_user_id
+              FROM rsvps r
+              JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
+              WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
+              LIMIT 1
+            ");
+            $st2->execute([(int)$e['id'], (int)$u['id']]);
+            $my = $st2->fetch();
+          }
+
           if ($my):
             $rsvpId = (int)$my['id'];
             $ad = 0; $kids = 0;
@@ -77,12 +90,24 @@ header_html('Upcoming Events');
             $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
             $q->execute([$rsvpId]); $kids = (int)($q->fetch()['c'] ?? 0);
             $guests = (int)($my['n_guests'] ?? 0);
+
+            // Creator hint if RSVP was created by someone else
+            $byText = '';
+            $creatorId = (int)($my['created_by_user_id'] ?? 0);
+            if ($creatorId && $creatorId !== (int)$u['id']) {
+              $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
+              $stc->execute([$creatorId]);
+              if ($cn = $stc->fetch()) {
+                $byText = ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
+              }
+            }
         ?>
           <p class="small">
             You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
             <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
             <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
             <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
+            <?= $byText ?>
           </p>
           <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">Edit</a></p>
         <?php else: ?>

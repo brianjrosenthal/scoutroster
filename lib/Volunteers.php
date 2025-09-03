@@ -76,8 +76,22 @@ class Volunteers {
 
   // Ensure the user has RSVP'd YES for the event
   public static function userHasYesRsvp(int $eventId, int $userId): bool {
-    $st = pdo()->prepare("SELECT 1 FROM rsvps WHERE event_id=? AND created_by_user_id=? AND answer='yes' LIMIT 1");
-    $st->execute([(int)$eventId, (int)$userId]);
+    // Membership-based: either the user created the RSVP or was included as an adult member
+    $st = pdo()->prepare("
+      SELECT 1
+      FROM rsvps r
+      WHERE r.event_id=? AND r.answer='yes' AND (
+        r.created_by_user_id=? OR EXISTS (
+          SELECT 1 FROM rsvp_members rm
+          WHERE rm.rsvp_id = r.id
+            AND rm.event_id = r.event_id
+            AND rm.participant_type='adult'
+            AND rm.adult_id=?
+        )
+      )
+      LIMIT 1
+    ");
+    $st->execute([(int)$eventId, (int)$userId, (int)$userId]);
     return (bool)$st->fetchColumn();
   }
 

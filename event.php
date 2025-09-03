@@ -21,10 +21,22 @@ $allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
 // Flash after RSVP save
 $flashSaved = !empty($_GET['rsvp']);
 
-// Load my RSVP (if any)
-$st = pdo()->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-$st->execute([$id, (int)$me['id']]);
-$myRsvp = $st->fetch();
+ // Load my RSVP (if any)
+ // Prefer my created group; else any group where I'm included as an adult member
+ $st = pdo()->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+ $st->execute([$id, (int)$me['id']]);
+ $myRsvp = $st->fetch();
+ if (!$myRsvp) {
+   $st = pdo()->prepare("
+     SELECT r.*
+     FROM rsvps r
+     JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
+     WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
+     LIMIT 1
+   ");
+   $st->execute([$id, (int)$me['id']]);
+   $myRsvp = $st->fetch();
+ }
 
 // Build my RSVP summary
 $mySummaryParts = [];
@@ -196,6 +208,16 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     <div class="rsvp-status rsvp-<?= h($myAnswer) ?>">
       You RSVP’d <strong><?= h(ucfirst($myAnswer)) ?></strong><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
+      <?php
+        $creatorId = (int)($myRsvp['created_by_user_id'] ?? 0);
+        if ($creatorId && $creatorId !== (int)$me['id']) {
+          $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
+          $stc->execute([$creatorId]);
+          if ($cn = $stc->fetch()) {
+            echo ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
+          }
+        }
+      ?>
       <a class="button" id="rsvpEditBtn">Edit</a>
     </div>
   <?php else: ?>
