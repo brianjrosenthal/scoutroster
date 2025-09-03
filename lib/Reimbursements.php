@@ -242,15 +242,59 @@ final class Reimbursements {
 
   // Payment Details validation and update
 
+  /**
+   * Detect possible account numbers in a string while skipping likely phone numbers.
+   * Returns an array of the original matched substrings that look like account numbers.
+   *
+   * Rules:
+   * - Find digit runs of length >= 8 allowing separators (space, dot, dash) between digits
+   * - Skip if the run looks like a valid North American phone number (10 digits, or 11 with leading 1 and area code 2–9xx)
+   */
+  private static function detectAccountNumbers(string $s): array {
+    $hits = [];
+    if ($s === '') return $hits;
+
+    if (preg_match_all('/(?<!\d)(?:\d[\s\.\-]?){8,}(?!\d)/', $s, $matches)) {
+      foreach ($matches[0] as $match) {
+        $digitsOnly = preg_replace('/\D/', '', $match) ?? '';
+        if ($digitsOnly === null) $digitsOnly = '';
+
+        // Skip if it appears to be a (US/Canada) phone number:
+        if (strlen($digitsOnly) === 10 || (strlen($digitsOnly) === 11 && $digitsOnly[0] === '1')) {
+          $number = $digitsOnly;
+          if (strlen($number) === 11 && $number[0] === '1') {
+            $number = substr($number, 1);
+          }
+          $areaCode = substr($number, 0, 3);
+          if ($areaCode !== false && preg_match('/^[2-9][0-9]{2}$/', $areaCode)) {
+            // Likely a valid NANP phone number — skip
+            continue;
+          }
+        }
+
+        if (strlen($digitsOnly) >= 8) {
+          $hits[] = $match;
+        }
+      }
+    }
+
+    return $hits;
+  }
+
   private static function validatePaymentDetails(?string $s): ?string {
     $s = $s === null ? null : trim($s);
     if ($s === null || $s === '') return null;
-    if (preg_match('/\d{12,}/', $s)) {
-      throw new InvalidArgumentException('Payment Details appears to contain a bank account number. Please remove any long numeric strings.');
-    }
+
     if (mb_strlen($s) > 500) {
       throw new InvalidArgumentException('Payment Details must be 500 characters or less.');
     }
+
+    // Detect account numbers using enhanced rules (skip likely phone numbers)
+    $suspects = self::detectAccountNumbers($s);
+    if (!empty($suspects)) {
+      throw new InvalidArgumentException('Payment Details appears to contain an account number or long numeric string (8+ digits). Please remove it.');
+    }
+
     return $s;
   }
 
