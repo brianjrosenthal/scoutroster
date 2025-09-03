@@ -36,6 +36,7 @@ input,select,textarea{width:100%;padding:8px;border:1px solid #d9d9e3;border-rad
 input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0;vertical-align:middle}
 .summary-lines p{margin:2px 0}
 .announcement{background:#fff7e6;border:1px solid #ffd699;color:#7a4a00;padding:10px;border-radius:8px}
+.description{padding-bottom:10px}
 
 /* Event hero image: float right on desktop, stack on mobile (approx 40% width on web) */
 .event-hero{float:right;margin:0 0 8px 16px;border-radius:8px;height:auto;width:40%;min-width:240px;max-width:380px}

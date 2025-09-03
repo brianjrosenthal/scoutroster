@@ -186,7 +186,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 ?>
 <div class="card">
   <?php if ($myRsvp): ?>
-    <p>
+    <p class="flash">
       You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
       <a class="button" id="rsvpEditBtn">Edit</a>
@@ -221,7 +221,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </p>
   <?php endif; ?>
   <?php if (!empty($e['description'])): ?>
-    <div><?= Text::renderMarkup((string)$e['description']) ?></div>
+    <div class="description"><?= Text::renderMarkup((string)$e['description']) ?></div>
   <?php endif; ?>
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
   <div class="actions">
