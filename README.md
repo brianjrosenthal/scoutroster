@@ -60,13 +60,14 @@ C. A user account can be "activated" if there is an email specified in the accou
 
 Non-activated users
 A. Can be invited to events and can view events through event invitation links
+(cryptographic fingerprint to verify event-id / uid combination)
 B. Can RSVP to events (which RSVP's as their user)
 C. Can volunteer at events.
 D. Can activate their account (by going through the forgot-password flow)
 E. Will in the future be able to see a calendar view of upcoming events through links generated for the user.
 
 Public users
-A. Can view public event links
+A. Can view public event links (cryptographic fingerprint to verify event-id)
 B. Can RSVP for events through public event links
 C. Cannot volunteer for roles at events
 
@@ -118,3 +119,7 @@ C. Edit anyone's RSVP's at an event.
 
 7. Scouting specific featuers
 - YPT Training Date (expiring)
+
+= Data Model = 
+
+See schema.sql

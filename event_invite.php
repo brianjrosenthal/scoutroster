@@ -57,6 +57,8 @@ if (!$event) {
   exit;
 }
 
+$eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));
+
 // Disallow after event starts
 try {
   $tz = new DateTimeZone(Settings::timezoneId());
@@ -374,7 +376,19 @@ header_html('Event Invite');
   </div>
 <?php endif; ?>
 
-<?php if (!$saved): ?>
+<?php if (!$saved && $eviteUrl !== ''): ?>
+  <div class="card">
+    <?php
+      $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
+      $displayName = $name !== '' ? $name : 'Guest';
+    ?>
+    <p><strong>Hello <?= h($displayName) ?>!</strong></p>
+    <p>RSVPs for this event are handled on Evite.</p>
+    <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+  </div>
+<?php endif; ?>
+
+<?php if (!$saved && $eviteUrl === ''): ?>
   <div class="card">
     <?php
       $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
@@ -543,6 +557,8 @@ header_html('Event Invite');
 </div>
 
 
+<?php if ($eviteUrl === ''): ?>
+
 <!-- Event Volunteers -->
 <div class="card">
   <h3>Event Volunteers</h3>
@@ -661,6 +677,8 @@ header_html('Event Invite');
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
     })();
   </script>
+<?php endif; ?>
+
 <?php endif; ?>
 
 <div class="card">

@@ -17,6 +17,7 @@ $st->execute([$id]);
 $e = $st->fetch();
 if (!$e) { http_response_code(404); exit('Event not found'); }
 $allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
+$eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
 
 // Flash after RSVP save
 $flashSaved = !empty($_GET['rsvp']);
@@ -221,12 +222,18 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <a class="button" id="rsvpEditBtn">Edit</a>
     </div>
   <?php else: ?>
-    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <strong>RSVP:</strong>
-      <button class="primary" id="rsvpYesBtn">Yes</button>
-      <button id="rsvpMaybeBtn" class="primary">Maybe</button>
-      <button id="rsvpNoBtn">No</button>
-    </div>
+    <?php if ($eviteUrl !== ''): ?>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+      </div>
+    <?php else: ?>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <strong>RSVP:</strong>
+        <button class="primary" id="rsvpYesBtn">Yes</button>
+        <button id="rsvpMaybeBtn" class="primary">Maybe</button>
+        <button id="rsvpNoBtn">No</button>
+      </div>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
 
@@ -441,6 +448,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   </script>
 <?php endif; ?>
 
+<?php if ($eviteUrl === ''): ?>
 <!-- RSVP modal (posts to rsvp_edit.php) -->
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content">
@@ -506,7 +514,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </form>
   </div>
 </div>
+<?php endif; ?>
 
+<?php if ($eviteUrl === ''): ?>
 <script>
   (function(){
     const modal = document.getElementById('rsvpModal');
@@ -534,5 +544,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
   })();
 </script>
+<?php endif; ?>
 
 <?php footer_html(); ?>

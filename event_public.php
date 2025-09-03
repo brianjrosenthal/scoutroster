@@ -25,6 +25,8 @@ $st->execute([$eventId]);
 $event = $st->fetch();
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
+$eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));
+
 # Public RSVP flag and event start checks
 $allowPublic = (int)($event['allow_non_user_rsvp'] ?? 1) === 1;
 
@@ -161,12 +163,14 @@ header_html('Event - Public RSVP');
   </div>
 <?php endif; ?>
 
-<?php if (!$allowPublic): ?>
-  <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
-<?php elseif (!$eventStarted && !$saved): ?>
-  <!-- RSVP form available via modal; see bottom banner -->
-<?php elseif ($eventStarted): ?>
-  <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
+<?php if ($eviteUrl === ''): ?>
+  <?php if (!$allowPublic): ?>
+    <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
+  <?php elseif (!$eventStarted && !$saved): ?>
+    <!-- RSVP form available via modal; see bottom banner -->
+  <?php elseif ($eventStarted): ?>
+    <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
+  <?php endif; ?>
 <?php endif; ?>
 
 <?php if ($allowPublic): ?>
@@ -193,7 +197,14 @@ header_html('Event - Public RSVP');
 </div>
 <?php endif; ?>
 
-<?php if ($allowPublic && !$eventStarted && !$saved): ?>
+<?php if ($eviteUrl !== ''): ?>
+  <div class="card">
+    <p>RSVPs for this event are handled on Evite.</p>
+    <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+  </div>
+<?php endif; ?>
+
+<?php if ($allowPublic && !$eventStarted && !$saved && $eviteUrl === ''): ?>
   <div class="bottom-banner">
     <div class="prompt">RSVP:</div>
     <div class="actions">

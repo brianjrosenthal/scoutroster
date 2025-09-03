@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description'] ?? '');
     $max_cub_scouts = trim($_POST['max_cub_scouts'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
+    $evite_rsvp_url = trim($_POST['evite_rsvp_url'] ?? '');
 
     $errors = [];
     if ($name === '') $errors[] = 'Name is required.';
@@ -54,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $eventId = $id > 0 ? $id : 0;
         if ($id > 0) {
-          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=? WHERE id=?");
+          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=?, evite_rsvp_url=? WHERE id=?");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
@@ -62,10 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $allow_non_user_rsvp,
+            ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
             $id
           ]);
         } else {
-          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp) VALUES (?,?,?,?,?,?,?,?)");
+          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, evite_rsvp_url) VALUES (?,?,?,?,?,?,?,?,?)");
           $ok = $st->execute([
             $name, $starts_at, ($ends_at ?: null),
             ($location !== '' ? $location : null),
@@ -73,6 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ($description !== '' ? $description : null),
             ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
             $allow_non_user_rsvp,
+            ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
           ]);
           if ($ok) { $eventId = (int)pdo()->lastInsertId(); }
         }
@@ -120,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'description' => $description,
         'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
         'allow_non_user_rsvp' => $allow_non_user_rsvp,
+        'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
       ];
     }
   } elseif ($action === 'delete') {
@@ -185,6 +189,10 @@ header_html('Manage Events');
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
     </label>
+    <label>Evite RSVP Link
+      <input type="url" name="evite_rsvp_url" value="<?= h($editing['evite_rsvp_url'] ?? '') ?>" placeholder="https://www.evite.com/...">
+    </label>
+    <p class="small">If provided, internal RSVP buttons are replaced by an “RSVP TO EVITE” button across logged-in, invite, and public pages.</p>
     <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
     <?php if (!empty($editing['photo_path'])): ?>
       <div class="small">Current Image:<br>
