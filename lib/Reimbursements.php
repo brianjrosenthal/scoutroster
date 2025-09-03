@@ -254,6 +254,11 @@ final class Reimbursements {
     $hits = [];
     if ($s === '') return $hits;
 
+    // Hard fail: any 10+ consecutive digits without separators should be flagged immediately
+    if (preg_match_all('/\d{10,}/', $s, $hard)) {
+      foreach ($hard[0] as $h) { $hits[] = $h; }
+    }
+
     if (preg_match_all('/(?<!\d)(?:\d[\s\.\-]?){8,}(?!\d)/', $s, $matches)) {
       foreach ($matches[0] as $match) {
         $digitsOnly = preg_replace('/\D/', '', $match) ?? '';

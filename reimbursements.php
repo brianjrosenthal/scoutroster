@@ -11,6 +11,10 @@ $isApprover = Reimbursements::isApprover($ctx);
 $err = null;
 $msg = null;
 
+$oldTitle = '';
+$oldDescription = '';
+$oldPaymentDetails = '';
+
 // Handle create (title/description + optional file)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
   require_csrf();
@@ -18,6 +22,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $title = trim((string)($_POST['title'] ?? ''));
     $description = trim((string)($_POST['description'] ?? '')) ?: null;
     $paymentDetails = trim((string)($_POST['payment_details'] ?? '')) ?: null;
+
+    // Preserve submitted values on error for redisplay
+    $oldTitle = $title;
+    $oldDescription = (string)($_POST['description'] ?? '');
+    $oldPaymentDetails = (string)($_POST['payment_details'] ?? '');
 
     $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails);
 
@@ -135,14 +144,14 @@ header_html('Expense Reimbursements');
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="create">
     <label>Title
-      <input type="text" name="title" required maxlength="255">
+      <input type="text" name="title" value="<?= h($oldTitle) ?>" required maxlength="255">
     </label>
     <label>Description (optional)
-      <textarea name="description" rows="4"></textarea>
+      <textarea name="description" rows="4"><?= h($oldDescription) ?></textarea>
     </label>
-    <label>Payment Details (optional)
-      <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"></textarea>
-      <span class="small">No bank account information please. Do not include long account numbers.</span>
+    <label>Payment Details (optional, no bank account numbers please)
+      <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"><?= h($oldPaymentDetails) ?></textarea>
+      <span class="small">No bank account information please.</span>
     </label>
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
