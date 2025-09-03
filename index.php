@@ -237,7 +237,6 @@ header_html('Home');
   <?php endif; ?>
 </div>
 
-?> 
 <?php if (trim((string)($me['photo_path'] ?? '')) === ''): ?>
 <div class="card" style="margin-top:16px;">
   <h3>Add a profile photo</h3>
