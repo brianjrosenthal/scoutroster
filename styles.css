@@ -88,6 +88,10 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 header nav{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 header nav .nav-left,header nav .nav-right{display:flex;align-items:center;gap:12px}
 header nav .nav-right{margin-left:auto}
+/* Top-right nav avatar */
+.nav-avatar{width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid #e8e8ef;vertical-align:middle}
+.nav-avatar-initials{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#f2f3f7;color:#555;font-weight:700;font-size:12px;border:1px solid #e8e8ef;vertical-align:middle}
+.nav-avatar-link{display:inline-flex;align-items:center;justify-content:center}
 .admin-bar{background:#222;color:#fff;padding:6px 16px;display:flex;justify-content:flex-end}
 .admin-bar a{color:#fff;text-decoration:none}
 .hidden{display:none}

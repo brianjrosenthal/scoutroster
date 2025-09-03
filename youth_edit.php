@@ -123,8 +123,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 header_html('Edit Youth');
 ?>
 <h2>Edit Youth</h2>
+<?php
+  if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
+  if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
+?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
+
+<div class="card">
+  <h3>Profile Photo</h3>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <?php
+      $yName = trim((string)($y['first_name'] ?? '').' '.(string)($y['last_name'] ?? ''));
+      $yInitials = strtoupper((string)substr((string)($y['first_name'] ?? ''),0,1).(string)substr((string)($y['last_name'] ?? ''),0,1));
+      $yPhoto = trim((string)($y['photo_path'] ?? ''));
+    ?>
+    <a href="/youth_edit.php?id=<?= (int)$id ?>" style="text-decoration:none">
+      <?php if ($yPhoto !== ''): ?>
+        <img class="avatar" src="<?= h($yPhoto) ?>" alt="<?= h($yName) ?>" style="width:80px;height:80px">
+      <?php else: ?>
+        <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($yInitials) ?></div>
+      <?php endif; ?>
+    </a>
+
+    <form method="post" action="/upload_photo.php?type=youth&youth_id=<?= (int)$id ?>&return_to=<?= h('/youth_edit.php?id='.(int)$id) ?>" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <label>Upload a new photo
+        <input type="file" name="photo" accept="image/*" required>
+      </label>
+      <div class="actions">
+        <button class="button">Upload Photo</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="card">
   <form method="post" class="stack">

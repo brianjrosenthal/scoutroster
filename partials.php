@@ -28,6 +28,13 @@ function header_html(string $title) {
     if (!empty($u['is_admin'])) {
       $navLeft[] = '<a href="#" id="adminToggle">Admin</a>';
     }
+    // Add small avatar in the top-right nav linking to My Profile
+    $initials = strtoupper(substr((string)($u['first_name'] ?? ''),0,1).substr((string)($u['last_name'] ?? ''),0,1));
+    $photo = trim((string)($u['photo_path'] ?? ''));
+    $avatar = $photo !== ''
+      ? '<img class="nav-avatar" src="'.h($photo).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
+      : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';
+    $navRight[] = '<a href="/my_profile.php" class="nav-avatar-link" title="My Profile">'.$avatar.'</a>';
     $navRight[] = $link('/my_profile.php','My Profile');
     $navRight[] = $link('/logout.php','Log out');
   } else {

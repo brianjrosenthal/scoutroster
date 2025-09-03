@@ -33,7 +33,7 @@ header_html('Home');
   $showRegisterSection = false;
   try {
     $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number
+      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path
       FROM parent_relationships pr
       JOIN youth y ON y.id = pr.youth_id
       WHERE pr.adult_id = ?
@@ -138,7 +138,7 @@ header_html('Home');
         'youth_id' => (int)($c['id'] ?? 0),
         'class_of' => (int)($c['class_of'] ?? 0),
         'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
-        'photo_path' => null,
+        'photo_path' => trim((string)($c['photo_path'] ?? '')),
       ];
     }
 
@@ -182,11 +182,19 @@ header_html('Home');
         <div class="person-card">
           <div class="person-header">
             <div class="person-header-left">
-              <?php if (($m['type'] === 'parent') && ($m['photo_path'] ?? '') !== ''): ?>
-                <img class="avatar" src="<?= h($m['photo_path']) ?>" alt="<?= h($name) ?>">
-              <?php else: ?>
-                <div class="avatar avatar-initials" aria-hidden="true"><?= h($initials) ?></div>
-              <?php endif; ?>
+              <?php
+                $href = ($m['type'] === 'child')
+                  ? '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0)
+                  : '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
+                $mPhoto = trim((string)($m['photo_path'] ?? ''));
+              ?>
+              <a href="<?= h($href) ?>" class="avatar-link" title="Edit">
+                <?php if ($mPhoto !== ''): ?>
+                  <img class="avatar" src="<?= h($mPhoto) ?>" alt="<?= h($name) ?>">
+                <?php else: ?>
+                  <div class="avatar avatar-initials" aria-hidden="true"><?= h($initials) ?></div>
+                <?php endif; ?>
+              </a>
               <div class="person-name"><?= h($name) ?></div>
             </div>
             <span class="badge <?= h($badgeClass) ?>"><?= h($badge) ?></span>

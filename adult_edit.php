@@ -14,7 +14,28 @@ if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 $me = current_user();
 $canEditAll = !empty($me['is_admin']);
 $canEditLeadership = $canEditAll || ((int)($me['id'] ?? 0) === (int)$id);
-if (!$canEditLeadership) { http_response_code(403); exit('Forbidden'); }
+
+// Allow co-parents to upload photo only
+$canUploadPhoto = false;
+try {
+  if ($canEditAll || ((int)($me['id'] ?? 0) === (int)$id)) {
+    $canUploadPhoto = true;
+  } else {
+    $st = pdo()->prepare("
+      SELECT 1
+      FROM parent_relationships pr1
+      JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
+      WHERE pr1.adult_id = ? AND pr2.adult_id = ?
+      LIMIT 1
+    ");
+    $st->execute([(int)($me['id'] ?? 0), (int)$id]);
+    $canUploadPhoto = (bool)$st->fetchColumn();
+  }
+} catch (Throwable $e) {
+  $canUploadPhoto = false;
+}
+
+if (!$canEditLeadership && !$canUploadPhoto) { http_response_code(403); exit('Forbidden'); }
 
  // Load current record
 $u = UserManagement::findFullById($id);
@@ -215,8 +236,67 @@ $linkedChildren = $stChildren->fetchAll();
 header_html('Edit Adult');
 ?>
 <h2>Edit Adult</h2>
+<?php
+  if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
+  if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
+?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
+
+<?php if (!$canEditAll && ((int)($me['id'] ?? 0) !== (int)$id) && $canUploadPhoto): ?>
+<div class="card">
+  <h3>Profile Photo</h3>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <?php
+      $aName = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
+      $aInitials = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
+      $aPhoto = trim((string)($u['photo_path'] ?? ''));
+    ?>
+    <?php if ($aPhoto !== ''): ?>
+      <img class="avatar" src="<?= h($aPhoto) ?>" alt="<?= h($aName) ?>" style="width:80px;height:80px">
+    <?php else: ?>
+      <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($aInitials) ?></div>
+    <?php endif; ?>
+
+    <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <label>Upload a new photo
+        <input type="file" name="photo" accept="image/*" required>
+      </label>
+      <div class="actions">
+        <button class="button">Upload Photo</button>
+      </div>
+    </form>
+  </div>
+</div>
+<?php footer_html(); return; ?>
+<?php endif; ?>
+
+<div class="card">
+  <h3>Profile Photo</h3>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <?php
+      $aNameFull = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
+      $aInitialsFull = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
+      $aPhotoFull = trim((string)($u['photo_path'] ?? ''));
+    ?>
+    <?php if ($aPhotoFull !== ''): ?>
+      <img class="avatar" src="<?= h($aPhotoFull) ?>" alt="<?= h($aNameFull) ?>" style="width:80px;height:80px">
+    <?php else: ?>
+      <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($aInitialsFull) ?></div>
+    <?php endif; ?>
+
+    <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <label>Upload a new photo
+        <input type="file" name="photo" accept="image/*" required>
+      </label>
+      <div class="actions">
+        <button class="button">Upload Photo</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="card">
   <form method="post" class="stack">

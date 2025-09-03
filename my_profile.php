@@ -279,8 +279,39 @@ $children = $st->fetchAll();
 header_html('My Profile');
 ?>
 <h2>My Profile</h2>
+<?php
+  // Surface messages from upload_photo redirect
+  if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
+  if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
+?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
+
+<div class="card">
+  <h3>Profile Photo</h3>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <?php
+      $meName = trim((string)($me['first_name'] ?? '').' '.(string)($me['last_name'] ?? ''));
+      $meInitials = strtoupper((string)substr((string)($me['first_name'] ?? ''),0,1).(string)substr((string)($me['last_name'] ?? ''),0,1));
+      $mePhoto = trim((string)($me['photo_path'] ?? ''));
+    ?>
+    <?php if ($mePhoto !== ''): ?>
+      <img class="avatar" src="<?= h($mePhoto) ?>" alt="<?= h($meName) ?>" style="width:80px;height:80px">
+    <?php else: ?>
+      <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($meInitials) ?></div>
+    <?php endif; ?>
+
+    <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <label>Upload a new photo
+        <input type="file" name="photo" accept="image/*" required>
+      </label>
+      <div class="actions">
+        <button class="button">Upload Photo</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <div class="card">
   <h3>Adult Information</h3>
