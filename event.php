@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
+require_once __DIR__ . '/lib/Volunteers.php';
 
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -172,6 +173,12 @@ $st = pdo()->prepare("SELECT COALESCE(SUM(n_guests),0) AS g FROM rsvps WHERE eve
 $st->execute([$id]);
 $maybeGuestsTotal = (int)($st->fetch()['g'] ?? 0);
 
+// Volunteers
+$roles = Volunteers::rolesWithCounts((int)$id);
+$hasYes = ($myRsvp && strtolower((string)($myRsvp['answer'] ?? '')) === 'yes');
+$openVolunteerRoles = Volunteers::openRolesExist((int)$id);
+$showVolunteerModal = $hasYes && $openVolunteerRoles && !empty($_GET['vol']);
+
 header_html('Event');
 ?>
 <h2><?=h($e['name'])?></h2>
@@ -296,6 +303,121 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </div>
   </div>
 </div>
+
+<div class="card">
+  <h3>Event Volunteers</h3>
+  <?php if (empty($roles)): ?>
+    <p class="small">No volunteer roles have been defined for this event.</p>
+    <?php if ($isAdmin): ?>
+      <p class="small"><a class="button" href="/admin_event_volunteers.php?event_id=<?= (int)$e['id'] ?>">Manage Volunteers</a></p>
+    <?php endif; ?>
+  <?php else: ?>
+    <div class="volunteers">
+      <?php foreach ($roles as $r): ?>
+        <div class="role" style="margin-bottom:10px;">
+          <div>
+            <strong><?= h($r['title']) ?></strong>
+            <?php if ((int)$r['open_count'] > 0): ?>
+              <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
+            <?php else: ?>
+              <span class="filled small">Filled</span>
+            <?php endif; ?>
+          </div>
+
+          <?php if (!empty($r['volunteers'])): ?>
+            <ul style="margin:6px 0 0 16px;">
+              <?php foreach ($r['volunteers'] as $v): ?>
+                <li><?= h($v['name']) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php else: ?>
+            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
+          <?php endif; ?>
+
+          <?php if ($hasYes): ?>
+            <?php
+              $amIn = false;
+              foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
+            ?>
+            <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+              <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+              <?php if ($amIn): ?>
+                <input type="hidden" name="action" value="remove">
+                <button class="button">Cancel</button>
+              <?php elseif ((int)$r['open_count'] > 0): ?>
+                <input type="hidden" name="action" value="signup">
+                <button class="button primary">Sign up</button>
+              <?php else: ?>
+                <button class="button" disabled>Filled</button>
+              <?php endif; ?>
+            </form>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php if ($hasYes && $openVolunteerRoles): ?>
+  <!-- Volunteer prompt modal -->
+  <div id="volunteerModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close" type="button" id="volunteerModalClose" aria-label="Close">&times;</button>
+      <h3>Volunteer to help at this event?</h3>
+      <?php foreach ($roles as $r): ?>
+        <div class="role" style="margin-bottom:8px;">
+          <div>
+            <strong><?= h($r['title']) ?></strong>
+            <?php if ((int)$r['open_count'] > 0): ?>
+              <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
+            <?php else: ?>
+              <span class="filled small">Filled</span>
+            <?php endif; ?>
+          </div>
+          <?php
+            $amIn = false;
+            foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
+          ?>
+          <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+            <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+            <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+            <?php if ($amIn): ?>
+              <input type="hidden" name="action" value="remove">
+              <button class="button">Cancel</button>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
+              <input type="hidden" name="action" value="signup">
+              <button class="button primary">Sign up</button>
+            <?php else: ?>
+              <button class="button" disabled>Filled</button>
+            <?php endif; ?>
+          </form>
+        </div>
+      <?php endforeach; ?>
+
+      <div class="actions" style="margin-top:10px;">
+        <button class="button" id="volunteerMaybeLater">Maybe later</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      const modal = document.getElementById('volunteerModal');
+      const closeBtn = document.getElementById('volunteerModalClose');
+      const laterBtn = document.getElementById('volunteerMaybeLater');
+      const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
+      const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); closeModal(); });
+      <?php if ($showVolunteerModal): ?>
+        openModal();
+      <?php endif; ?>
+      if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+    })();
+  </script>
+<?php endif; ?>
 
 <!-- RSVP modal (posts to rsvp_edit.php) -->
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">

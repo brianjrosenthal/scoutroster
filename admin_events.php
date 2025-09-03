@@ -196,6 +196,9 @@ header_html('Manage Events');
     </label>
     <div class="actions">
       <button class="primary" type="submit"><?= $editing ? 'Save' : 'Create' ?></button>
+      <?php if (!empty($editing['id'])): ?>
+        <a class="button" href="/admin_event_volunteers.php?event_id=<?= (int)$editing['id'] ?>">Manage Volunteers</a>
+      <?php endif; ?>
       <a class="button" href="/admin_events.php">Cancel</a>
     </div>
   </form>
@@ -230,6 +233,7 @@ header_html('Manage Events');
               <a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View</a>
               <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit</a>
               <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
+              <a class="button" href="/admin_event_volunteers.php?event_id=<?= (int)$e['id'] ?>">Volunteers</a>
               <form method="post" style="display:inline" onsubmit="return confirm('Delete this event?');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
                 <input type="hidden" name="action" value="delete">

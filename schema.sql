@@ -292,3 +292,31 @@ CREATE INDEX idx_rrc_creator ON reimbursement_request_comments(created_by);
 -- The hash below corresponds to password: Admin123!
 -- INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
 -- VALUES ('Admin','User','admin@example.com','$2y$10$9xH7Jq4v3o6s9k3y8i4rVOyWb0yBYZ5rW.0f9pZ.gG9K6l7lS6b2S',1,NOW());
+
+-- Volunteer Roles
+CREATE TABLE volunteer_roles (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  title VARCHAR(150) NOT NULL,
+  slots_needed INT NOT NULL DEFAULT 1,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_vr_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_vr_event_title (event_id, title),
+  INDEX idx_vr_event (event_id)
+) ENGINE=InnoDB;
+
+-- Volunteer Signups
+CREATE TABLE volunteer_signups (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  role_id INT NOT NULL,
+  user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_vs_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_vs_role  FOREIGN KEY (role_id)  REFERENCES volunteer_roles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_vs_user  FOREIGN KEY (user_id)  REFERENCES users(id) ON DELETE RESTRICT,
+  INDEX idx_vs_event (event_id),
+  INDEX idx_vs_role (role_id),
+  UNIQUE KEY uniq_vs_role_user (role_id, user_id)
+) ENGINE=InnoDB;

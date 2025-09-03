@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_login();
+require_once __DIR__ . '/lib/Volunteers.php';
 
 $me = current_user();
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
@@ -148,7 +149,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ins->execute([$rsvpId, $eventId, 'youth', $yid, null]);
       }
 
-      header('Location: /event.php?id='.$eventId.'&rsvp=1'); exit;
+      $vol = (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) ? '&vol=1' : '';
+      header('Location: /event.php?id='.$eventId.'&rsvp=1'.$vol); exit;
     } catch (Throwable $e) {
       $error = 'Failed to save RSVP.';
     }

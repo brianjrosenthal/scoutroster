@@ -44,6 +44,14 @@ input[type=checkbox],input[type=radio]{width:auto;height:auto;padding:0;border:0
 .rsvp-status.rsvp-maybe,.rsvp-status.rsvp-no{background:#f5f5f7;color:#444}
 .rsvp-status .button{margin-left:8px}
 
+/* Volunteers */
+.volunteers .role{padding:6px 8px;border:1px solid #e8e8ef;border-radius:8px;background:#fff}
+.volunteers .role + .role{margin-top:8px}
+.volunteers .remaining{color:#555}
+.volunteers .filled{color:#777}
+.volunteers .role ul{margin:6px 0 0 16px;padding:0}
+.volunteers .role li{margin:2px 0}
+
 /* Event hero image: float right on desktop, stack on mobile (approx 40% width on web) */
 .event-hero{float:right;margin:0 0 8px 16px;border-radius:8px;height:auto;width:40%;min-width:240px;max-width:380px}
 @media (max-width:640px){

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/lib/Text.php';
+require_once __DIR__ . '/lib/Volunteers.php';
 
 // No login required
 
@@ -137,6 +138,8 @@ $rowTotals = $st->fetch();
 $pubAdults = (int)($rowTotals['a'] ?? 0);
 $pubKids   = (int)($rowTotals['k'] ?? 0);
 
+$openVolunteerRolesPublic = Volunteers::openRolesExist((int)$eventId);
+
 header_html('Event - Public RSVP');
 ?>
 <?php if ($allowPublic): ?>
@@ -151,6 +154,10 @@ header_html('Event - Public RSVP');
 <?php if ($saved): ?>
   <div class="card">
     <p class="flash">Thank you! Your RSVP has been recorded. A confirmation email with an edit link has been sent to <?= h($email) ?>.</p>
+    <?php if ($openVolunteerRolesPublic): ?>
+      <p class="small" style="margin-top:8px;">Want to volunteer? If you have an account, log in to volunteer for a role.</p>
+      <a class="button" href="/login.php?next=<?= h(urlencode('/event.php?id='.(int)$eventId.'&vol=1')) ?>">Log In</a>
+    <?php endif; ?>
   </div>
 <?php endif; ?>
 
