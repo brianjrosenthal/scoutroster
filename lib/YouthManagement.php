@@ -178,6 +178,13 @@ class YouthManagement {
     $sibling = self::boolInt($data['sibling'] ?? 0);
     $suffix  = self::nn($data['suffix'] ?? null);
 
+    // Enforce: grades outside K–5 (i.e., Pre-K or 6–12) require sibling=true
+    if ($grade < 0 || $grade > 5) {
+      if ($sibling !== 1) {
+        throw new InvalidArgumentException('You can only add Pre-K or grades 6–12 if the youth is marked as a sibling.');
+      }
+    }
+
     $st = self::pdo()->prepare("INSERT INTO youth
       (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,bsa_registration_number,
        street1,street2,city,state,zip,class_of,sibling)

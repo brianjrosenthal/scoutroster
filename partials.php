@@ -34,9 +34,10 @@ function header_html(string $title) {
     $avatar = $photo !== ''
       ? '<img class="nav-avatar" src="'.h($photo).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
       : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';
-    $navRight[] = '<a href="/my_profile.php" class="nav-avatar-link" title="My Profile">'.$avatar.'</a>';
     $navRight[] = $link('/my_profile.php','My Profile');
     $navRight[] = $link('/logout.php','Log out');
+    $navRight[] = '<a href="/my_profile.php" class="nav-avatar-link" title="My Profile">'.$avatar.'</a>';
+    
   } else {
     $navLeft[] = $link('/login.php','Login');
   }

@@ -236,6 +236,135 @@ header_html('Home');
   <?php endif; ?>
 </div>
 
+<?php
+  // Upcoming Events (next 2 months, max 5)
+  if (!function_exists('renderEventWhen')) {
+    function renderEventWhen(string $startsAt, ?string $endsAt): string {
+      $s = strtotime($startsAt);
+      if ($s === false) return $startsAt;
+      $base = date('F j, Y gA', $s);
+      if (!$endsAt) return $base;
+
+      $e = strtotime($endsAt);
+      if ($e === false) return $base;
+
+      if (date('Y-m-d', $s) === date('Y-m-d', $e)) {
+        return $base . ' (ends at ' . date('gA', $e) . ')';
+      }
+      return $base . ' (ends on ' . date('F j, Y', $e) . ' at ' . date('gA', $e) . ')';
+    }
+  }
+  if (!function_exists('truncatePlain')) {
+    function truncatePlain(string $text, int $limit = 200): string {
+      $text = trim((string)$text);
+      if ($text === '') return '';
+      if (function_exists('mb_strlen')) {
+        if (mb_strlen($text, 'UTF-8') <= $limit) return $text;
+        $slice = mb_substr($text, 0, $limit, 'UTF-8');
+      } else {
+        if (strlen($text) <= $limit) return $text;
+        $slice = substr($text, 0, $limit);
+      }
+      return rtrim($slice) . '…';
+    }
+  }
+
+  try {
+    $now = date('Y-m-d H:i:s');
+    $in2mo = date('Y-m-d H:i:s', strtotime('+2 months'));
+    $stUE = pdo()->prepare("SELECT * FROM events WHERE starts_at >= ? AND starts_at < ? ORDER BY starts_at LIMIT 5");
+    $stUE->execute([$now, $in2mo]);
+    $homeEvents = $stUE->fetchAll();
+  } catch (Throwable $e) {
+    $homeEvents = [];
+  }
+?>
+
+<?php if (!empty($homeEvents)): ?>
+<div class="card" style="margin-top:16px;">
+  <h3>Upcoming Events</h3>
+  <div class="grid">
+    <?php foreach ($homeEvents as $e): ?>
+      <div class="card">
+        <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></h3>
+        <?php if (!empty($e['photo_path'])): ?>
+          <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
+        <?php endif; ?>
+        <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
+        <?php
+          if (!empty($e['location'])):
+            $locAddr = trim((string)($e['location_address'] ?? ''));
+            $mapsUrl = trim((string)($e['google_maps_url'] ?? ''));
+            $mapHref = $mapsUrl !== '' ? $mapsUrl : ($locAddr !== '' ? 'https://www.google.com/maps/search/?api=1&query='.urlencode($locAddr) : '');
+        ?>
+          <p><strong>Where:</strong> <?= h($e['location']) ?><?php if ($mapHref !== ''): ?> <a class="small" href="<?= h($mapHref) ?>" target="_blank" rel="noopener">map</a><?php endif; ?></p>
+        <?php endif; ?>
+        <?php if (!empty($e['description'])): ?>
+          <p><?= nl2br(h(truncatePlain((string)$e['description'], 200))) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
+
+        <?php
+          $eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
+          if ($eviteUrl !== ''):
+        ?>
+          <p><a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a></p>
+        <?php else: ?>
+          <?php
+            // Show current RSVP summary if user has one; otherwise show RSVP CTA
+            $st2 = pdo()->prepare("SELECT id, answer, n_guests, created_by_user_id FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+            $st2->execute([(int)$e['id'], (int)$me['id']]);
+            $my = $st2->fetch();
+
+            if (!$my) {
+              $st2 = pdo()->prepare("
+                SELECT r.id, r.answer, r.n_guests, r.created_by_user_id
+                FROM rsvps r
+                JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
+                WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
+                LIMIT 1
+              ");
+              $st2->execute([(int)$e['id'], (int)$me['id']]);
+              $my = $st2->fetch();
+            }
+
+            if ($my):
+              $rsvpId = (int)$my['id'];
+              $ad = 0; $kids = 0;
+              $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
+              $q->execute([$rsvpId]); $ad = (int)($q->fetch()['c'] ?? 0);
+              $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
+              $q->execute([$rsvpId]); $kids = (int)($q->fetch()['c'] ?? 0);
+              $guests = (int)($my['n_guests'] ?? 0);
+
+              $byText = '';
+              $creatorId = (int)($my['created_by_user_id'] ?? 0);
+              if ($creatorId && $creatorId !== (int)$me['id']) {
+                $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
+                $stc->execute([$creatorId]);
+                if ($cn = $stc->fetch()) {
+                  $byText = ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
+                }
+              }
+          ?>
+            <p class="small">
+              You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
+              <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
+              <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
+              <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
+              <?= $byText ?>
+            </p>
+            <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">Edit</a></p>
+          <?php else: ?>
+            <p><a class="button primary" href="/event.php?id=<?= (int)$e['id'] ?>">RSVP</a></p>
+          <?php endif; ?>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if ($showRegisterSection): ?>
 <div class="card" style="margin-top:16px;">
   <h3>How to register your child for Cub Scouts</h3>
