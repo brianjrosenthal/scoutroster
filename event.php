@@ -205,7 +205,11 @@ $myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
 if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 ?>
 <div class="card">
-  <?php if ($myRsvp): ?>
+  <?php if ($eviteUrl !== ''): ?>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+    </div>
+  <?php elseif ($myRsvp): ?>
     <div class="rsvp-status rsvp-<?= h($myAnswer) ?>">
       You RSVP’d <strong><?= h(ucfirst($myAnswer)) ?></strong><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
@@ -222,18 +226,12 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <a class="button" id="rsvpEditBtn">Edit</a>
     </div>
   <?php else: ?>
-    <?php if ($eviteUrl !== ''): ?>
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
-      </div>
-    <?php else: ?>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <strong>RSVP:</strong>
         <button class="primary" id="rsvpYesBtn">Yes</button>
         <button id="rsvpMaybeBtn" class="primary">Maybe</button>
         <button id="rsvpNoBtn">No</button>
       </div>
-    <?php endif; ?>
   <?php endif; ?>
 </div>
 
@@ -272,6 +270,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   </div>
 </div>
 
+<?php if ($eviteUrl === ''): ?>
 <div class="card">
   <h3>RSVPs</h3>
   <p class="small">
@@ -332,6 +331,8 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </div>
   </div>
 </div>
+
+<?php endif; ?>
 
 <div class="card">
   <h3>Event Volunteers</h3>

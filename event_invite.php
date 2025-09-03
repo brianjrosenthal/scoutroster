@@ -681,6 +681,7 @@ header_html('Event Invite');
 
 <?php endif; ?>
 
+<?php if ($eviteUrl === ''): ?>
 <div class="card">
   <h3>Current RSVPs</h3>
   <p class="small">
@@ -732,5 +733,7 @@ header_html('Event Invite');
     </div>
   <?php endif; ?>
 </div>
+
+<?php endif; ?>
 
 <?php footer_html(); ?>

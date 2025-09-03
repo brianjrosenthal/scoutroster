@@ -65,6 +65,12 @@ header_html('Upcoming Events');
         <?php endif; ?>
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
         <?php
+          $eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
+          if ($eviteUrl !== ''):
+        ?>
+          <p><a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a></p>
+        <?php else: ?>
+        <?php
           // Show current RSVP summary if user has one (membership-based); otherwise show RSVP CTA
           $st2 = pdo()->prepare("SELECT id, answer, n_guests, created_by_user_id FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
           $st2->execute([(int)$e['id'], (int)$u['id']]);
@@ -112,6 +118,7 @@ header_html('Upcoming Events');
           <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">Edit</a></p>
         <?php else: ?>
           <p><a class="button primary" href="/event.php?id=<?= (int)$e['id'] ?>">RSVP</a></p>
+        <?php endif; ?>
         <?php endif; ?>
       </div>
     <?php endforeach; ?>
