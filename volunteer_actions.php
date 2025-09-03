@@ -13,6 +13,7 @@ require_csrf();
 $action  = trim((string)($_POST['action'] ?? ''));
 $eventId = (int)($_POST['event_id'] ?? 0);
 $roleId  = (int)($_POST['role_id'] ?? 0);
+$isAjax = !empty($_POST['ajax']);
 
 // Determine acting user
 $actingUserId = 0;
@@ -78,6 +79,11 @@ if ($inviteUid > 0 && $inviteSig !== '') {
 }
 
 if ($eventId <= 0 || $roleId <= 0 || $actingUserId <= 0) {
+  if ($isAjax) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Invalid request.']);
+    exit;
+  }
   $redirectUrl .= (str_contains($redirectUrl, '?') ? '&' : '?') . 'volunteer_error=' . rawurlencode('Invalid request.');
   header('Location: '.$redirectUrl);
   exit;
@@ -100,8 +106,24 @@ try {
   }
 } catch (Throwable $e) {
   $msg = $e->getMessage() ?: 'Volunteer action failed.';
+  if ($isAjax) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => $msg]);
+    exit;
+  }
   $redirectUrl .= (str_contains($redirectUrl, '?') ? '&' : '?') . 'volunteer_error=' . rawurlencode($msg);
 }
 
+if ($isAjax) {
+  header('Content-Type: application/json');
+  echo json_encode([
+    'ok' => true,
+    'roles' => Volunteers::rolesWithCounts($eventId),
+    'user_id' => $actingUserId,
+    'event_id' => $eventId,
+    'csrf' => csrf_token(),
+  ]);
+  exit;
+}
 header('Location: ' . $redirectUrl);
 exit;

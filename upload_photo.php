@@ -63,6 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 require_csrf();
 
+$action = strtolower(trim((string)($_POST['action'] ?? 'upload')));
+
 $u = current_user();
 $isAdmin = !empty($u['is_admin']);
 $currentId = (int)($u['id'] ?? 0);
@@ -91,6 +93,45 @@ if ($type === 'adult') {
     http_response_code(403);
     exit('Forbidden');
   }
+}
+
+if ($action === 'delete') {
+  // Delete existing photo_path (with permission checks already performed above)
+  try {
+    if ($type === 'adult') {
+      $st = pdo()->prepare("SELECT photo_path FROM users WHERE id=?");
+      $st->execute([$adultId]);
+      $path = trim((string)($st->fetchColumn() ?: ''));
+      if ($path !== '') {
+        $fs = __DIR__ . $path;
+        $allowedDir = realpath(__DIR__ . '/uploads/profile_photos') ?: (__DIR__ . '/uploads/profile_photos');
+        $fsReal = realpath($fs);
+        if ($fsReal !== false && strpos($fsReal, $allowedDir) === 0) {
+          @unlink($fsReal);
+        }
+      }
+      $up = pdo()->prepare("UPDATE users SET photo_path = NULL WHERE id=?");
+      $up->execute([$adultId]);
+    } else {
+      $st = pdo()->prepare("SELECT photo_path FROM youth WHERE id=?");
+      $st->execute([$youthId]);
+      $path = trim((string)($st->fetchColumn() ?: ''));
+      if ($path !== '') {
+        $fs = __DIR__ . $path;
+        $allowedDir = realpath(__DIR__ . '/uploads/profile_photos') ?: (__DIR__ . '/uploads/profile_photos');
+        $fsReal = realpath($fs);
+        if ($fsReal !== false && strpos($fsReal, $allowedDir) === 0) {
+          @unlink($fsReal);
+        }
+      }
+      $up = pdo()->prepare("UPDATE youth SET photo_path = NULL WHERE id=?");
+      $up->execute([$youthId]);
+    }
+  } catch (Throwable $e) {
+    redirect_back($returnTo, ['err' => 'db_failed']);
+  }
+  redirect_back($returnTo, ['deleted' => 1]);
+  exit;
 }
 
 // Validate file

@@ -338,7 +338,7 @@ header_html('Home');
     <div class="modal-content">
       <button class="close" id="volCloseBtn" aria-label="Close">&times;</button>
       <h3>Volunteer at <?= h($volCandidate['name'] ?? '') ?></h3>
-      <div class="stack">
+      <div id="volRoles" class="stack">
         <?php foreach ($volRolesOpen as $r): ?>
           <form method="post" action="/volunteer_actions.php" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:8px;">
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -379,6 +379,74 @@ header_html('Home');
       if (modal) modal.addEventListener('click', function(e){
         if (e.target === modal) { setDismissCookie(60); hide(); if (cta) cta.style.display='none'; }
       });
+
+      // AJAX handling for volunteer actions to keep modal open and refresh roles
+      var rolesWrap = document.getElementById('volRoles');
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function(c){
+          return {'&':'&','<':'<','>':'>','"':'"', "'":'&#39;'}[c];
+        });
+      }
+
+      function renderRoles(json) {
+        if (!rolesWrap) return;
+        var roles = json.roles || [];
+        var uid = parseInt(json.user_id, 10);
+        var html = '';
+        for (var i=0;i<roles.length;i++) {
+          var r = roles[i] || {};
+          var volunteers = r.volunteers || [];
+          var signed = false;
+          for (var j=0;j<volunteers.length;j++) {
+            var v = volunteers[j] || {};
+            if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
+          }
+          var open = parseInt(r.open_count, 10) || 0;
+          html += '<form method="post" action="/volunteer_actions.php" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:8px;">'
+                + '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
+                + '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
+                + '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
+                + '<input type="hidden" name="action" value="'+(signed ? 'remove' : 'signup')+'">'
+                + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
+                +   '<div><strong>'+esc(r.title||'')+'</strong> <span class="small">(' + open + ' remaining)</span></div>'
+                +   '<div>';
+          if (signed) {
+            html += '<span class="small" style="margin-right:8px;">You’re signed up</span><button class="button danger">Remove</button>';
+          } else if (open > 0) {
+            html += '<button class="button">Sign Up</button>';
+          } else {
+            html += '<span class="small">Full</span>';
+          }
+          html +=    '</div></div></form>';
+        }
+        rolesWrap.innerHTML = html;
+      }
+
+      function showError(msg) {
+        if (!rolesWrap) return;
+        var p = document.createElement('p');
+        p.className = 'error small';
+        p.textContent = msg;
+        rolesWrap.insertBefore(p, rolesWrap.firstChild);
+      }
+
+      if (modal) {
+        modal.addEventListener('submit', function(e){
+          var form = e.target.closest('form');
+          if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+          e.preventDefault();
+          var fd = new FormData(form);
+          fd.set('ajax','1');
+          fetch('/volunteer_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+            .then(function(res){ return res.json(); })
+            .then(function(json){
+              if (json && json.ok) { renderRoles(json); }
+              else { showError((json && json.error) ? json.error : 'Action failed.'); }
+            })
+            .catch(function(){ showError('Network error.'); });
+        });
+      }
     })();
   </script>
 <?php endif; ?>

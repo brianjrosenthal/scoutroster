@@ -238,6 +238,7 @@ header_html('Edit Adult');
 <h2>Edit Adult</h2>
 <?php
   if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
+  if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
@@ -267,6 +268,13 @@ header_html('Edit Adult');
         <button class="button">Upload Photo</button>
       </div>
     </form>
+    <?php if ($aPhoto !== ''): ?>
+      <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="delete">
+        <button class="button danger">Remove Photo</button>
+      </form>
+    <?php endif; ?>
   </div>
 </div>
 <?php footer_html(); return; ?>
@@ -295,6 +303,13 @@ header_html('Edit Adult');
         <button class="button">Upload Photo</button>
       </div>
     </form>
+    <?php if ($aPhotoFull !== ''): ?>
+      <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="delete">
+        <button class="button danger">Remove Photo</button>
+      </form>
+    <?php endif; ?>
   </div>
 </div>
 
