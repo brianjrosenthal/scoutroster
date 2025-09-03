@@ -452,23 +452,24 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <input type="hidden" name="answer" id="rsvpAnswerInput" value="<?= h($myAnswer) ?>">
 
       <h4>Adults</h4>
-      <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$me['id'] ?>"
-        <?= $myRsvp ? (in_array((int)$me['id'], array_map(fn($row)=> (int)$row['id'], [['id'=>$me['id']]]), true) ? '' : '') : '' ?>
-      > You (<?= h($me['first_name'].' '.$me['last_name']) ?>)</label>
+      <?php
+        $selAdults = [];
+        if ($myRsvp) {
+          $st = pdo()->prepare("SELECT adult_id FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
+          $st->execute([(int)$myRsvp['id']]);
+          foreach ($st->fetchAll() as $ra) { if (!empty($ra['adult_id'])) $selAdults[] = (int)$ra['adult_id']; }
+        }
+      ?>
+      <label class="inline">
+        <input type="checkbox" name="adults[]" value="<?= (int)$me['id'] ?>" <?= in_array((int)$me['id'], $selAdults, true) ? 'checked' : '' ?>>
+        You (<?= h($me['first_name'].' '.$me['last_name']) ?>)
+      </label>
       <?php foreach ($coParents as $a): ?>
         <?php $aid = (int)$a['id']; $an = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')); ?>
-        <label class="inline"><input type="checkbox" name="adults[]" value="<?= $aid ?>"
-          <?php
-            // preselect if present in my RSVP
-            $selAdults = [];
-            if ($myRsvp) {
-              $st = pdo()->prepare("SELECT adult_id FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
-              $st->execute([(int)$myRsvp['id']]);
-              foreach ($st->fetchAll() as $ra) { if (!empty($ra['adult_id'])) $selAdults[] = (int)$ra['adult_id']; }
-            }
-            echo in_array($aid, $selAdults, true) ? 'checked' : '';
-          ?>
-        > <?= h($an) ?></label>
+        <label class="inline">
+          <input type="checkbox" name="adults[]" value="<?= $aid ?>" <?= in_array($aid, $selAdults, true) ? 'checked' : '' ?>>
+          <?= h($an) ?>
+        </label>
       <?php endforeach; ?>
 
       <h4>Children</h4>
