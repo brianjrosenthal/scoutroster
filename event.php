@@ -183,10 +183,15 @@ header_html('Event');
 <?php
 $myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
 if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
+
+if ($myAnswer == 'yes') {
+    <div class="card flash">
+} else {
+    <div class="card">
+}
 ?>
-<div class="card">
   <?php if ($myRsvp): ?>
-    <p class="flash">
+    <p>
       You RSVP’d <?= h(ucfirst($myAnswer)) ?><?= !empty($mySummaryParts) ? ' with '.h(implode(', ', $mySummaryParts)) : '' ?>
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
       <a class="button" id="rsvpEditBtn">Edit</a>
