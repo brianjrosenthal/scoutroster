@@ -184,10 +184,9 @@ header_html('Event');
 $myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
 if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
-if ($myAnswer == 'yes') {
-    <div class="card flash">
-} else {
-    <div class="card">
+if ($myAnswer == 'yes') { ?><div class="card flash"> <?php
+} else { ?>
+    <div class="card"> <?php
 }
 ?>
   <?php if ($myRsvp): ?>
