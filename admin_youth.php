@@ -84,6 +84,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
+$selectedGradeLabel = \GradeCalculator::gradeLabel(0);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $selectedGradeLabel = trim($_POST['grade'] ?? $selectedGradeLabel);
+}
 header_html('Add Youth');
 ?>
 <h2>Add Youth</h2>
@@ -109,11 +113,12 @@ header_html('Add Youth');
       <label>Grade
         <select name="grade" required>
           <?php
-            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
-            foreach ($grades as $i):
+            // Order: K, 1..12, then Pre-K (K in 1/2/3 years)
+            $order = [0,1,2,3,4,5,6,7,8,9,10,11,12,-1,-2,-3];
+            foreach ($order as $i):
               $lbl = \GradeCalculator::gradeLabel($i);
           ?>
-            <option value="<?= h($lbl) ?>" data-grade="<?= (int)$i ?>"><?= h($lbl) ?></option>
+            <option value="<?= h($lbl) ?>" data-grade="<?= (int)$i ?>" <?= ($selectedGradeLabel === $lbl ? 'selected' : '') ?>><?= h($lbl) ?></option>
           <?php endforeach; ?>
         </select>
         <small class="small">class_of will be computed from the grade based on the current school year.</small>
