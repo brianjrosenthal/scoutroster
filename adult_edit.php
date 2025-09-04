@@ -97,6 +97,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
   }
 }
 
+/** Handle POST (invite activation email) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'invite')) {
+  require_csrf();
+  try {
+    if (!$canEditAll) { throw new RuntimeException('Admins only.'); }
+    $sent = UserManagement::sendInvite(UserContext::getLoggedInUserContext(), $id);
+    if ($sent) {
+      $msg = 'Invitation sent if eligible.';
+    } else {
+      $err = 'Adult not eligible for invite.';
+    }
+  } catch (Throwable $e) {
+    $err = 'Failed to send invitation.';
+  }
+}
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] === 'save_profile')) {
   require_csrf();
@@ -606,5 +622,24 @@ header_html('Edit Adult');
     </script>
   <?php endif; ?>
 </div>
+
+<?php if ($canEditAll): ?>
+<div class="card" style="margin-top:16px;">
+  <h3>Invite user to activate account</h3>
+  <p class="small">Send an activation email so the user can verify their email and choose a password.</p>
+  <?php $hasEmail = !empty($u['email']); $isVerified = !empty($u['email_verified_at']); ?>
+  <?php if (!$hasEmail): ?>
+    <p class="small">No email on file. Add an email above, then invite.</p>
+  <?php elseif ($isVerified): ?>
+    <p class="small">This user's email is already verified.</p>
+  <?php else: ?>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="invite">
+      <button class="button">Invite user to activate account</button>
+    </form>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
 
 <?php footer_html(); ?>

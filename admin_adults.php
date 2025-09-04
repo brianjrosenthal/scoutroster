@@ -219,7 +219,8 @@ header_html('Manage Adults');
           // Children summary (same as adults.php)
           $childLines = [];
           foreach ($A['children'] as $c) {
-            $childLines[] = h($c['name']).' ('.($c['grade'] === 0 ? 'K' : (int)$c['grade']).($c['den_name'] ? ', '.h($c['den_name']) : '').')';
+            $gradeLabel = ($c['grade'] < 0 ? 'PreK' : ($c['grade'] === 0 ? 'K' : (int)$c['grade']));
+            $childLines[] = h($c['name']).' ('.$gradeLabel.($c['den_name'] ? ', '.h($c['den_name']) : '').')';
           }
           $childrenSummary = implode('<br>', $childLines);
 
@@ -242,12 +243,7 @@ header_html('Manage Adults');
             <td class="small">
               <a class="button" href="/adult_edit.php?id=<?= (int)$aid ?>">Edit</a>
               <?php if (!empty($adult['email']) && !$verified): ?>
-                <form method="post" style="display:inline; margin-left:6px;">
-                  <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-                  <input type="hidden" name="action" value="invite">
-                  <input type="hidden" name="adult_id" value="<?= (int)$aid ?>">
-                  <button class="button">Invite</button>
-                </form>
+                <span class="small" style="margin-left:6px;">Not verified</span>
               <?php elseif (empty($adult['email'])): ?>
                 <span class="small" style="margin-left:6px;">No email</span>
               <?php else: ?>
