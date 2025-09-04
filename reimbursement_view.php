@@ -76,6 +76,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $msg = 'Payment details updated.';
       // Refresh req after change
       $req = Reimbursements::getWithAuth($ctx, $id);
+    } elseif ($action === 'update_amount') {
+      // Only creator and only when status is "more_info_requested"; enforced in lib
+      $amount = (string)($_POST['amount'] ?? '');
+      Reimbursements::updateAmount($ctx, $id, $amount);
+      $msg = 'Amount updated.';
+      // Refresh req after change
+      $req = Reimbursements::getWithAuth($ctx, $id);
     }
   } catch (Throwable $e) {
     $err = $e->getMessage() ?: 'Operation failed.';
@@ -109,6 +116,11 @@ header_html('Reimbursement Details');
     <div><strong>Status:</strong> <?= h($req['status']) ?></div>
     <div><strong>Created at:</strong> <?= h($req['created_at']) ?></div>
     <div><strong>Last updated:</strong> <?= h($req['last_modified_at']) ?></div>
+    <div>
+      <strong>Amount:</strong>
+      <?php $amt = $req['amount'] ?? null; ?>
+      <?= ($amt !== null && $amt !== '') ? h(number_format((float)$amt, 2)) : '—' ?>
+    </div>
   </div>
   <?php if (!empty($req['comment_from_last_status_change'])): ?>
     <p class="small"><strong>Last status comment:</strong> <?= nl2br(h($req['comment_from_last_status_change'])) ?></p>
@@ -139,6 +151,25 @@ header_html('Reimbursement Details');
       </label>
       <p class="small">No bank account information please. Do not include long account numbers.</p>
       <div class="actions"><button class="button">Save Payment Details</button></div>
+    </form>
+  <?php endif; ?>
+</div>
+
+<div class="card" style="margin-top:16px;">
+  <h3>Amount</h3>
+  <?php $amt = $req['amount'] ?? null; ?>
+  <div class="small"><strong>Current Amount:</strong> <?= ($amt !== null && $amt !== '') ? h(number_format((float)$amt, 2)) : 'Not set' ?></div>
+
+  <?php if ($isOwner && (string)$req['status'] === 'more_info_requested'): ?>
+    <form method="post" class="stack" style="margin-top:8px;max-width:360px;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="id" value="<?= (int)$id ?>">
+      <input type="hidden" name="action" value="update_amount">
+      <label>Update Amount
+        <input type="number" name="amount" step="0.01" min="0" value="<?= ($amt !== null && $amt !== '') ? h(number_format((float)$amt, 2, '.', '')) : '' ?>" placeholder="0.00" required>
+      </label>
+      <div class="actions"><button class="button">Save Amount</button></div>
+      <p class="small">Amount can be edited only while the request is in “more_info_requested”.</p>
     </form>
   <?php endif; ?>
 </div>

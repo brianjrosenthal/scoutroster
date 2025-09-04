@@ -77,16 +77,17 @@ final class Reimbursements {
 
   // ----- CRUD / Actions -----
 
-  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null): int {
+  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null): int {
     if (!$ctx) throw new RuntimeException('Login required');
     $title = trim($title);
     if ($title === '') throw new InvalidArgumentException('Title is required.');
     $paymentDetails = self::validatePaymentDetails($paymentDetails);
+    $amountCanon = self::validateAmount($amount);
     $st = self::pdo()->prepare(
-      "INSERT INTO reimbursement_requests (title, description, payment_details, created_by, status, created_at, last_modified_at)
-       VALUES (?, ?, ?, ?, 'submitted', NOW(), NOW())"
+      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, status, created_at, last_modified_at)
+       VALUES (?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
     );
-    $st->execute([$title, $description, $paymentDetails, (int)$ctx->id]);
+    $st->execute([$title, $description, $paymentDetails, $amountCanon, (int)$ctx->id]);
     $newId = (int)self::pdo()->lastInsertId();
 
     // Best-effort notification; non-fatal on errors or if no recipients
@@ -242,6 +243,25 @@ final class Reimbursements {
 
   // Payment Details validation and update
 
+  // Validate monetary amount; returns canonical string with 2 decimals or NULL
+  private static function validateAmount(?string $in): ?string {
+    if ($in === null) return null;
+    $s = trim($in);
+    if ($s === '') return null;
+    // Normalize commas
+    $s = str_replace(',', '', $s);
+    // Valid non-negative money with up to 2 decimals
+    if (!preg_match('/^\d+(\.\d{1,2})?$/', $s)) {
+      throw new InvalidArgumentException('Amount must be a non-negative number with up to 2 decimals.');
+    }
+    $f = (float)$s;
+    if ($f < 0) {
+      throw new InvalidArgumentException('Amount cannot be negative.');
+    }
+    return number_format($f, 2, '.', '');
+  }
+
+
   /**
    * Detect possible account numbers in a string while skipping likely phone numbers.
    * Returns an array of the original matched substrings that look like account numbers.
@@ -312,6 +332,21 @@ final class Reimbursements {
     $pd = self::validatePaymentDetails($paymentDetails);
     $st = self::pdo()->prepare("UPDATE reimbursement_requests SET payment_details = ?, last_modified_at = NOW() WHERE id = ?");
     $st->execute([$pd, (int)$req['id']]);
+  }
+
+  // Amount update: only creator can edit, and only when status is 'more_info_requested'
+  public static function updateAmount(UserContext $ctx, int $reqId, ?string $amount): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId);
+    if ((int)$req['created_by'] !== (int)$ctx->id) {
+      throw new RuntimeException('Only the request creator can edit amount.');
+    }
+    if ((string)$req['status'] !== 'more_info_requested') {
+      throw new RuntimeException('Amount can only be edited when status is "more_info_requested".');
+    }
+    $canon = self::validateAmount($amount);
+    $st = self::pdo()->prepare("UPDATE reimbursement_requests SET amount = ?, last_modified_at = NOW() WHERE id = ?");
+    $st->execute([$canon, (int)$req['id']]);
   }
 
   // Files: record an already moved file path (page handles move_uploaded_file)

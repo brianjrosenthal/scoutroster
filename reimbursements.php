@@ -14,6 +14,7 @@ $msg = null;
 $oldTitle = '';
 $oldDescription = '';
 $oldPaymentDetails = '';
+$oldAmount = '';
 
 // Handle create (title/description + optional file)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
@@ -22,13 +23,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $title = trim((string)($_POST['title'] ?? ''));
     $description = trim((string)($_POST['description'] ?? '')) ?: null;
     $paymentDetails = trim((string)($_POST['payment_details'] ?? '')) ?: null;
+    $amount = trim((string)($_POST['amount'] ?? '')) ?: null;
 
     // Preserve submitted values on error for redisplay
     $oldTitle = $title;
     $oldDescription = (string)($_POST['description'] ?? '');
     $oldPaymentDetails = (string)($_POST['payment_details'] ?? '');
+    $oldAmount = (string)($_POST['amount'] ?? '');
 
-    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails);
+    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount);
 
     // Optional file
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
@@ -152,6 +155,10 @@ header_html('Expense Reimbursements');
     <label>Payment Details (optional, no bank account numbers please)
       <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"><?= h($oldPaymentDetails) ?></textarea>
       <span class="small">No bank account information please.</span>
+    </label>
+    <label>Amount (optional)
+      <input type="number" name="amount" value="<?= h($oldAmount) ?>" step="0.01" min="0" placeholder="0.00">
+      <span class="small">Enter the total amount to be reimbursed.</span>
     </label>
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
