@@ -117,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
   $phone_home = $nn($_POST['phone_home'] ?? '');
   $phone_cell = $nn($_POST['phone_cell'] ?? '');
   $shirt_size = $nn($_POST['shirt_size'] ?? '');
-  $photo_path = $nn($_POST['photo_path'] ?? '');
+  $suppress_email_directory = !empty($_POST['suppress_email_directory']) ? 1 : 0;
+  $suppress_phone_directory = !empty($_POST['suppress_phone_directory']) ? 1 : 0;
 
   // Scouting info (admin-editable)
   $bsa_membership_number = $nn($_POST['bsa_membership_number'] ?? '');
@@ -174,7 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
         'phone_home' => $phone_home,
         'phone_cell' => $phone_cell,
         'shirt_size' => $shirt_size,
-        'photo_path' => $photo_path,
+        'suppress_email_directory' => $suppress_email_directory,
+        'suppress_phone_directory' => $suppress_phone_directory,
         'bsa_membership_number' => $bsa_membership_number,
         'bsa_registration_expires_on' => $bsa_registration_expires_on,
         'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
@@ -209,7 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
     'phone_home' => $phone_home,
     'phone_cell' => $phone_cell,
     'shirt_size' => $shirt_size,
-    'photo_path' => $photo_path,
+    'suppress_email_directory' => $suppress_email_directory,
+    'suppress_phone_directory' => $suppress_phone_directory,
     'bsa_membership_number' => $bsa_membership_number,
     'bsa_registration_expires_on' => $bsa_registration_expires_on,
     'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
@@ -367,8 +370,18 @@ header_html('Edit Adult');
       <label>Shirt Size
         <input type="text" name="shirt_size" value="<?=h($u['shirt_size'])?>">
       </label>
-      <label>Photo Path
-        <input type="text" name="photo_path" value="<?=h($u['photo_path'])?>">
+      <label class="inline">
+        <input type="hidden" name="suppress_email_directory" value="0">
+        <input type="checkbox" name="suppress_email_directory" value="1" <?= !empty($u['suppress_email_directory']) ? 'checked' : '' ?>>
+        Suppress email from the directory
+        <div class="small">This hides the adult's email from non-admin users. Administrators can still see it.</div>
+      </label>
+
+      <label class="inline">
+        <input type="hidden" name="suppress_phone_directory" value="0">
+        <input type="checkbox" name="suppress_phone_directory" value="1" <?= !empty($u['suppress_phone_directory']) ? 'checked' : '' ?>>
+        Suppress phone number from the directory
+        <div class="small">This hides the adult's phone numbers from non-admin users. Administrators can still see them.</div>
       </label>
     </div>
 
