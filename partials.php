@@ -67,6 +67,7 @@ function header_html(string $title) {
     echo $link('/admin_events.php','Manage Events');
     echo $link('/admin_adults.php','Manage Adults');
     echo $link('/admin_import_upload.php','Import Members');
+    echo $link('/admin_regdates_upload.php','Reg Dates Import');
     echo $link('/admin_mailing_list.php','Mailing List');
     echo $link('/admin_recommendations.php','Recommendations');
     echo $link('/admin_settings.php','Settings');

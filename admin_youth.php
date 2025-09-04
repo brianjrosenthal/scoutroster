@@ -2,10 +2,12 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/YouthManagement.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_admin();
 
 $msg = null;
 $err = null;
+$canEditPaidUntil = \UserManagement::isApprover((int)(current_user()['id'] ?? 0));
 
 // Handle POST (create)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -31,6 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
 
+  // Registration & Dues (admin/approver controlled)
+  $regExpires = trim($_POST['bsa_registration_expires_date'] ?? '');
+  $paidUntil  = trim($_POST['date_paid_until'] ?? '');
+
   // Validate required fields
   $errors = [];
   if ($first === '') $errors[] = 'First name is required.';
@@ -49,6 +55,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Birthdate must be in YYYY-MM-DD format.';
     }
   }
+  if ($regExpires !== '') {
+    $d = DateTime::createFromFormat('Y-m-d', $regExpires);
+    if (!$d || $d->format('Y-m-d') !== $regExpires) {
+      $errors[] = 'Registration Expires must be in YYYY-MM-DD format.';
+    }
+  }
+  if ($paidUntil !== '') {
+    if (!$canEditPaidUntil) {
+      // ignore for safety; non-approvers cannot set this
+      $paidUntil = '';
+    } else {
+      $d = DateTime::createFromFormat('Y-m-d', $paidUntil);
+      if (!$d || $d->format('Y-m-d') !== $paidUntil) {
+        $errors[] = 'Paid Until must be in YYYY-MM-DD format.';
+      }
+    }
+  }
 
   if (empty($errors)) {
     // Compute class_of from grade
@@ -57,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
       $ctx = UserContext::getLoggedInUserContext();
-      $id = YouthManagement::create($ctx, [
+      $createData = [
         'first_name' => $first,
         'last_name' => $last,
         'suffix' => $suffix,
@@ -74,7 +97,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'state' => $state,
         'zip' => $zip,
         'sibling' => $sibling,
-      ]);
+      ];
+      if ($regExpires !== '') {
+        $createData['bsa_registration_expires_date'] = $regExpires;
+      }
+      if ($canEditPaidUntil && $paidUntil !== '') {
+        $createData['date_paid_until'] = $paidUntil;
+      }
+      $id = YouthManagement::create($ctx, $createData);
       header('Location: /youth.php'); exit;
     } catch (Throwable $e) {
       $err = 'Error creating youth.';
@@ -165,6 +195,19 @@ header_html('Add Youth');
         <input type="text" name="zip">
       </label>
     </div>
+
+    <h3>Registration & Dues</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <label>BSA Registration Expires
+        <input type="date" name="bsa_registration_expires_date" value="<?= h($_POST['bsa_registration_expires_date'] ?? '') ?>" placeholder="YYYY-MM-DD">
+      </label>
+      <?php if ($canEditPaidUntil): ?>
+        <label>Paid Until
+          <input type="date" name="date_paid_until" value="<?= h($_POST['date_paid_until'] ?? '') ?>" placeholder="YYYY-MM-DD">
+        </label>
+      <?php endif; ?>
+    </div>
+    <p class="small">Note: “Paid Until” is pack dues coverage and may not match BSA registration expiration.</p>
 
     <div class="actions">
       <button class="primary" type="submit">Create</button>

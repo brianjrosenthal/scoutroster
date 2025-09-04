@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/GradeCalculator.php';
 require_once __DIR__ . '/Search.php';
+require_once __DIR__ . '/UserManagement.php';
 
 class YouthManagement {
   private static function pdo(): PDO {
@@ -194,7 +195,27 @@ class YouthManagement {
       $street1, $street2, $city, $state, $zip, $class_of, $sibling
     ]);
     if (!$ok) throw new RuntimeException('Failed to create youth.');
-    return (int)self::pdo()->lastInsertId();
+    $newId = (int)self::pdo()->lastInsertId();
+
+    // Optional post-insert updates for admin-only fields
+    try {
+      // Registration expires (admin may set on create)
+      $regExpires = self::validateDateYmd($data['bsa_registration_expires_date'] ?? null);
+      if ($regExpires !== null) {
+        $up = self::pdo()->prepare('UPDATE youth SET bsa_registration_expires_date = ? WHERE id = ?');
+        $up->execute([$regExpires, $newId]);
+      }
+      // Paid until (only for Cubmaster/Committee Chair/Treasurer)
+      $paidUntil = self::validateDateYmd($data['date_paid_until'] ?? null);
+      if ($paidUntil !== null && \UserManagement::isApprover((int)$ctx->id)) {
+        $up2 = self::pdo()->prepare('UPDATE youth SET date_paid_until = ? WHERE id = ?');
+        $up2->execute([$paidUntil, $newId]);
+      }
+    } catch (Throwable $e) {
+      // Swallow optional update errors; base create succeeded
+    }
+
+    return $newId;
   }
 
   public static function update(UserContext $ctx, int $id, array $data): bool {
@@ -247,6 +268,11 @@ class YouthManagement {
         $set[] = "bsa_registration_number = ?";
         $params[] = $val;
       }
+      if (array_key_exists('bsa_registration_expires_date', $data)) {
+        $val = self::validateDateYmd($data['bsa_registration_expires_date'] ?? null);
+        $set[] = "bsa_registration_expires_date = ?";
+        $params[] = $val;
+      }
       // Grade/class_of recomputation
       if (array_key_exists('grade', $data) || array_key_exists('grade_label', $data)) {
         $grade = self::parseGradeFromData($data);
@@ -254,6 +280,16 @@ class YouthManagement {
         $set[] = "class_of = ?";
         $params[] = $class_of;
       }
+    }
+
+    // Paid-until: approver-only (Cubmaster/Committee Chair/Treasurer)
+    if (array_key_exists('date_paid_until', $data)) {
+      if (!\UserManagement::isApprover((int)$ctx->id)) {
+        throw new InvalidArgumentException('Forbidden');
+      }
+      $val = self::validateDateYmd($data['date_paid_until'] ?? null);
+      $set[] = "date_paid_until = ?";
+      $params[] = $val;
     }
 
     if (empty($set)) return false;

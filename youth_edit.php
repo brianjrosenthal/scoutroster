@@ -19,6 +19,18 @@ if (!$y) { http_response_code(404); exit('Not found'); }
 // Compute current grade from class_of
 $currentGrade = GradeCalculator::gradeForClassOf((int)$y['class_of']);
 
+// Permissions/visibility for Registration & Dues fields
+$isParentOfThis = false;
+try {
+  $stChk = pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
+  $stChk->execute([(int)$id, (int)($me['id'] ?? 0)]);
+  $isParentOfThis = (bool)$stChk->fetchColumn();
+} catch (Throwable $e) {
+  $isParentOfThis = false;
+}
+$canEditPaidUntil = \UserManagement::isApprover((int)($me['id'] ?? 0));
+$canEditRegExpires = $isAdmin;
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
@@ -43,6 +55,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
 
+  // Admin/Approver optional fields
+  $regExpires = trim($_POST['bsa_registration_expires_date'] ?? '');
+  $paidUntil = trim($_POST['date_paid_until'] ?? '');
+
   // Validate
   $errors = [];
   if ($first === '') $errors[] = 'First name is required.';
@@ -60,6 +76,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $errors[] = 'Birthdate must be in YYYY-MM-DD format.';
     }
   }
+  if ($regExpires !== '' && !$canEditRegExpires) {
+    // ignore non-admin submission for safety
+    $regExpires = '';
+  }
+  if ($regExpires !== '') {
+    $d = DateTime::createFromFormat('Y-m-d', $regExpires);
+    if (!$d || $d->format('Y-m-d') !== $regExpires) {
+      $errors[] = 'Registration Expires must be in YYYY-MM-DD format.';
+    }
+  }
+  if ($paidUntil !== '' && !$canEditPaidUntil) {
+    // ignore non-approver submission for safety
+    $paidUntil = '';
+  }
+  if ($paidUntil !== '') {
+    $d = DateTime::createFromFormat('Y-m-d', $paidUntil);
+    if (!$d || $d->format('Y-m-d') !== $paidUntil) {
+      $errors[] = 'Paid Until must be in YYYY-MM-DD format.';
+    }
+  }
 
   if (empty($errors)) {
     // Recompute class_of from selected grade
@@ -68,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     try {
       $ctx = UserContext::getLoggedInUserContext();
-      $ok = YouthManagement::update($ctx, $id, [
+      $data = [
         'first_name' => $first,
         'last_name' => $last,
         'suffix' => $suffix,
@@ -85,7 +121,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'zip' => $zip,
         'sibling' => $sibling,
         'grade_label' => $gradeLabel,
-      ]);
+      ];
+      if ($canEditRegExpires) {
+        $data['bsa_registration_expires_date'] = ($regExpires !== '' ? $regExpires : null);
+      }
+      if ($canEditPaidUntil) {
+        $data['date_paid_until'] = ($paidUntil !== '' ? $paidUntil : null);
+      }
+      $ok = YouthManagement::update($ctx, $id, $data);
       if ($ok) {
         header('Location: /youth.php'); exit;
       } else {
@@ -116,6 +159,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     'zip' => $zip,
     'class_of' => $class_of ?? $y['class_of'],
     'sibling' => $sibling,
+    'bsa_registration_expires_date' => ($regExpires !== '' ? $regExpires : ($y['bsa_registration_expires_date'] ?? null)),
+    'date_paid_until' => ($paidUntil !== '' ? $paidUntil : ($y['date_paid_until'] ?? null)),
   ]);
   $currentGrade = $g ?? $currentGrade;
 }
@@ -238,6 +283,34 @@ header_html('Edit Youth');
         <input type="text" name="zip" value="<?=h($y['zip'])?>">
       </label>
     </div>
+
+    <?php if ($canEditRegExpires || $canEditPaidUntil || $isParentOfThis): ?>
+      <h3>Registration & Dues</h3>
+      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+        <?php if ($canEditRegExpires): ?>
+          <label>BSA Registration Expires
+            <input type="date" name="bsa_registration_expires_date" value="<?= h($y['bsa_registration_expires_date'] ?? '') ?>" placeholder="YYYY-MM-DD">
+          </label>
+        <?php elseif ($isParentOfThis): ?>
+          <div>
+            <div class="small">BSA Registration Expires</div>
+            <div><?= h($y['bsa_registration_expires_date'] ?? '—') ?></div>
+          </div>
+        <?php endif; ?>
+
+        <?php if ($canEditPaidUntil): ?>
+          <label>Paid Until
+            <input type="date" name="date_paid_until" value="<?= h($y['date_paid_until'] ?? '') ?>" placeholder="YYYY-MM-DD">
+          </label>
+        <?php elseif ($isParentOfThis): ?>
+          <div>
+            <div class="small">Paid Until</div>
+            <div><?= h($y['date_paid_until'] ?? '—') ?></div>
+          </div>
+        <?php endif; ?>
+      </div>
+      <p class="small">Note: “Paid Until” indicates pack dues status and may not align with BSA registration expiration.</p>
+    <?php endif; ?>
 
     <div class="actions">
       <button class="primary" type="submit">Save</button>

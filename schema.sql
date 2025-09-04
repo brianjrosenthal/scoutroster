@@ -64,6 +64,8 @@ CREATE TABLE youth (
   shirt_size VARCHAR(20) DEFAULT NULL,
 
   bsa_registration_number VARCHAR(50) DEFAULT NULL, -- presence indicates "registered"
+  bsa_registration_expires_date DATE DEFAULT NULL,
+  date_paid_until DATE DEFAULT NULL,
 
   -- Address (optional)
   street1 VARCHAR(255) DEFAULT NULL,
