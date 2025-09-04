@@ -82,12 +82,17 @@ foreach ($other as $ki) {
 
 header_html('Youth Roster');
 ?>
-<h2>Youth Roster</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <h2>Youth Roster</h2>
+  <?php if (!empty($u['is_admin'])): ?>
+    <a class="button" href="/admin_youth.php">Add Youth</a>
+  <?php endif; ?>
+</div>
 <?php if (!empty($msg)): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if (!empty($err)): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
 <div class="card">
-  <form method="get" class="stack">
+  <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Search
         <input type="text" name="q" value="<?=h($q)?>" placeholder="Name, school">
@@ -107,14 +112,29 @@ header_html('Youth Roster');
       <input type="hidden" name="only_reg_sib" value="0">
       <input type="checkbox" name="only_reg_sib" value="1" <?= $onlyRegSib ? 'checked' : '' ?>> Include only registered members and siblings
     </label>
-    <div class="actions">
-      <button class="primary">Filter</button>
-      <a class="button" href="/youth.php">Reset</a>
-      <?php if (!empty($u['is_admin'])): ?>
-        <a class="button" href="/admin_youth.php">Add Youth</a>
-      <?php endif; ?>
-    </div>
   </form>
+  <script>
+    (function(){
+      var form = document.getElementById('filterForm');
+      if (!form) return;
+      var q = form.querySelector('input[name="q"]');
+      var g = form.querySelector('select[name="g"]');
+      var only = form.querySelector('input[name="only_reg_sib"]');
+      var t;
+      function submitNow() {
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }
+      if (q) {
+        q.addEventListener('input', function(){
+          if (t) clearTimeout(t);
+          t = setTimeout(submitNow, 600);
+        });
+      }
+      if (g) g.addEventListener('change', submitNow);
+      if (only) only.addEventListener('change', submitNow);
+    })();
+  </script>
 </div>
 
 <?php if (empty($rows)): ?>
