@@ -64,6 +64,7 @@ function header_html(string $title) {
     echo $link('/admin_adults.php','Manage Adults');
     echo $link('/admin_import_upload.php','Import Members');
     echo $link('/admin_mailing_list.php','Mailing List');
+    echo $link('/admin_recommendations.php','Recommendations');
     echo $link('/admin_settings.php','Settings');
     echo '</div>';
     echo '<script>document.addEventListener("DOMContentLoaded",function(){var t=document.getElementById("adminToggle");var b=document.getElementById("adminBar");if(t&&b){t.addEventListener("click",function(e){e.preventDefault();b.classList.toggle("hidden");});}});</script>';

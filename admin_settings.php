@@ -28,6 +28,16 @@ $SETTINGS_DEF = [
     'hint'  => 'Public URL to your Pack\'s Google Calendar. If set, the Events page will show a subscribe link.',
     'type'  => 'text',
   ],
+  'cubmaster_name' => [
+    'label' => 'Cubmaster Name',
+    'hint'  => 'Used as the recipient name for recommendation notifications.',
+    'type'  => 'text',
+  ],
+  'cubmaster_email' => [
+    'label' => 'Cubmaster Email',
+    'hint'  => 'Recipient email address for recommendation notifications.',
+    'type'  => 'text',
+  ],
 ];
 
 // Handle save

@@ -18,9 +18,16 @@ if ($isApprover) {
 $me = current_user();
 header_html('Home');
 ?>
+<?php if (!empty($_GET['recommended'])): ?>
+  <p class="flash">Thank you for your recommendation!</p>
+<?php endif; ?>
 <?php if (trim($announcement) !== ''): ?>
   <p class="announcement"><?=h($announcement)?></p>
 <?php endif; ?>
+
+<div class="actions" style="text-align:right;margin:8px 0;">
+  <a class="button" href="/recommend.php">Recommend a friend!</a>
+</div>
 
 <div class="card">
   <h2>Welcome back, <?= h($me['first_name'] ?? '') ?> to <?= h($siteTitle) ?></h2>
