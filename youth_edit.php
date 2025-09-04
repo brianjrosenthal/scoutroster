@@ -130,7 +130,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
       $ok = YouthManagement::update($ctx, $id, $data);
       if ($ok) {
-        header('Location: /youth.php'); exit;
+        $msg = 'Success editing youth.';
+        // Refresh saved data for display on the same page
+        try {
+          $y = YouthManagement::getForEdit(UserContext::getLoggedInUserContext(), $id);
+        } catch (Throwable $e) {
+          // ignore; keep current $y if fetch fails
+        }
+        // Recompute current grade from the saved class_of
+        if (isset($y['class_of'])) {
+          $currentGrade = GradeCalculator::gradeForClassOf((int)$y['class_of']);
+        }
       } else {
         $err = 'Failed to update youth.';
       }
