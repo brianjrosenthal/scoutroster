@@ -239,6 +239,23 @@ header_html('Home');
 
 <?php
   // Complete Your Profile section (single next step)
+  // Flash after uploading via homepage section
+  $showProfileUploadFlash = !empty($_GET['uploaded']) && !empty($_GET['after_profile_upload']);
+
+  // Dismiss for 30 days via cookie
+  $suppressCompletePrompt = false;
+  try {
+    if (isset($_COOKIE['complete_profile_prompt_dismiss_until'])) {
+      $dt = (int)$_COOKIE['complete_profile_prompt_dismiss_until'];
+      if ($dt > time()) $suppressCompletePrompt = true;
+    }
+  } catch (Throwable $e) {
+    $suppressCompletePrompt = false;
+  }
+
+  // Suppress child prompt on the immediate load after adult upload
+  $suppressChildOnce = !empty($_GET['after_profile_upload']);
+
   $mePhoto = trim((string)($me['photo_path'] ?? ''));
   $firstChildNoPhoto = null;
   if ($mePhoto !== '' && is_array($kids ?? null)) {
@@ -249,11 +266,43 @@ header_html('Home');
   }
 ?>
 
-<?php if ($mePhoto === ''): ?>
-<div class="card" style="margin-top:16px;">
+<?php if ($showProfileUploadFlash): ?>
+  <p class="flash">Your profile photo upload was successful.</p>
+<?php endif; ?>
+
+<script>
+(function(){
+  function setCpDismissCookie(days){
+    var maxAge = days*24*60*60;
+    var now = Math.floor(Date.now()/1000);
+    var until = now + maxAge;
+    document.cookie = 'complete_profile_prompt_dismiss_until=' + until + '; Max-Age=' + maxAge + '; Path=/; SameSite=Lax';
+  }
+  function initCpClose(){
+    var btn = document.getElementById('cpCloseBtn');
+    var card = document.getElementById('cpCard');
+    if (btn && card) {
+      btn.addEventListener('click', function(e){
+        e.preventDefault();
+        setCpDismissCookie(30);
+        card.style.display = 'none';
+      });
+    }
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCpClose);
+  } else {
+    initCpClose();
+  }
+})();
+</script>
+
+<?php if ($mePhoto === '' && !$suppressCompletePrompt): ?>
+<div id="cpCard" class="card" style="margin-top:16px;">
+  <button class="close" id="cpCloseBtn" aria-label="Close" style="float:right;font-size:18px;background:none;border:none;cursor:pointer">&times;</button>
   <h3>Complete Your Profile</h3>
   <p>Add a profile photo to complete your profile.</p>
-  <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)($me['id'] ?? 0) ?>&return_to=<?= h('/index.php') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
+  <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)($me['id'] ?? 0) ?>&return_to=<?= h('/index.php?after_profile_upload=1') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
     <label>Upload photo
       <input type="file" name="photo" accept="image/*" required>
@@ -263,12 +312,13 @@ header_html('Home');
     </div>
   </form>
 </div>
-<?php elseif (!empty($firstChildNoPhoto)): ?>
+<?php elseif (!empty($firstChildNoPhoto) && !$suppressCompletePrompt && !$suppressChildOnce): ?>
 <?php
   $childFullName = trim((string)($firstChildNoPhoto['first_name'] ?? '').' '.(string)($firstChildNoPhoto['last_name'] ?? ''));
   $childFirst = (string)($firstChildNoPhoto['first_name'] ?? '');
 ?>
-<div class="card" style="margin-top:16px;">
+<div id="cpCard" class="card" style="margin-top:16px;">
+  <button class="close" id="cpCloseBtn" aria-label="Close" style="float:right;font-size:18px;background:none;border:none;cursor:pointer">&times;</button>
   <h3>Complete <?= h($childFullName) ?>'s profile</h3>
   <p>Add a profile photo to complete <?= h($childFirst) ?>'s profile.</p>
   <form method="post" action="/upload_photo.php?type=youth&youth_id=<?= (int)($firstChildNoPhoto['id'] ?? 0) ?>&return_to=<?= h('/index.php') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
