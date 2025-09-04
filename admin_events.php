@@ -144,10 +144,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// Load list of events (future and past for management)
+/**
+ * Load events by view:
+ * - upcoming (default): starts_at >= NOW(), ordered ascending (closest first)
+ * - past: starts_at < NOW(), ordered descending (most recent first)
+ */
+$view = $_GET['view'] ?? 'upcoming';
+if ($view !== 'past') $view = 'upcoming';
+
 $events = [];
-$st = pdo()->query("SELECT * FROM events ORDER BY starts_at DESC");
-$events = $st->fetchAll();
+if ($view === 'upcoming') {
+  $st = pdo()->prepare("SELECT * FROM events WHERE starts_at >= NOW() ORDER BY starts_at ASC");
+  $st->execute();
+  $events = $st->fetchAll();
+} else {
+  $st = pdo()->prepare("SELECT * FROM events WHERE starts_at < NOW() ORDER BY starts_at DESC");
+  $st->execute();
+  $events = $st->fetchAll();
+}
 
 $showEditor = ($editingId > 0) || (($_GET['show'] ?? '') === 'add') || (($_POST['action'] ?? '') === 'save' && !empty($err));
 
@@ -222,7 +236,16 @@ header_html('Manage Events');
 <?php endif; ?>
 
 <div class="card">
-  <h3>All Events</h3>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    <h3><?= $view === 'past' ? 'Previous Events' : 'Upcoming Events' ?></h3>
+    <div class="actions">
+      <?php if ($view === 'past'): ?>
+        <a class="button" href="/admin_events.php">View Upcoming</a>
+      <?php else: ?>
+        <a class="button" href="/admin_events.php?view=past">View Previous</a>
+      <?php endif; ?>
+    </div>
+  </div>
   <?php if (empty($events)): ?>
     <p class="small">No events yet.</p>
   <?php else: ?>
