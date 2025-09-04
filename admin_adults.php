@@ -221,7 +221,7 @@ header_html('Manage Adults');
           foreach ($A['children'] as $c) {
             $childLines[] = h($c['name']).' ('.($c['grade'] === 0 ? 'K' : (int)$c['grade']).($c['den_name'] ? ', '.h($c['den_name']) : '').')';
           }
-          $childrenSummary = implode('; ', $childLines);
+          $childrenSummary = implode('<br>', $childLines);
 
           // Contact fields (admins always see full details)
           $emails = [];
@@ -229,8 +229,8 @@ header_html('Manage Adults');
           if (!empty($adult['email2'])) $emails[] = h($adult['email2']);
 
           $phones = [];
-          if (!empty($adult['phone_home'])) $phones[] = 'Home: '.h($adult['phone_home']);
-          if (!empty($adult['phone_cell'])) $phones[] = 'Cell: '.h($adult['phone_cell']);
+          if (!empty($adult['phone_home'])) $phones[] = h($adult['phone_home']);
+          if (!empty($adult['phone_cell'])) $phones[] = h($adult['phone_cell']);
 
           $verified = !empty($adult['email_verified_at']);
           ?>
