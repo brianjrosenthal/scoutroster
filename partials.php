@@ -34,9 +34,13 @@ function header_html(string $title) {
     $avatar = $photo !== ''
       ? '<img class="nav-avatar" src="'.h($photo).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
       : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';
-    $navRight[] = $link('/my_profile.php','My Profile');
-    $navRight[] = $link('/logout.php','Log out');
-    $navRight[] = '<a href="/my_profile.php" class="nav-avatar-link" title="My Profile">'.$avatar.'</a>';
+    $navRight[] = '<div class="nav-avatar-wrap">'
+                . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
+                . '<div id="avatarMenu" class="avatar-menu hidden" role="menu" aria-hidden="true">'
+                .   '<a href="/my_profile.php" role="menuitem">My Profile</a>'
+                .   '<a href="/logout.php" role="menuitem">Logout</a>'
+                . '</div>'
+                . '</div>';
     
   } else {
     $navLeft[] = $link('/login.php','Login');
@@ -70,6 +74,10 @@ function header_html(string $title) {
     echo '<script>document.addEventListener("DOMContentLoaded",function(){var t=document.getElementById("adminToggle");var b=document.getElementById("adminBar");if(t&&b){t.addEventListener("click",function(e){e.preventDefault();b.classList.toggle("hidden");});}});</script>';
   }
 
+  // Avatar dropdown script
+  if ($u) {
+    echo '<script>document.addEventListener("DOMContentLoaded",function(){var at=document.getElementById("avatarToggle");var m=document.getElementById("avatarMenu");function hide(){if(m){m.classList.add("hidden");m.setAttribute("aria-hidden","true");}if(at){at.setAttribute("aria-expanded","false");}}function toggle(e){e.preventDefault();if(!m)return;var isHidden=m.classList.contains("hidden");if(isHidden){m.classList.remove("hidden");m.setAttribute("aria-hidden","false");if(at)at.setAttribute("aria-expanded","true");}else{hide();}}if(at)at.addEventListener("click",toggle);document.addEventListener("click",function(e){if(!m||!at)return;var wrap=at.closest(".nav-avatar-wrap");if(wrap&&wrap.contains(e.target))return;hide();});document.addEventListener("keydown",function(e){if(e.key==="Escape")hide();});});</script>';
+  }
   echo '<main>';
 }
 

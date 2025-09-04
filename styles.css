@@ -30,6 +30,12 @@ input,select,textarea{width:100%;padding:8px;border:1px solid #d9d9e3;border-rad
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal.hidden{display:none}
 
+/* Avatar dropdown */
+.nav-avatar-wrap{position:relative}
+.avatar-menu{position:absolute;right:0;top:calc(100% + 6px);background:#fff;color:#111;border:1px solid #e8e8ef;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);min-width:160px;padding:6px;z-index:1000}
+.avatar-menu a{display:block;padding:8px 10px;border-radius:8px;color:#111;text-decoration:none}
+.avatar-menu a:hover,.avatar-menu a:focus{background:#f5f5f7}
+
 /* My Family subcards */
 .family-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .person-card{background:#fff;border:1px solid #e8e8ef;border-radius:12px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
