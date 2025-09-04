@@ -237,10 +237,22 @@ header_html('Home');
   <?php endif; ?>
 </div>
 
-<?php if (trim((string)($me['photo_path'] ?? '')) === ''): ?>
+<?php
+  // Complete Your Profile section (single next step)
+  $mePhoto = trim((string)($me['photo_path'] ?? ''));
+  $firstChildNoPhoto = null;
+  if ($mePhoto !== '' && is_array($kids ?? null)) {
+    foreach ($kids as $k) {
+      $kPhoto = trim((string)($k['photo_path'] ?? ''));
+      if ($kPhoto === '') { $firstChildNoPhoto = $k; break; }
+    }
+  }
+?>
+
+<?php if ($mePhoto === ''): ?>
 <div class="card" style="margin-top:16px;">
-  <h3>Add a profile photo</h3>
-  <p>Complete your profile by adding a profile photo to your account.</p>
+  <h3>Complete Your Profile</h3>
+  <p>Add a profile photo to complete your profile.</p>
   <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)($me['id'] ?? 0) ?>&return_to=<?= h('/index.php') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
     <label>Upload photo
@@ -251,7 +263,26 @@ header_html('Home');
     </div>
   </form>
 </div>
+<?php elseif (!empty($firstChildNoPhoto)): ?>
+<?php
+  $childFullName = trim((string)($firstChildNoPhoto['first_name'] ?? '').' '.(string)($firstChildNoPhoto['last_name'] ?? ''));
+  $childFirst = (string)($firstChildNoPhoto['first_name'] ?? '');
+?>
+<div class="card" style="margin-top:16px;">
+  <h3>Complete <?= h($childFullName) ?>'s profile</h3>
+  <p>Add a profile photo to complete <?= h($childFirst) ?>'s profile.</p>
+  <form method="post" action="/upload_photo.php?type=youth&youth_id=<?= (int)($firstChildNoPhoto['id'] ?? 0) ?>&return_to=<?= h('/index.php') ?>" enctype="multipart/form-data" class="stack" style="max-width:520px">
+    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+    <label>Upload photo
+      <input type="file" name="photo" accept="image/*" required>
+    </label>
+    <div class="actions">
+      <button class="button primary">Submit</button>
+    </div>
+  </form>
+</div>
 <?php endif; ?>
+
 <?php
   // Volunteer CTA (only if not dismissed for 60 days)
   $suppressVolunteer = false;
