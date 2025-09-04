@@ -36,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone_home = nn($_POST['phone_home'] ?? '');
     $phone_cell = nn($_POST['phone_cell'] ?? '');
     $shirt_size = nn($_POST['shirt_size'] ?? '');
+    $suppress_email_directory = !empty($_POST['suppress_email_directory']) ? 1 : 0;
+    $suppress_phone_directory = !empty($_POST['suppress_phone_directory']) ? 1 : 0;
 
     // Admin-only fields
     $bsa_membership_number = $isAdmin ? nn($_POST['bsa_membership_number'] ?? '') : $me['bsa_membership_number'];
@@ -73,6 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'phone_home' => $phone_home,
           'phone_cell' => $phone_cell,
           'shirt_size' => $shirt_size,
+          'suppress_email_directory' => $suppress_email_directory,
+          'suppress_phone_directory' => $suppress_phone_directory,
           // Admin-only fields have been normalized above to retain existing values when not admin
           'bsa_membership_number' => $bsa_membership_number,
           'bsa_registration_expires_on' => $bsa_registration_expires_on,
@@ -365,6 +369,20 @@ header_html('My Profile');
       </label>
       <label>Shirt Size
         <input type="text" name="shirt_size" value="<?=h($me['shirt_size'])?>">
+      </label>
+
+      <label class="inline">
+        <input type="hidden" name="suppress_email_directory" value="0">
+        <input type="checkbox" name="suppress_email_directory" value="1" <?= !empty($me['suppress_email_directory']) ? 'checked' : '' ?>>
+        Suppress email from the directory
+        <div class="small">This hides your email from non-admin users. Administrators can still see it.</div>
+      </label>
+
+      <label class="inline">
+        <input type="hidden" name="suppress_phone_directory" value="0">
+        <input type="checkbox" name="suppress_phone_directory" value="1" <?= !empty($me['suppress_phone_directory']) ? 'checked' : '' ?>>
+        Suppress phone number from the directory
+        <div class="small">This hides your phone numbers from non-admin users. Administrators can still see them.</div>
       </label>
     </div>
 

@@ -19,23 +19,6 @@ if ($g !== null) {
   $classOfFilter = $currentFifthClassOf + (5 - $g);
 }
 
-// Build set of den IDs for my children (privacy rule)
-$myDenIds = [];
-try {
-  $st = pdo()->prepare("
-    SELECT DISTINCT dm.den_id
-    FROM parent_relationships pr
-    JOIN youth y ON y.id = pr.youth_id
-    LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-    WHERE pr.adult_id = ?
-  ");
-  $st->execute([(int)$me['id']]);
-  foreach ($st->fetchAll() as $row) {
-    if (!empty($row['den_id'])) $myDenIds[(int)$row['den_id']] = true;
-  }
-} catch (Throwable $e) {
-  $myDenIds = [];
-}
 
 // Query adults who have at least one registered child
 $params = [];
@@ -91,6 +74,8 @@ foreach ($rows as $r) {
         'email2' => $r['email2'] ?? null,
         'phone_home' => $r['phone_home'] ?? null,
         'phone_cell' => $r['phone_cell'] ?? null,
+      'suppress_email_directory' => (int)($r['suppress_email_directory'] ?? 0),
+      'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
       ],
       'children' => [],
       'den_ids' => [],
@@ -112,20 +97,9 @@ foreach ($rows as $r) {
   }
 }
 
-// Determine contact visibility per adult
-foreach ($adults as $aid => &$A) {
-  if ($isAdmin) {
-    $A['canSeeContact'] = true;
-  } else {
-    // Non-admins: can see contact if overlap in dens with any of my children
-    $can = false;
-    foreach ($A['den_ids'] as $denId => $_) {
-      if (isset($myDenIds[$denId])) { $can = true; break; }
-    }
-    $A['canSeeContact'] = $can;
-  }
-}
-unset($A);
+/**
+ * Contact visibility is handled per-field using user suppression preferences.
+ */
 
 header_html('Adults Roster');
 ?>
@@ -175,7 +149,6 @@ header_html('Adults Roster');
       <tbody>
         <?php foreach ($adults as $aid => $A): 
           $adult = $A['adult'];
-          $canSee = $A['canSeeContact'];
 
           // Children summary
           $childLines = [];
@@ -185,14 +158,18 @@ header_html('Adults Roster');
           $childrenSummary = implode('; ', $childLines);
 
           // Contact fields
+          $hasEmail = !empty($adult['email']) || !empty($adult['email2']);
+          $hideEmail = !$isAdmin && !empty($adult['suppress_email_directory']);
           $emails = [];
-          if ($canSee || $isAdmin) {
+          if (!$hideEmail) {
             if (!empty($adult['email']))  $emails[] = h($adult['email']);
             if (!empty($adult['email2'])) $emails[] = h($adult['email2']);
           }
 
+          $hasPhone = !empty($adult['phone_home']) || !empty($adult['phone_cell']);
+          $hidePhone = !$isAdmin && !empty($adult['suppress_phone_directory']);
           $phones = [];
-          if ($canSee || $isAdmin) {
+          if (!$hidePhone) {
             if (!empty($adult['phone_home'])) $phones[] = 'Home: '.h($adult['phone_home']);
             if (!empty($adult['phone_cell'])) $phones[] = 'Cell: '.h($adult['phone_cell']);
           }
@@ -201,8 +178,8 @@ header_html('Adults Roster');
           <tr>
             <td><?=h($adult['first_name'].' '.$adult['last_name'])?></td>
             <td class="summary-lines"><?= $childrenSummary ?: '&mdash;' ?></td>
-            <td><?= !empty($emails) ? implode('<br>', $emails) : ($isAdmin ? '&mdash;' : '<span class="small">Hidden (not in your den)</span>') ?></td>
-            <td><?= !empty($phones) ? implode('<br>', $phones) : ($isAdmin ? '&mdash;' : '<span class="small">Hidden (not in your den)</span>') ?></td>
+            <td><?= !empty($emails) ? implode('<br>', $emails) : ($hasEmail ? '<span class="small">Hidden by user preference</span>' : '&mdash;') ?></td>
+            <td><?= !empty($phones) ? implode('<br>', $phones) : ($hasPhone ? '<span class="small">Hidden by user preference</span>' : '&mdash;') ?></td>
             <?php if ($isAdmin): ?>
               <td class="small"><a class="button" href="/adult_edit.php?id=<?= (int)$aid ?>">Edit</a></td>
             <?php endif; ?>

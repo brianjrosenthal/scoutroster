@@ -175,13 +175,25 @@ header_html('Youth Roster');
               <?php
                 $plist = $parentsByYouth[(int)$y['id']] ?? [];
                 $parentStrs = [];
+                $isAdminView = !empty($u['is_admin']);
                 foreach ($plist as $p) {
                   $pname = trim(($p['first_name'] ?? '').' '.($p['last_name'] ?? ''));
-                  $phone = !empty($p['phone_cell']) ? $p['phone_cell'] : ($p['phone_home'] ?? '');
+                  $rawPhone = !empty($p['phone_cell']) ? $p['phone_cell'] : ($p['phone_home'] ?? '');
+                  $rawEmail = $p['email'] ?? '';
+                  $showPhone = $isAdminView || empty($p['suppress_phone_directory']);
+                  $showEmail = $isAdminView || empty($p['suppress_email_directory']);
                   $contact = [];
-                  if (!empty($phone)) $contact[] = h($phone);
-                  if (!empty($p['email'])) $contact[] = h($p['email']);
-                  $parentStrs[] = h($pname) . (empty($contact) ? '' : ' ('.implode(', ', $contact).')');
+                  if ($showPhone && !empty($rawPhone)) $contact[] = h($rawPhone);
+                  if ($showEmail && !empty($rawEmail)) $contact[] = h($rawEmail);
+                  $line = h($pname);
+                  if (!empty($contact)) {
+                    $line .= ' ('.implode(', ', $contact).')';
+                  } else {
+                    if ((!empty($rawPhone) || !empty($rawEmail)) && !$isAdminView && (!empty($p['suppress_phone_directory']) || !empty($p['suppress_email_directory']))) {
+                      $line .= ' <span class="small">(Hidden by user preference)</span>';
+                    }
+                  }
+                  $parentStrs[] = $line;
                 }
                 echo !empty($parentStrs) ? implode('<br>', $parentStrs) : '';
               ?>

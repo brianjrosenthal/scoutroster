@@ -292,7 +292,9 @@ class UserManagement {
                    u.last_name,
                    u.phone_cell,
                    u.phone_home,
-                   u.email
+                   u.email,
+                   u.suppress_email_directory,
+                   u.suppress_phone_directory
             FROM parent_relationships pr
             JOIN users u ON u.id = pr.adult_id
             WHERE pr.youth_id IN ($placeholders)
@@ -325,6 +327,7 @@ class UserManagement {
       'first_name','last_name','email',
       'preferred_name','street1','street2','city','state','zip',
       'email2','phone_home','phone_cell','shirt_size','photo_path',
+      'suppress_email_directory','suppress_phone_directory',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
     ];
@@ -347,6 +350,9 @@ class UserManagement {
       } elseif ($key === 'is_admin') {
         $set[] = 'is_admin = ?';
         $params[] = self::boolInt($fields['is_admin']);
+      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory') {
+        $set[] = "$key = ?";
+        $params[] = self::boolInt($fields[$key] ?? 0);
       } else {
         $val = $fields[$key];
         if (is_string($val)) {
