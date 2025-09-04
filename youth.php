@@ -48,16 +48,37 @@ $rows = YouthManagement::searchRoster($ctx, $q, $g, $includeUnreg);
 $youthIds = array_map(static function($r){ return (int)$r['id']; }, $rows);
 $parentsByYouth = !empty($youthIds) ? UserManagement::listParentsForYouthIds($ctx, $youthIds) : [];
 
-// Group by grade
-$byGrade = []; // grade int => list
+/**
+ * Group by grade buckets:
+ * - 'pre' bucket for any grade < 0
+ * - string "0".."5" buckets for K..5
+ * - numeric string > 5 buckets for older siblings
+ */
+$byGrade = []; // key => list (key 'pre' or '0','1',... as strings)
 foreach ($rows as $r) {
-  $grade = GradeCalculator::gradeForClassOf((int)$r['class_of']);
-  if (!isset($byGrade[$grade])) $byGrade[$grade] = [];
-  $byGrade[$grade][] = $r;
+  $gcalc = GradeCalculator::gradeForClassOf((int)$r['class_of']);
+  $key = ($gcalc < 0) ? 'pre' : (string)$gcalc;
+  if (!isset($byGrade[$key])) $byGrade[$key] = [];
+  $byGrade[$key][] = $r;
 }
 
-// Sort grades K..5 (0..5 ascending)
-ksort($byGrade);
+// Build ordered keys: Pre-K, grades 0..5, then >5 ascending
+$orderedKeys = [];
+if (isset($byGrade['pre'])) $orderedKeys[] = 'pre';
+for ($i = 0; $i <= 5; $i++) {
+  $k = (string)$i;
+  if (isset($byGrade[$k])) $orderedKeys[] = $k;
+}
+$other = [];
+foreach ($byGrade as $k => $_) {
+  if ($k === 'pre') continue;
+  $ki = (int)$k;
+  if ($ki > 5) $other[] = $ki;
+}
+sort($other);
+foreach ($other as $ki) {
+  $orderedKeys[] = (string)$ki;
+}
 
 header_html('Youth Roster');
 ?>
@@ -100,9 +121,16 @@ header_html('Youth Roster');
   <p class="small">No youth found.</p>
 <?php endif; ?>
 
-<?php foreach ($byGrade as $grade => $list): ?>
+<?php foreach ($orderedKeys as $gradeKey): $list = $byGrade[$gradeKey]; ?>
   <div class="card">
-    <h3>Grade <?= $grade === 0 ? 'K' : (int)$grade ?></h3>
+    <h3>
+      <?php if ($gradeKey === 'pre'): ?>
+        Pre-K
+      <?php else: ?>
+        <?php $gi = (int)$gradeKey; ?>
+        Grade <?= $gi === 0 ? 'K' : $gi ?><?= $gi > 5 ? ' (Older Siblings)' : '' ?>
+      <?php endif; ?>
+    </h3>
     <table class="list">
       <thead>
         <tr>
