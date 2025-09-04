@@ -84,9 +84,12 @@ header_html('Youth Roster');
 ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Youth Roster</h2>
-  <?php if (!empty($u['is_admin'])): ?>
-    <a class="button" href="/admin_youth.php">Add Youth</a>
-  <?php endif; ?>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <a class="button" href="/recommend.php">Recommend a friend!</a>
+    <?php if (!empty($u['is_admin'])): ?>
+      <a class="button" href="/admin_youth.php">Add Youth</a>
+    <?php endif; ?>
+  </div>
 </div>
 <?php if (!empty($msg)): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if (!empty($err)): ?><p class="error"><?=h($err)?></p><?php endif; ?>

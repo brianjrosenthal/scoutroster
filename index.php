@@ -25,9 +25,6 @@ header_html('Home');
   <p class="announcement"><?=h($announcement)?></p>
 <?php endif; ?>
 
-<div class="actions" style="text-align:right;margin:8px 0;">
-  <a class="button" href="/recommend.php">Recommend a friend!</a>
-</div>
 
 <div class="card">
   <h2>Welcome back, <?= h($me['first_name'] ?? '') ?> to <?= h($siteTitle) ?></h2>
