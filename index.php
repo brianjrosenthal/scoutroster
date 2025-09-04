@@ -16,10 +16,77 @@ if ($isApprover) {
 }
 
 $me = current_user();
+
+// Handle "I've paid" submission for dues renewal notification
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'renew_paid') {
+  require_csrf();
+  try {
+    $youthId = (int)($_POST['youth_id'] ?? 0);
+    if ($youthId <= 0) { throw new RuntimeException('Invalid youth.'); }
+
+    // Ensure this youth belongs to the current user
+    $chk = pdo()->prepare('SELECT y.id, y.first_name, y.last_name FROM parent_relationships pr JOIN youth y ON y.id = pr.youth_id WHERE pr.adult_id = ? AND y.id = ? LIMIT 1');
+    $chk->execute([(int)($me['id'] ?? 0), $youthId]);
+    $row = $chk->fetch();
+    if (!$row) { throw new RuntimeException('Forbidden'); }
+
+    // Build recipients: Cubmaster, Committee Chair, Treasurer (distinct, non-null emails)
+    $st = pdo()->prepare("SELECT DISTINCT u.email, u.first_name, u.last_name
+                          FROM adult_leadership_positions alp
+                          JOIN users u ON u.id = alp.adult_id
+                          WHERE alp.position IN ('Cubmaster','Committee Chair','Treasurer')
+                            AND u.email IS NOT NULL AND u.email <> ''");
+    $st->execute();
+    $recips = $st->fetchAll() ?: [];
+
+    if (!empty($recips)) {
+      require_once __DIR__ . '/mailer.php';
+      $personName = trim((string)($me['first_name'] ?? '') . ' ' . (string)($me['last_name'] ?? ''));
+      $childName  = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
+      $subject = 'Cub Scouts: ' . ($personName ?: 'A parent') . ' paid dues for ' . $childName;
+
+      $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+      $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+      $editUrl = $scheme.'://'.$host.'/youth_edit.php?id='.(int)$youthId;
+
+      $safePerson = htmlspecialchars($personName, ENT_QUOTES, 'UTF-8');
+      $safeChild  = htmlspecialchars($childName, ENT_QUOTES, 'UTF-8');
+      $safeUrl    = htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8');
+
+      $html = '<p>This is an automated notification that <strong>'.$safePerson.'</strong> marked that the dues have been paid for <strong>'.$safeChild.'</strong>.</p>'
+            . '<p><a href="'.$safeUrl.'">Click here to edit the youth profile</a> and mark the dues as paid until next calendar year.</p>';
+
+      foreach ($recips as $r) {
+        $to = (string)($r['email'] ?? '');
+        if ($to === '') continue;
+        $name = trim((string)($r['first_name'] ?? '').' '.(string)($r['last_name'] ?? ''));
+        @send_email($to, $subject, $html, $name ?: $to);
+      }
+    }
+
+    // Suppress the renewal section for 7 days
+    $maxAge = 7*24*60*60;
+    $until = time() + $maxAge;
+    setcookie('renew_prompt_dismiss_until', (string)$until, [
+      'expires' => $until,
+      'path' => '/',
+      'samesite' => 'Lax',
+    ]);
+
+    header('Location: /index.php?renewed=1');
+    exit;
+  } catch (Throwable $e) {
+    // Fall through: do not block page render
+  }
+}
+
 header_html('Home');
 ?>
 <?php if (!empty($_GET['recommended'])): ?>
   <p class="flash">Thank you for your recommendation!</p>
+<?php endif; ?>
+<?php if (!empty($_GET['renewed'])): ?>
+  <p class="flash">Thanks! We’ve notified pack leadership.</p>
 <?php endif; ?>
 <?php if (trim($announcement) !== ''): ?>
   <p class="announcement"><?=h($announcement)?></p>
@@ -38,7 +105,7 @@ header_html('Home');
   $showRegisterSection = false;
   try {
     $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.sibling
+      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.sibling, y.date_paid_until
       FROM parent_relationships pr
       JOIN youth y ON y.id = pr.youth_id
       WHERE pr.adult_id = ?
@@ -240,6 +307,83 @@ header_html('Home');
     </div>
   <?php endif; ?>
 </div>
+
+<?php
+  // Renew Your Membership section
+  // Conditions per youth: has BSA ID, not sibling, grade K..5 (0..5), and date_paid_until is NULL or past
+  // Suppressed if cookie present (7-day suppression after marking paid)
+  $suppressRenew = false;
+  try {
+    if (isset($_COOKIE['renew_prompt_dismiss_until'])) {
+      $dt = (int)$_COOKIE['renew_prompt_dismiss_until'];
+      if ($dt > time()) $suppressRenew = true;
+    }
+  } catch (Throwable $e) {
+    $suppressRenew = false;
+  }
+
+  // Collect qualifying youths
+  $dues = '';
+  try { $dues = (string)Settings::get('dues_amount', ''); } catch (Throwable $e) { $dues = ''; }
+  $duesText = trim($dues) !== '' ? ' ('.h($dues).')' : '';
+
+  $qualifying = [];
+  if (!$suppressRenew && is_array($kids ?? null)) {
+    foreach ($kids as $k) {
+      $bsa = trim((string)($k['bsa_registration_number'] ?? ''));
+      $sibling = (int)($k['sibling'] ?? 0);
+      $classOf = (int)($k['class_of'] ?? 0);
+      $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
+      $paidUntilRaw = trim((string)($k['date_paid_until'] ?? ''));
+      $paidExpired = true;
+      if ($paidUntilRaw !== '') {
+        $ts = strtotime($paidUntilRaw . ' 23:59:59');
+        $paidExpired = ($ts === false) ? true : ($ts < time());
+      }
+      if ($bsa !== '' && $sibling === 0 && $grade !== null && $grade >= 0 && $grade <= 5 && $paidExpired) {
+        $qualifying[] = $k;
+      }
+    }
+  }
+?>
+
+<?php if (!empty($qualifying)): ?>
+<div class="card" style="margin-top:16px;">
+  <h3>Renew Your Membership</h3>
+  <p class="small">
+    Welcome back to Cub Scouts. Please renew your memebership this year by paying your dues<?= $duesText ?> through any of the payment options here:
+    <a href="https://www.scarsdalepack440.com/join" target="_blank" rel="noopener">https://www.scarsdalepack440.com/join</a>.
+  </p>
+  <p class="small">
+    And afterwards, please click the button below to let us know you sent in your dues so that we can process them.
+  </p>
+
+  <div class="stack">
+    <?php foreach ($qualifying as $q): ?>
+      <?php
+        $childName = trim((string)($q['first_name'] ?? '') . ' ' . (string)($q['last_name'] ?? ''));
+        $qClass = (int)($q['class_of'] ?? 0);
+        $qGrade = $qClass > 0 ? GradeCalculator::gradeForClassOf($qClass) : null;
+        $qGradeLabel = ($qGrade !== null) ? GradeCalculator::gradeLabel($qGrade) : null;
+      ?>
+      <form method="post" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:12px;max-width:560px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="renew_paid">
+        <input type="hidden" name="youth_id" value="<?= (int)($q['id'] ?? 0) ?>">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div>
+            <strong><?= h($childName) ?></strong>
+            <?php if ($qGradeLabel !== null): ?>
+              <span class="small">(Grade <?= h($qGradeLabel) ?>)</span>
+            <?php endif; ?>
+          </div>
+          <button class="button">I’ve paid</button>
+        </div>
+      </form>
+    <?php endforeach; ?>
+  </div>
+</div>
+<?php endif; ?>
 
 <?php
   // Complete Your Profile section (single next step)

@@ -38,6 +38,7 @@ function header_html(string $title) {
                 . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
                 . '<div id="avatarMenu" class="avatar-menu hidden" role="menu" aria-hidden="true">'
                 .   '<a href="/my_profile.php" role="menuitem">My Profile</a>'
+                .   '<a href="/forms.php" role="menuitem">Forms and Links</a>'
                 .   '<a href="/logout.php" role="menuitem">Logout</a>'
                 . '</div>'
                 . '</div>';

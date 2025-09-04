@@ -38,6 +38,11 @@ $SETTINGS_DEF = [
     'hint'  => 'Recipient email address for recommendation notifications.',
     'type'  => 'text',
   ],
+  'dues_amount' => [
+    'label' => 'Dues Amount',
+    'hint'  => 'Shown on the homepage renewal section, e.g., "$180" or "180". Leave blank to hide the amount.',
+    'type'  => 'text',
+  ],
 ];
 
 // Handle save
