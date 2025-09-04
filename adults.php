@@ -11,6 +11,7 @@ $isAdmin = !empty($me['is_admin']);
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0..5
 $g = ($gLabel !== '') ? GradeCalculator::parseGradeLabel($gLabel) : null;
+$showAll = $isAdmin ? (!empty($_GET['all'])) : false;
 
 // Compute class_of to filter by child grade (if provided)
 $classOfFilter = null;
@@ -50,6 +51,9 @@ if ($q !== '') {
 if ($classOfFilter !== null) {
   $sql .= " AND y.class_of = ?";
   $params[] = $classOfFilter;
+}
+if (!$showAll) {
+  $sql .= " AND ((u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> ''))";
 }
 
 // Order by adult then child
@@ -103,10 +107,15 @@ foreach ($rows as $r) {
 
 header_html('Adults Roster');
 ?>
-<h2>Adults Roster</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <h2>Adults Roster</h2>
+  <?php if ($isAdmin): ?>
+    <a class="button" href="/admin_adults.php">Add Adult</a>
+  <?php endif; ?>
+</div>
 
 <div class="card">
-  <form method="get" class="stack">
+  <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Search
         <input type="text" name="q" value="<?=h($q)?>" placeholder="Adult or child name, email">
@@ -122,14 +131,42 @@ header_html('Adults Roster');
         </select>
       </label>
     </div>
-    <div class="actions">
-      <a class="button" href="/adults.php">Reset</a>
-      <?php if ($isAdmin): ?>
-        <a class="button" href="/admin_adults.php">Add Adult</a>
-      <?php endif; ?>
-    </div>
-    <small class="small">Roster lists all adults. Use the grade filter to show adults with a child in a specific grade.</small>
+    <?php if ($isAdmin): ?>
+      <label class="inline">
+        <input type="hidden" name="all" value="0">
+        <input type="checkbox" name="all" value="1" <?= $showAll ? 'checked' : '' ?>> Show all adults
+      </label>
+    <?php endif; ?>
   </form>
+  <script>
+    (function(){
+      var form = document.getElementById('filterForm');
+      if (!form) return;
+      var q = form.querySelector('input[name="q"]');
+      var g = form.querySelector('select[name="g"]');
+      var all = form.querySelector('input[name="all"]');
+      var t;
+      function submitNow() {
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      }
+      if (q) {
+        q.addEventListener('input', function(){
+          if (t) clearTimeout(t);
+          t = setTimeout(submitNow, 600);
+        });
+      }
+      if (g) g.addEventListener('change', submitNow);
+      if (all) all.addEventListener('change', submitNow);
+    })();
+  </script>
+  <small class="small">
+    <?php if ($isAdmin): ?>
+      <?= $showAll ? 'Showing all adults.' : 'Showing adults with a BSA membership or with at least one registered scout child.' ?>
+    <?php else: ?>
+      Showing adults with a BSA membership or with at least one registered scout child.
+    <?php endif; ?>
+  </small>
 </div>
 
 <?php if (empty($adults)): ?>
