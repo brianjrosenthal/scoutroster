@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/GradeCalculator.php';
 require_login();
 
 $me = current_user();
@@ -280,6 +281,11 @@ $st = pdo()->prepare("
 $st->execute([(int)$me['id']]);
 $children = $st->fetchAll();
 
+$addChildSelectedGradeLabel = \GradeCalculator::gradeLabel(0); // Default to Kindergarten
+$showAddChild = ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_child' && !empty($err));
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_child') {
+  $addChildSelectedGradeLabel = trim($_POST['grade'] ?? $addChildSelectedGradeLabel);
+}
 header_html('My Profile');
 ?>
 <h2>My Profile</h2>
@@ -610,7 +616,8 @@ header_html('My Profile');
 
 <div class="card">
   <h3>Add Child</h3>
-  <form method="post" class="stack">
+  <div class="actions"><button type="button" class="button" id="addChildToggleBtn">Add Child</button></div>
+  <form id="addChildForm" method="post" class="stack" style="<?= $showAddChild ? '' : 'display:none' ?>">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="add_child">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
@@ -629,12 +636,12 @@ header_html('My Profile');
       <label>Grade
         <select name="grade" required>
           <?php
-            // Support Pre-K (K in 3..1 years), K, and Grades 1..12
-            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
-            foreach ($grades as $g):
-              $lbl = \GradeCalculator::gradeLabel($g);
+            // Order: K, 1..12, then Pre-K (K in 1/2/3 years)
+            $order = [0,1,2,3,4,5,6,7,8,9,10,11,12,-1,-2,-3];
+            foreach ($order as $gi):
+              $lbl = \GradeCalculator::gradeLabel($gi);
           ?>
-            <option value="<?= h($lbl) ?>"><?= h($lbl) ?></option>
+            <option value="<?= h($lbl) ?>" <?= ($addChildSelectedGradeLabel === $lbl ? 'selected' : '') ?>><?= h($lbl) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
@@ -682,5 +689,20 @@ header_html('My Profile');
     </div>
   </form>
 </div>
+<script>
+  (function(){
+    var btn = document.getElementById('addChildToggleBtn');
+    var f = document.getElementById('addChildForm');
+    if (btn && f) {
+      btn.addEventListener('click', function(){
+        if (f.style.display === 'none' || f.style.display === '') {
+          f.style.display = '';
+        } else {
+          f.style.display = 'none';
+        }
+      });
+    }
+  })();
+</script>
 
 <?php footer_html(); ?>
