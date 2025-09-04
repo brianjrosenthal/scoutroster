@@ -144,7 +144,8 @@ header_html('Adults Roster');
       if (!form) return;
       var q = form.querySelector('input[name="q"]');
       var g = form.querySelector('select[name="g"]');
-      var all = form.querySelector('input[name="all"]');
+      // Target the checkbox (not the hidden input) so change triggers auto-submit
+      var all = form.querySelector('input[type="checkbox"][name="all"]');
       var t;
       function submitNow() {
         if (typeof form.requestSubmit === 'function') form.requestSubmit();
