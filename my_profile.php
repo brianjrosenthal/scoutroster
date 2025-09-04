@@ -417,7 +417,7 @@ header_html('My Profile');
 
 <div class="card">
   <h3>Medical Forms</h3>
-  <p class="small">Upload a medical form (PDF) for you or your child.</p>
+  <p class="small">Upload a medical form (PDF) for you or your child.  You should download the blank form from <a target="_blank" href="https://filestore.scouting.org/filestore/HealthSafety/pdf/680-001_AB.pdf">here</a>.</p>
   <div class="actions">
     <a class="button" href="/upload_medical.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php">Upload for me</a>
     <?php foreach ($children as $c): ?>
