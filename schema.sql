@@ -305,3 +305,71 @@ CREATE TABLE volunteer_signups (
   INDEX idx_vs_role (role_id),
   UNIQUE KEY uniq_vs_role_user (role_id, user_id)
 ) ENGINE=InnoDB;
+
+-- ===== Files Storage (DB-backed uploads) =====
+
+-- Public files (event photos, profile photos)
+CREATE TABLE public_files (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  data LONGBLOB NOT NULL,
+  content_type VARCHAR(100) DEFAULT NULL,
+  original_filename VARCHAR(255) DEFAULT NULL,
+  byte_length INT UNSIGNED DEFAULT NULL,
+  sha256 CHAR(64) DEFAULT NULL,
+  created_by_user_id INT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_pf_sha256 ON public_files(sha256);
+CREATE INDEX idx_pf_created_by ON public_files(created_by_user_id);
+CREATE INDEX idx_pf_created_at ON public_files(created_at);
+
+-- Secure files (reimbursement attachments)
+CREATE TABLE secure_files (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  data LONGBLOB NOT NULL,
+  content_type VARCHAR(100) DEFAULT NULL,
+  original_filename VARCHAR(255) DEFAULT NULL,
+  byte_length INT UNSIGNED DEFAULT NULL,
+  sha256 CHAR(64) DEFAULT NULL,
+  created_by_user_id INT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_sf_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_sf_sha256 ON secure_files(sha256);
+CREATE INDEX idx_sf_created_by ON secure_files(created_by_user_id);
+CREATE INDEX idx_sf_created_at ON secure_files(created_at);
+
+-- Link columns (added via ALTER to avoid circular FK creation order)
+ALTER TABLE users
+  ADD COLUMN photo_public_file_id INT NULL;
+
+ALTER TABLE users
+  ADD CONSTRAINT fk_users_photo_public_file
+    FOREIGN KEY (photo_public_file_id) REFERENCES public_files(id) ON DELETE SET NULL;
+
+-- Ensure youth has photo_path (referenced by code) and add new photo_public_file_id
+ALTER TABLE youth
+  ADD COLUMN photo_path VARCHAR(512) DEFAULT NULL,
+  ADD COLUMN photo_public_file_id INT NULL;
+
+ALTER TABLE youth
+  ADD CONSTRAINT fk_youth_photo_public_file
+    FOREIGN KEY (photo_public_file_id) REFERENCES public_files(id) ON DELETE SET NULL;
+
+ALTER TABLE events
+  ADD COLUMN photo_public_file_id INT NULL;
+
+ALTER TABLE events
+  ADD CONSTRAINT fk_events_photo_public_file
+    FOREIGN KEY (photo_public_file_id) REFERENCES public_files(id) ON DELETE SET NULL;
+
+ALTER TABLE reimbursement_request_files
+  ADD COLUMN secure_file_id INT NULL;
+
+ALTER TABLE reimbursement_request_files
+  ADD CONSTRAINT fk_rrf_secure_file
+    FOREIGN KEY (secure_file_id) REFERENCES secure_files(id) ON DELETE SET NULL;
+
+CREATE INDEX idx_rrf_secure_file ON reimbursement_request_files(secure_file_id);

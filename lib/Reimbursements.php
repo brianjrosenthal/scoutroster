@@ -365,6 +365,22 @@ final class Reimbursements {
     }
   }
 
+  // Store a secure file blob reference for this reimbursement (DB-backed, no filesystem path)
+  public static function recordSecureFile(UserContext $ctx, int $reqId, int $secureFileId, string $originalFilename, ?string $description = null): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId); // permission check
+    $st = self::pdo()->prepare("INSERT INTO reimbursement_request_files
+      (reimbursement_request_id, original_filename, stored_path, description, created_by, created_at, secure_file_id)
+      VALUES (?, ?, NULL, ?, ?, NOW(), ?)");
+    $st->execute([(int)$req['id'], $originalFilename, $description, (int)$ctx->id, (int)$secureFileId]);
+
+    try {
+      self::notifyNewFile((int)$req['id'], (int)$ctx->id, $originalFilename, $description);
+    } catch (\Throwable $e) {
+      // ignore notification failures
+    }
+  }
+
   // ----- Utility for page logic -----
 
   public static function canUploadFiles(?UserContext $ctx, array $req): bool {

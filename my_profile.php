@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/Files.php';
 require_login();
 
 $me = current_user();
@@ -304,10 +305,10 @@ header_html('My Profile');
     <?php
       $meName = trim((string)($me['first_name'] ?? '').' '.(string)($me['last_name'] ?? ''));
       $meInitials = strtoupper((string)substr((string)($me['first_name'] ?? ''),0,1).(string)substr((string)($me['last_name'] ?? ''),0,1));
-      $mePhoto = trim((string)($me['photo_path'] ?? ''));
+      $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null, $me['photo_path'] ?? null);
     ?>
-    <?php if ($mePhoto !== ''): ?>
-      <img class="avatar" src="<?= h($mePhoto) ?>" alt="<?= h($meName) ?>" style="width:80px;height:80px">
+    <?php if ($mePhotoUrl !== ''): ?>
+      <img class="avatar" src="<?= h($mePhotoUrl) ?>" alt="<?= h($meName) ?>" style="width:80px;height:80px">
     <?php else: ?>
       <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($meInitials) ?></div>
     <?php endif; ?>
@@ -321,7 +322,7 @@ header_html('My Profile');
         <button class="button">Upload Photo</button>
       </div>
     </form>
-    <?php if ($mePhoto !== ''): ?>
+    <?php if (!empty($mePhotoUrl)): ?>
       <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="action" value="delete">

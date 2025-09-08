@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/Files.php';
 require_login();
 
 $err = null;
@@ -270,10 +271,10 @@ header_html('Edit Adult');
     <?php
       $aName = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
       $aInitials = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
-      $aPhoto = trim((string)($u['photo_path'] ?? ''));
+      $aPhotoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
     ?>
-    <?php if ($aPhoto !== ''): ?>
-      <img class="avatar" src="<?= h($aPhoto) ?>" alt="<?= h($aName) ?>" style="width:80px;height:80px">
+    <?php if ($aPhotoUrl !== ''): ?>
+      <img class="avatar" src="<?= h($aPhotoUrl) ?>" alt="<?= h($aName) ?>" style="width:80px;height:80px">
     <?php else: ?>
       <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($aInitials) ?></div>
     <?php endif; ?>
@@ -287,7 +288,7 @@ header_html('Edit Adult');
         <button class="button">Upload Photo</button>
       </div>
     </form>
-    <?php if ($aPhoto !== ''): ?>
+    <?php if ($aPhotoUrl !== ''): ?>
       <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="action" value="delete">
@@ -305,10 +306,10 @@ header_html('Edit Adult');
     <?php
       $aNameFull = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
       $aInitialsFull = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
-      $aPhotoFull = trim((string)($u['photo_path'] ?? ''));
+      $aPhotoUrlFull = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
     ?>
-    <?php if ($aPhotoFull !== ''): ?>
-      <img class="avatar" src="<?= h($aPhotoFull) ?>" alt="<?= h($aNameFull) ?>" style="width:80px;height:80px">
+    <?php if ($aPhotoUrlFull !== ''): ?>
+      <img class="avatar" src="<?= h($aPhotoUrlFull) ?>" alt="<?= h($aNameFull) ?>" style="width:80px;height:80px">
     <?php else: ?>
       <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($aInitialsFull) ?></div>
     <?php endif; ?>
@@ -322,7 +323,7 @@ header_html('Edit Adult');
         <button class="button">Upload Photo</button>
       </div>
     </form>
-    <?php if ($aPhotoFull !== ''): ?>
+    <?php if ($aPhotoUrlFull !== ''): ?>
       <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$id ?>&return_to=<?= h('/adult_edit.php?id='.(int)$id) ?>" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="action" value="delete">

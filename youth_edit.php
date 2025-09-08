@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/Files.php';
 require_login();
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -192,11 +193,11 @@ header_html('Edit Youth');
     <?php
       $yName = trim((string)($y['first_name'] ?? '').' '.(string)($y['last_name'] ?? ''));
       $yInitials = strtoupper((string)substr((string)($y['first_name'] ?? ''),0,1).(string)substr((string)($y['last_name'] ?? ''),0,1));
-      $yPhoto = trim((string)($y['photo_path'] ?? ''));
+      $yPhotoUrl = Files::profilePhotoUrl($y['photo_public_file_id'] ?? null, $y['photo_path'] ?? null);
     ?>
     <a href="/youth_edit.php?id=<?= (int)$id ?>" style="text-decoration:none">
-      <?php if ($yPhoto !== ''): ?>
-        <img class="avatar" src="<?= h($yPhoto) ?>" alt="<?= h($yName) ?>" style="width:80px;height:80px">
+      <?php if ($yPhotoUrl !== ''): ?>
+        <img class="avatar" src="<?= h($yPhotoUrl) ?>" alt="<?= h($yName) ?>" style="width:80px;height:80px">
       <?php else: ?>
         <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($yInitials) ?></div>
       <?php endif; ?>
@@ -211,7 +212,7 @@ header_html('Edit Youth');
         <button class="button">Upload Photo</button>
       </div>
     </form>
-    <?php if ($yPhoto !== ''): ?>
+    <?php if ($yPhotoUrl !== ''): ?>
       <form method="post" action="/upload_photo.php?type=youth&youth_id=<?= (int)$id ?>&return_to=<?= h('/youth_edit.php?id='.(int)$id) ?>" onsubmit="return confirm('Remove this photo?');" style="margin-left:12px;">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
         <input type="hidden" name="action" value="delete">
