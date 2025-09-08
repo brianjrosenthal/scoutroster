@@ -328,7 +328,6 @@ header_html('Home');
   $duesText = trim($dues) !== '' ? ' ('.h($dues).')' : '';
 
   $qualifying = [];
-  $suppressRenew = true;
   if (!$suppressRenew && is_array($kids ?? null)) {
     foreach ($kids as $k) {
       $bsa = trim((string)($k['bsa_registration_number'] ?? ''));
