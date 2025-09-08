@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Reimbursements.php';
+require_once __DIR__ . '/lib/Files.php';
 require_login();
 
 $ctx = UserContext::getLoggedInUserContext();
@@ -33,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
 
     $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount);
 
-    // Optional file
+    // Optional file (store securely in DB)
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
       $f = $_FILES['file'];
       $tmp = $f['tmp_name'] ?? '';
@@ -43,18 +44,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
         $allowedExt = ['pdf','jpg','jpeg','png','heic','webp'];
         $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
         if (!in_array($ext, $allowedExt, true)) {
-          // ignore or show error; we choose to show error and keep the request
           $err = 'Unsupported file type. Allowed: pdf, jpg, jpeg, png, heic, webp.';
         } else {
-          $destDir = __DIR__ . '/uploads/reimbursements/' . (int)$newId;
-          if (!is_dir($destDir)) { @mkdir($destDir, 0775, true); }
-          $rand = bin2hex(random_bytes(12));
-          $storedRel = 'uploads/reimbursements/' . (int)$newId . '/' . $rand . '.' . $ext;
-          $storedAbs = __DIR__ . '/' . $storedRel;
-          if (@move_uploaded_file($tmp, $storedAbs)) {
-            Reimbursements::recordFile($ctx, (int)$newId, $storedRel, $name, null);
+          $data = @file_get_contents($tmp);
+          if ($data === false) {
+            $err = 'Failed to read uploaded file.';
           } else {
-            $err = 'Failed to store uploaded file.';
+            // Best-effort content type
+            $mime = 'application/octet-stream';
+            if (function_exists('finfo_open')) {
+              $finfo = finfo_open(FILEINFO_MIME_TYPE);
+              if ($finfo) {
+                $mt = finfo_file($finfo, $tmp);
+                if (is_string($mt) && $mt !== '') $mime = $mt;
+                finfo_close($finfo);
+              }
+            }
+            try {
+              $secureId = Files::insertSecureFile($data, $mime, $name, (int)$me['id']);
+              Reimbursements::recordSecureFile($ctx, (int)$newId, (int)$secureId, $name, null);
+            } catch (Throwable $e) {
+              $err = 'Failed to store uploaded file.';
+            }
           }
         }
       }

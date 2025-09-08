@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__ . '/lib/Files.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -236,8 +237,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 </div>
 
 <div class="card">
-  <?php if (!empty($e['photo_path'])): ?>
-    <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
+  <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null); ?>
+  <?php if ($imgUrl !== ''): ?>
+    <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
   <p><strong>When:</strong> <?=h(Settings::formatDateTime($e['starts_at']))?><?php if(!empty($e['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($e['ends_at']))?><?php endif; ?></p>
   <?php

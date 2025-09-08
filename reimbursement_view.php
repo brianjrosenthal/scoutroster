@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Reimbursements.php';
+require_once __DIR__ . '/lib/Files.php';
 require_login();
 
 $ctx = UserContext::getLoggedInUserContext();
@@ -59,15 +60,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if (!in_array($ext, $allowedExt, true)) {
         throw new RuntimeException('Unsupported file type. Allowed: pdf, jpg, jpeg, png, heic, webp.');
       }
-      $destDir = __DIR__ . '/uploads/reimbursements/' . (int)$id;
-      if (!is_dir($destDir)) { @mkdir($destDir, 0775, true); }
-      $rand = bin2hex(random_bytes(12));
-      $storedRel = 'uploads/reimbursements/' . (int)$id . '/' . $rand . '.' . $ext;
-      $storedAbs = __DIR__ . '/' . $storedRel;
-      if (!@move_uploaded_file($tmp, $storedAbs)) {
+      // Load bytes and detect mime best-effort
+      $data = @file_get_contents($tmp);
+      if ($data === false) {
+        throw new RuntimeException('Failed to read uploaded file.');
+      }
+      $mime = 'application/octet-stream';
+      if (function_exists('finfo_open')) {
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo) {
+          $mt = finfo_file($finfo, $tmp);
+          if (is_string($mt) && $mt !== '') $mime = $mt;
+          finfo_close($finfo);
+        }
+      }
+      // Insert into secure_files and link to reimbursement_request_files
+      try {
+        $secureId = Files::insertSecureFile($data, $mime, $name, (int)($me['id'] ?? 0));
+        Reimbursements::recordSecureFile($ctx, $id, (int)$secureId, $name, $desc);
+      } catch (Throwable $e) {
         throw new RuntimeException('Failed to store uploaded file.');
       }
-      Reimbursements::recordFile($ctx, $id, $storedRel, $name, $desc);
       $msg = 'File uploaded.';
     } elseif ($action === 'update_payment') {
       // Only creator can update; Reimbursements will enforce
@@ -182,7 +195,7 @@ header_html('Reimbursement Details');
     <ul class="list">
       <?php foreach ($files as $f): ?>
         <li>
-          <a href="/reimbursement_download.php?id=<?= (int)$f['id'] ?>"><?= h($f['original_filename']) ?></a>
+          <a href="/secure_file_download.php?id=<?= (int)$f['id'] ?>"><?= h($f['original_filename']) ?></a>
           <span class="small">uploaded by <?= h(trim(($f['first_name'] ?? '').' '.($f['last_name'] ?? ''))) ?> at <?= h($f['created_at']) ?></span>
           <?php if (!empty($f['description'])): ?>
             <div class="small"><?= h($f['description']) ?></div>

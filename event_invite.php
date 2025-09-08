@@ -2,6 +2,7 @@
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Text.php'; // for safe description rendering
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/Files.php';
 
 // No login required for invite landing
 
@@ -545,8 +546,11 @@ header_html('Event Invite');
 <?php endif; ?>
 
 <div class="card">
-  <?php if (!empty($event['photo_path'])): ?>
-    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
+  <?php
+    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null, $event['photo_path'] ?? null);
+    if ($heroUrl !== ''):
+  ?>
+    <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
   <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
   <?php

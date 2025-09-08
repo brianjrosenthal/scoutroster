@@ -6,6 +6,7 @@
 
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/lib/Files.php';
 
 function redirect_back(string $returnTo, array $params = []): void {
   // Basic allowlist: require leading slash to avoid offsite redirects
@@ -110,7 +111,7 @@ if ($action === 'delete') {
           @unlink($fsReal);
         }
       }
-      $up = pdo()->prepare("UPDATE users SET photo_path = NULL WHERE id=?");
+      $up = pdo()->prepare("UPDATE users SET photo_path = NULL, photo_public_file_id = NULL WHERE id=?");
       $up->execute([$adultId]);
     } else {
       $st = pdo()->prepare("SELECT photo_path FROM youth WHERE id=?");
@@ -124,7 +125,7 @@ if ($action === 'delete') {
           @unlink($fsReal);
         }
       }
-      $up = pdo()->prepare("UPDATE youth SET photo_path = NULL WHERE id=?");
+      $up = pdo()->prepare("UPDATE youth SET photo_path = NULL, photo_public_file_id = NULL WHERE id=?");
       $up->execute([$youthId]);
     }
   } catch (Throwable $e) {
@@ -168,37 +169,24 @@ if ($imgInfo === false) {
   redirect_back($returnTo, ['err' => 'not_image']);
 }
 
-// Make upload path
 $ext = $allowed[$mime];
-$uploadDir = __DIR__ . '/uploads/profile_photos';
-ensure_dir($uploadDir);
 
-// Unique name
-$rand = bin2hex(random_bytes(4));
-$ts = time();
-$base = sprintf('profile_%s_%d_%d_%s.%s', $type, ($type === 'adult' ? $adultId : $youthId), $ts, $rand, $ext);
-$destFs = $uploadDir . '/' . $base;
-$destUrl = '/uploads/profile_photos/' . $base;
-
-// Move
-if (!@move_uploaded_file($tmp, $destFs)) {
+// Store in DB-backed public_files and update reference
+$origName = (string)($_FILES['photo']['name'] ?? ('profile.' . $ext));
+$data = @file_get_contents($tmp);
+if ($data === false) {
   redirect_back($returnTo, ['err' => 'save_failed']);
 }
-
-// Persist path
 try {
+  $publicId = Files::insertPublicFile($data, $mime, $origName, $currentId);
   if ($type === 'adult') {
-    $st = pdo()->prepare("UPDATE users SET photo_path = ? WHERE id = ?");
-    $st->execute([$destUrl, $adultId]);
+    $st = pdo()->prepare("UPDATE users SET photo_public_file_id = ?, photo_path = NULL WHERE id = ?");
+    $st->execute([$publicId, $adultId]);
   } else {
-    $st = pdo()->prepare("UPDATE youth SET photo_path = ? WHERE id = ?");
-    $st->execute([$destUrl, $youthId]);
+    $st = pdo()->prepare("UPDATE youth SET photo_public_file_id = ?, photo_path = NULL WHERE id = ?");
+    $st->execute([$publicId, $youthId]);
   }
 } catch (Throwable $e) {
-  // If DB update fails, best effort to remove saved file to avoid orphan
-  @unlink($destFs);
   redirect_back($returnTo, ['err' => 'db_failed']);
 }
-
-// Success
 redirect_back($returnTo, ['uploaded' => 1]);

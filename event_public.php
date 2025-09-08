@@ -3,6 +3,7 @@ require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/Files.php';
 
 // No login required
 
@@ -145,8 +146,11 @@ $openVolunteerRolesPublic = Volunteers::openRolesExist((int)$eventId);
 header_html('Event - Public RSVP');
 ?>
 <?php if ($allowPublic): ?>
-  <?php if (!empty($event['photo_path'])): ?>
-    <img src="/<?= h($event['photo_path']) ?>" alt="<?= h($event['name']) ?> image" class="event-hero-top">
+  <?php
+    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null, $event['photo_path'] ?? null);
+    if ($heroUrl !== ''):
+  ?>
+    <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero-top">
   <?php endif; ?>
   <h2><?= h($event['name']) ?></h2>
 <?php else: ?>

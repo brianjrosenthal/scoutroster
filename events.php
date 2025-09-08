@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/Files.php';
 require_login();
 
 $u = current_user();
@@ -55,8 +56,9 @@ header_html('Upcoming Events');
     <?php foreach ($events as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
-        <?php if (!empty($e['photo_path'])): ?>
-          <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
+        <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null); ?>
+        <?php if ($imgUrl !== ''): ?>
+          <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
         <?php endif; ?>
         <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
         <?php

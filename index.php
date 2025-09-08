@@ -8,6 +8,7 @@ $siteTitle = Settings::siteTitle();
 require_once __DIR__ . '/lib/Reimbursements.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/Files.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -105,7 +106,7 @@ header_html('Home');
   $showRegisterSection = false;
   try {
     $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.sibling, y.date_paid_until
+      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.photo_public_file_id, y.sibling, y.date_paid_until
       FROM parent_relationships pr
       JOIN youth y ON y.id = pr.youth_id
       WHERE pr.adult_id = ?
@@ -183,13 +184,13 @@ header_html('Home');
         $ph = implode(',', array_fill(0, count($childIds), '?'));
         $params = $childIds;
         $params[] = (int)($me['id'] ?? 0);
-        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_path, u.bsa_membership_number,
+        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_path, u.photo_public_file_id, u.bsa_membership_number,
                        GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
                 FROM users u
                 JOIN parent_relationships pr ON pr.adult_id = u.id
                 LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
                 WHERE pr.youth_id IN ($ph) AND u.id <> ?
-                GROUP BY u.id, u.first_name, u.last_name, u.photo_path, u.bsa_membership_number
+                GROUP BY u.id, u.first_name, u.last_name, u.photo_path, u.photo_public_file_id, u.bsa_membership_number
                 ORDER BY u.last_name, u.first_name";
         $st = pdo()->prepare($sql);
         $st->execute($params);
@@ -211,6 +212,7 @@ header_html('Home');
         'class_of' => (int)($c['class_of'] ?? 0),
         'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
         'photo_path' => trim((string)($c['photo_path'] ?? '')),
+        'photo_public_file_id' => (int)($c['photo_public_file_id'] ?? 0),
         'sibling' => (int)($c['sibling'] ?? 0),
       ];
     }
@@ -224,6 +226,7 @@ header_html('Home');
         'positions' => trim((string)($p['positions'] ?? '')),
         'bsa_membership_number' => trim((string)($p['bsa_membership_number'] ?? '')),
         'photo_path' => trim((string)($p['photo_path'] ?? '')),
+        'photo_public_file_id' => (int)($p['photo_public_file_id'] ?? 0),
       ];
     }
   ?>
@@ -259,11 +262,11 @@ header_html('Home');
                 $href = ($m['type'] === 'child')
                   ? '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0)
                   : '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
-                $mPhoto = trim((string)($m['photo_path'] ?? ''));
+                $avatarUrl = Files::profilePhotoUrl($m['photo_public_file_id'] ?? null, $m['photo_path'] ?? '');
               ?>
               <a href="<?= h($href) ?>" class="avatar-link" title="Edit">
-                <?php if ($mPhoto !== ''): ?>
-                  <img class="avatar" src="<?= h($mPhoto) ?>" alt="<?= h($name) ?>">
+                <?php if ($avatarUrl !== ''): ?>
+                  <img class="avatar" src="<?= h($avatarUrl) ?>" alt="<?= h($name) ?>">
                 <?php else: ?>
                   <div class="avatar avatar-initials" aria-hidden="true"><?= h($initials) ?></div>
                 <?php endif; ?>
@@ -404,12 +407,12 @@ header_html('Home');
   // Suppress child prompt on the immediate load after adult upload
   $suppressChildOnce = !empty($_GET['after_profile_upload']);
 
-  $mePhoto = trim((string)($me['photo_path'] ?? ''));
+  $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null, $me['photo_path'] ?? null);
   $firstChildNoPhoto = null;
-  if ($mePhoto !== '' && is_array($kids ?? null)) {
+  if ($mePhotoUrl !== '' && is_array($kids ?? null)) {
     foreach ($kids as $k) {
-      $kPhoto = trim((string)($k['photo_path'] ?? ''));
-      if ($kPhoto === '') { $firstChildNoPhoto = $k; break; }
+      $kPhotoUrl = Files::profilePhotoUrl($k['photo_public_file_id'] ?? null, $k['photo_path'] ?? null);
+      if ($kPhotoUrl === '') { $firstChildNoPhoto = $k; break; }
     }
   }
 ?>
@@ -445,7 +448,7 @@ header_html('Home');
 })();
 </script>
 
-<?php if ($mePhoto === '' && !$suppressCompletePrompt): ?>
+<?php if ($mePhotoUrl === '' && !$suppressCompletePrompt): ?>
 <div id="cpCard" class="card" style="margin-top:16px;">
   <button class="close" id="cpCloseBtn" aria-label="Close" style="float:right;font-size:18px;background:none;border:none;cursor:pointer">&times;</button>
   <h3>Complete Your Profile</h3>
@@ -730,8 +733,11 @@ header_html('Home');
     <?php foreach ($homeEvents as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></h3>
-        <?php if (!empty($e['photo_path'])): ?>
-          <img src="/<?= h($e['photo_path']) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
+        <?php
+          $thumbUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null);
+          if ($thumbUrl !== ''):
+        ?>
+          <img src="<?= h($thumbUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
         <?php endif; ?>
         <p><strong>When:</strong> <?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></p>
         <?php

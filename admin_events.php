@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
+require_once __DIR__.'/lib/Files.php';
 require_admin();
 
 $msg = null;
@@ -84,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($ok) {
-          // Optional event image upload
+          // Optional event image upload -> store in DB (public_files)
           if (!empty($_FILES['photo']) && is_array($_FILES['photo']) && empty($_FILES['photo']['error'])) {
             $f = $_FILES['photo'];
             $tmp = $f['tmp_name'] ?? '';
@@ -93,14 +94,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               $allowedExt = ['jpg','jpeg','png','webp','heic'];
               $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
               if (in_array($ext, $allowedExt, true)) {
-                $destDir = __DIR__ . '/uploads/events/' . (int)$eventId;
-                if (!is_dir($destDir)) { @mkdir($destDir, 0775, true); }
-                $rand = bin2hex(random_bytes(12));
-                $storedRel = 'uploads/events/' . (int)$eventId . '/' . $rand . '.' . $ext;
-                $storedAbs = __DIR__ . '/' . $storedRel;
-                if (@move_uploaded_file($tmp, $storedAbs)) {
-                  $up = pdo()->prepare("UPDATE events SET photo_path=? WHERE id=?");
-                  $up->execute([$storedRel, (int)$eventId]);
+                $mime = 'application/octet-stream';
+                if (function_exists('finfo_open')) {
+                  $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                  if ($finfo) {
+                    $mt = finfo_file($finfo, $tmp);
+                    if (is_string($mt) && $mt !== '') $mime = $mt;
+                    finfo_close($finfo);
+                  }
+                }
+                $data = @file_get_contents($tmp);
+                if ($data !== false) {
+                  try {
+                    $publicId = Files::insertPublicFile($data, $mime, $name, (int)($editing['id'] ?? 0));
+                    $up = pdo()->prepare("UPDATE events SET photo_public_file_id = ?, photo_path = NULL WHERE id=?");
+                    $up->execute([$publicId, (int)$eventId]);
+                  } catch (Throwable $e) {
+                    // swallow; leave without image if failed
+                  }
                 }
               }
             }
@@ -216,9 +227,15 @@ header_html('Manage Events');
     </label>
     <p class="small">If provided, internal RSVP buttons are replaced by an “RSVP TO EVITE” button across logged-in, invite, and public pages.</p>
     <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
-    <?php if (!empty($editing['photo_path'])): ?>
+    <?php
+      $imgUrl = '';
+      if ($editing) {
+        $imgUrl = Files::eventPhotoUrl($editing['photo_public_file_id'] ?? null, $editing['photo_path'] ?? null);
+      }
+    ?>
+    <?php if ($imgUrl !== ''): ?>
       <div class="small">Current Image:<br>
-        <img src="/<?= h($editing['photo_path']) ?>" alt="Event image" width="180" style="height:auto;border-radius:8px;">
+        <img src="<?= h($imgUrl) ?>" alt="Event image" width="180" style="height:auto;border-radius:8px;">
       </div>
     <?php endif; ?>
     <label>Event Image (optional)

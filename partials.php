@@ -3,6 +3,7 @@ require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/lib/Application.php';
 Application::init();
+require_once __DIR__ . '/lib/Files.php';
 
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
@@ -30,9 +31,9 @@ function header_html(string $title) {
     }
     // Add small avatar in the top-right nav linking to My Profile
     $initials = strtoupper(substr((string)($u['first_name'] ?? ''),0,1).substr((string)($u['last_name'] ?? ''),0,1));
-    $photo = trim((string)($u['photo_path'] ?? ''));
-    $avatar = $photo !== ''
-      ? '<img class="nav-avatar" src="'.h($photo).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
+    $photoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
+    $avatar = $photoUrl !== ''
+      ? '<img class="nav-avatar" src="'.h($photoUrl).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
       : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';
     $navRight[] = '<div class="nav-avatar-wrap">'
                 . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
