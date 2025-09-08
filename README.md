@@ -90,8 +90,7 @@ B. Sees other homepage sections
 - Summary of registration todo's
 
 2. Application-specific user-flows
-A. Linking users to youthgs
-B. Uploading medical forms
+A. Linking users to youth
 
 3. Reimbursement Flows
 A. All users:

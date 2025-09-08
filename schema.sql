@@ -135,25 +135,6 @@ CREATE INDEX idx_alp_adult ON adult_leadership_positions(adult_id);
 CREATE INDEX idx_alp_den ON adult_leadership_positions(den_id);
 CREATE UNIQUE INDEX uniq_alp_adult_position ON adult_leadership_positions(adult_id, position);
 
--- Medical forms (PDF uploads)
-CREATE TABLE medical_forms (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  type ENUM('youth','adult') NOT NULL,
-  youth_id INT DEFAULT NULL,
-  adult_id INT DEFAULT NULL,
-  file_path VARCHAR(512) NOT NULL,
-  original_filename VARCHAR(255) DEFAULT NULL,
-  mime_type VARCHAR(100) DEFAULT NULL,
-  uploaded_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_mf_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
-  CONSTRAINT fk_mf_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE
-  -- NOTE: App enforces that exactly one of (youth_id, adult_id) is non-NULL to match "must be for either a cub scout or an adult".
-) ENGINE=InnoDB;
-
-CREATE INDEX idx_mf_type ON medical_forms(type);
-CREATE INDEX idx_mf_youth ON medical_forms(youth_id);
-CREATE INDEX idx_mf_adult ON medical_forms(adult_id);
-
 -- Events
 CREATE TABLE events (
   id INT AUTO_INCREMENT PRIMARY KEY,
@@ -294,9 +275,8 @@ CREATE INDEX idx_rrc_req ON reimbursement_request_comments(reimbursement_request
 CREATE INDEX idx_rrc_creator ON reimbursement_request_comments(created_by);
 
 -- Optional: seed an admin user (update email and password hash, then remove)
--- The hash below corresponds to password: Admin123!
--- INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
--- VALUES ('Admin','User','admin@example.com','$2y$10$9xH7Jq4v3o6s9k3y8i4rVOyWb0yBYZ5rW.0f9pZ.gG9K6l7lS6b2S',1,NOW());
+INSERT INTO users (first_name,last_name,email,password_hash,is_admin,email_verified_at)
+VALUES ('Admin','User','admin@example.com','$2y$10$9xH7Jq4v3o6s9k3y8i4rVOyWb0yBYZ5rW.0f9pZ.gG9K6l7lS6b2S',1,NOW());
 
 -- Volunteer Roles
 CREATE TABLE volunteer_roles (
