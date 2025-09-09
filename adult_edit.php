@@ -255,11 +255,21 @@ $linkedChildren = $stChildren->fetchAll();
 
 header_html('Edit Adult');
 ?>
-<h2>Edit Adult</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <h2>Edit Adult</h2>
+  <?php if ($canEditAll && !empty($u['email']) && empty($u['email_verified_at'])): ?>
+    <form method="post" class="inline">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="invite">
+      <button class="button">Invite user to activate account</button>
+    </form>
+  <?php endif; ?>
+</div>
 <?php
   if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
   if (isset($_GET['saved'])) { $msg = 'Profile updated.'; }
+  if (isset($_GET['child_added'])) { $msg = 'Child added.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
@@ -445,7 +455,10 @@ header_html('Edit Adult');
 
 
 <div class="card" style="margin-top:16px;">
-  <h3>Parent Relationships</h3>
+  <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    Children
+    <button id="addChildBtn" type="button" class="button">Add Child</button>
+  </h3>
 
   <?php if (empty($linkedChildren)): ?>
     <p class="small">No children linked to this adult.</p>
@@ -454,7 +467,7 @@ header_html('Edit Adult');
       <thead>
         <tr>
           <th>Child</th>
-          <th>Den</th>
+          <th>Grade</th>
           <th></th>
         </tr>
       </thead>
@@ -462,7 +475,8 @@ header_html('Edit Adult');
         <?php foreach ($linkedChildren as $c): ?>
           <tr>
             <td><?=h($c['first_name'].' '.$c['last_name'])?></td>
-            <td><?=h($c['den_name'] ?? '')?></td>
+            <?php $gi = GradeCalculator::gradeForClassOf((int)$c['class_of']); $gl = GradeCalculator::gradeLabel((int)$gi); ?>
+            <td><?= h($gl) ?></td>
             <td class="small">
               <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Unlink this child from this adult?');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
@@ -479,36 +493,135 @@ header_html('Edit Adult');
   <?php endif; ?>
 </div>
 
-<div class="card" style="margin-top:16px;">
-  <h3>Link a Child to this Adult</h3>
-  <form method="post" action="/adult_relationships.php" class="stack">
-    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-    <input type="hidden" name="action" value="link">
-    <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
-      <label>Child
-        <select name="youth_id" required>
-          <?php
-          $allY = pdo()->query("SELECT id, first_name, last_name FROM youth ORDER BY last_name, first_name")->fetchAll();
-          foreach ($allY as $yy) {
-            echo '<option value="'.(int)$yy['id'].'">'.h($yy['last_name'].', '.$yy['first_name']).'</option>';
-          }
-          ?>
-        </select>
-      </label>
-      <label>Relationship
-        <select name="relationship">
-          <option value="father">father</option>
-          <option value="mother">mother</option>
-          <option value="guardian">guardian</option>
-        </select>
-      </label>
+<!-- Add Child Modal (two tabs) -->
+<?php
+  // Preload youth for linking tab
+  $allY = pdo()->query("SELECT id, first_name, last_name FROM youth ORDER BY last_name, first_name")->fetchAll();
+?>
+<div id="addChildModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="acClose" aria-label="Close">&times;</button>
+    <h3>Add Child</h3>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="button" id="tabNew" aria-controls="acPanelNew">Add New Child</button>
+      <button class="button" id="tabLink" aria-controls="acPanelLink">Link Existing Child</button>
     </div>
-    <div class="actions">
-      <button class="primary">Link Child</button>
+    <div id="acError" class="error small" style="display:none;"></div>
+
+    <div id="acPanelNew" class="stack">
+      <form id="acFormNew" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="ajax" value="1">
+        <input type="hidden" name="action" value="create_and_link">
+        <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+          <label>First name
+            <input type="text" name="first_name" required>
+          </label>
+          <label>Last name
+            <input type="text" name="last_name" required>
+          </label>
+          <label>Suffix
+            <input type="text" name="suffix" placeholder="Jr, III">
+          </label>
+          <label>Preferred name
+            <input type="text" name="preferred_name">
+          </label>
+          <label>Grade
+            <select name="grade" required>
+              <?php for($i=0;$i<=5;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
+                <option value="<?= h($lbl) ?>"><?= $i===0 ? 'K' : $i ?></option>
+              <?php endfor; ?>
+            </select>
+          </label>
+          <label>School
+            <input type="text" name="school">
+          </label>
+          <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
+        </div>
+        <div class="actions">
+          <button class="button primary" id="acNewSubmit" type="submit">Add Child</button>
+        </div>
+      </form>
     </div>
-  </form>
+
+    <div id="acPanelLink" class="stack" style="display:none;">
+      <form id="acFormLink" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="ajax" value="1">
+        <input type="hidden" name="action" value="link">
+        <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
+          <label>Child
+            <select name="youth_id" required>
+              <?php foreach ($allY as $yy): ?>
+                <option value="<?= (int)$yy['id'] ?>"><?= h(trim(($yy['last_name'] ?? '').', '.($yy['first_name'] ?? ''))) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </label>
+          <label>Relationship
+            <select name="relationship">
+              <option value="parent">parent</option>
+              <option value="father">father</option>
+              <option value="mother">mother</option>
+              <option value="guardian">guardian</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button class="button primary" id="acLinkSubmit" type="submit">Link Child</button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
+
+<script>
+(function(){
+  var modal = document.getElementById('addChildModal');
+  var openBtn = document.getElementById('addChildBtn');
+  var closeBtn = document.getElementById('acClose');
+  var tabNew = document.getElementById('tabNew');
+  var tabLink = document.getElementById('tabLink');
+  var panelNew = document.getElementById('acPanelNew');
+  var panelLink = document.getElementById('acPanelLink');
+  var errBox = document.getElementById('acError');
+  var ADULT_ID = <?= (int)$id ?>;
+
+  function showModal(){ if (modal){ modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } }
+  function hideModal(){ if (modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
+  function showErr(msg){ if (errBox){ errBox.style.display=''; errBox.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if (errBox){ errBox.style.display='none'; errBox.textContent=''; } }
+  function switchTab(which){
+    if (!panelNew || !panelLink) return;
+    if (which === 'new'){ panelNew.style.display=''; panelLink.style.display='none'; }
+    else { panelNew.style.display='none'; panelLink.style.display=''; }
+  }
+
+  if (openBtn) openBtn.addEventListener('click', function(e){ e.preventDefault(); clearErr(); switchTab('new'); showModal(); });
+  if (closeBtn) closeBtn.addEventListener('click', function(){ hideModal(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) hideModal(); });
+  if (tabNew) tabNew.addEventListener('click', function(e){ e.preventDefault(); switchTab('new'); });
+  if (tabLink) tabLink.addEventListener('click', function(e){ e.preventDefault(); switchTab('link'); });
+
+  function submitAjax(form, endpoint){
+    clearErr();
+    var fd = new FormData(form);
+    fetch(endpoint, { method:'POST', body: fd, credentials: 'same-origin' })
+      .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid server response'); }); })
+      .then(function(json){
+        if (json && json.ok){ window.location = '/adult_edit.php?id='+ADULT_ID+'&child_added=1'; }
+        else { showErr((json && json.error) ? json.error : 'Operation failed.'); }
+      })
+      .catch(function(){ showErr('Network error.'); });
+  }
+
+  var fNew = document.getElementById('acFormNew');
+  var fLink = document.getElementById('acFormLink');
+  if (fNew){ fNew.addEventListener('submit', function(e){ e.preventDefault(); submitAjax(fNew, '/adult_relationships.php'); }); }
+  if (fLink){ fLink.addEventListener('submit', function(e){ e.preventDefault(); submitAjax(fLink, '/adult_relationships.php'); }); }
+})();
+</script>
 
 <div class="card" style="margin-top:16px;">
   <h3>Leadership Positions</h3>
@@ -602,23 +715,5 @@ header_html('Edit Adult');
   <?php endif; ?>
 </div>
 
-<?php if ($canEditAll): ?>
-<div class="card" style="margin-top:16px;">
-  <h3>Invite user to activate account</h3>
-  <p class="small">Send an activation email so the user can verify their email and choose a password.</p>
-  <?php $hasEmail = !empty($u['email']); $isVerified = !empty($u['email_verified_at']); ?>
-  <?php if (!$hasEmail): ?>
-    <p class="small">No email on file. Add an email above, then invite.</p>
-  <?php elseif ($isVerified): ?>
-    <p class="small">This user's email is already verified.</p>
-  <?php else: ?>
-    <form method="post" class="stack">
-      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-      <input type="hidden" name="action" value="invite">
-      <button class="button">Invite user to activate account</button>
-    </form>
-  <?php endif; ?>
-</div>
-<?php endif; ?>
 
 <?php footer_html(); ?>

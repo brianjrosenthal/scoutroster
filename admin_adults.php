@@ -13,7 +13,7 @@ $err = null;
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0..5
 $g = ($gLabel !== '') ? GradeCalculator::parseGradeLabel($gLabel) : null;
-$showAll = !empty($_GET['all']); // Admin-only page: always allow this toggle
+$showAll = !array_key_exists('all', $_GET) || !empty($_GET['all']); // Default to showing all when not specified
 
 // Handle POST (invite/create adult/delete)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

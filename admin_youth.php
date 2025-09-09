@@ -152,91 +152,9 @@ header_html('Add Youth');
 <div class="card">
   <form method="post" class="stack">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+    <h3>Select parent</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>First name
-        <input type="text" name="first_name" required>
-      </label>
-      <label>Last name
-        <input type="text" name="last_name" required>
-      </label>
-      <label>Suffix
-        <input type="text" name="suffix" placeholder="Jr, III">
-      </label>
-      <label>Preferred name
-        <input type="text" name="preferred_name">
-      </label>
-      <label>Grade
-        <select name="grade" required>
-          <?php
-            // Order: K, 1..12, then Pre-K (K in 1/2/3 years)
-            $order = [0,1,2,3,4,5,6,7,8,9,10,11,12,-1,-2,-3];
-            foreach ($order as $i):
-              $lbl = \GradeCalculator::gradeLabel($i);
-          ?>
-            <option value="<?= h($lbl) ?>" data-grade="<?= (int)$i ?>" <?= ($selectedGradeLabel === $lbl ? 'selected' : '') ?>><?= h($lbl) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <small class="small">class_of will be computed from the grade based on the current school year.</small>
-      </label>
-      <label>Gender
-        <select name="gender">
-          <option value="">--</option>
-          <option value="male">male</option>
-          <option value="female">female</option>
-          <option value="non-binary">non-binary</option>
-          <option value="prefer not to say">prefer not to say</option>
-        </select>
-      </label>
-      <label>Birthdate
-        <input type="date" name="birthdate" placeholder="YYYY-MM-DD">
-      </label>
-      <label>School
-        <input type="text" name="school">
-      </label>
-      <label>Shirt size
-        <input type="text" name="shirt_size">
-      </label>
-      <label>BSA Registration #
-        <input type="text" name="bsa_registration_number">
-      </label>
-      <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
-    </div>
-
-    <h3>Address</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Street 1
-        <input type="text" name="street1">
-      </label>
-      <label>Street 2
-        <input type="text" name="street2">
-      </label>
-      <label>City
-        <input type="text" name="city">
-      </label>
-      <label>State
-        <input type="text" name="state">
-      </label>
-      <label>Zip
-        <input type="text" name="zip">
-      </label>
-    </div>
-
-    <h3>Registration & Dues</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>BSA Registration Expires
-        <input type="date" name="bsa_registration_expires_date" value="<?= h($_POST['bsa_registration_expires_date'] ?? '') ?>" placeholder="YYYY-MM-DD">
-      </label>
-      <?php if ($canEditPaidUntil): ?>
-        <label>Paid Until
-          <input type="date" name="date_paid_until" value="<?= h($_POST['date_paid_until'] ?? '') ?>" placeholder="YYYY-MM-DD">
-        </label>
-      <?php endif; ?>
-    </div>
-    <p class="small">Note: “Paid Until” is pack dues coverage and may not match BSA registration expiration.</p>
-
-    <h3>Link to Adult</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Adult
+      <label>Parent
         <select name="adult_id" required>
           <?php
             $allAdults = pdo()->query("SELECT id, first_name, last_name FROM users ORDER BY last_name, first_name")->fetchAll();
@@ -264,6 +182,37 @@ header_html('Add Youth');
       </label>
     </div>
 
+    <h3>Child</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <label>First name
+        <input type="text" name="first_name" required>
+      </label>
+      <label>Last name
+        <input type="text" name="last_name" required>
+      </label>
+      <label>Suffix
+        <input type="text" name="suffix" placeholder="Jr, III">
+      </label>
+      <label>Preferred name
+        <input type="text" name="preferred_name">
+      </label>
+      <label>Grade
+        <select name="grade" required>
+          <?php for ($i=0; $i<=5; $i++): $lbl = \GradeCalculator::gradeLabel($i); ?>
+            <option value="<?= h($lbl) ?>" <?= ($selectedGradeLabel === $lbl ? 'selected' : '') ?>><?= $i === 0 ? 'K' : $i ?></option>
+          <?php endfor; ?>
+        </select>
+        <small class="small">class_of will be computed from the grade based on the current school year.</small>
+      </label>
+      <label>School
+        <input type="text" name="school">
+      </label>
+      <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
+    </div>
+
+
+
+
     <div class="actions">
       <button class="primary" type="submit">Create</button>
       <a class="button" href="/youth.php">Cancel</a>
@@ -271,34 +220,5 @@ header_html('Add Youth');
   </form>
 </div>
 
-<script>
-(function(){
-  var form = document.querySelector('form');
-  if (!form) return;
-  var gradeSel = form.querySelector('select[name="grade"]');
-  var sib = form.querySelector('input[name="sibling"]');
-  function enforce(){
-    if (!gradeSel || !sib) return;
-    var opt = gradeSel.options[gradeSel.selectedIndex];
-    var g = parseInt((opt && opt.getAttribute('data-grade')) || '0', 10);
-    if (isNaN(g)) return;
-    if (g < 0 || g > 5) { sib.checked = true; }
-  }
-  if (gradeSel) {
-    gradeSel.addEventListener('change', enforce);
-    enforce();
-  }
-  form.addEventListener('submit', function(e){
-    if (!gradeSel || !sib) return;
-    var opt = gradeSel.options[gradeSel.selectedIndex];
-    var g = parseInt((opt && opt.getAttribute('data-grade')) || '0', 10);
-    if ((g < 0 || g > 5) && !sib.checked) {
-      e.preventDefault();
-      alert('Pre-K or grades 6–12 require the "Sibling" box to be checked.');
-      sib.focus();
-    }
-  });
-})();
-</script>
 
 <?php footer_html(); ?>
