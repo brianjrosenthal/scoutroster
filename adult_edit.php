@@ -270,6 +270,7 @@ header_html('Edit Adult');
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
   if (isset($_GET['saved'])) { $msg = 'Profile updated.'; }
   if (isset($_GET['child_added'])) { $msg = 'Child added.'; }
+  if (isset($_GET['created'])) { $msg = trim((string)($u['first_name'] ?? '') . ' ' . (string)($u['last_name'] ?? '')) . ' created successfully.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>

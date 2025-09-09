@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'emergency_contact2_name' => $em2_name,
         'emergency_contact2_phone' => $em2_phone,
       ]);
-      header('Location: /admin_adults.php?created=1'); exit;
+      header('Location: /adult_edit.php?id='.(int)$id.'&created=1'); exit;
     } catch (Throwable $e) {
       // Likely duplicate email (if not null) or other constraint
       $err = 'Error creating adult. Ensure the email (if provided) is unique';
