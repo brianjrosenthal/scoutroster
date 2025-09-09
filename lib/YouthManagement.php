@@ -140,7 +140,7 @@ class YouthManagement {
 
   public static function listParents(UserContext $ctx, int $youthId): array {
     self::assertAdminOrParent($ctx, $youthId);
-    $pps = self::pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email, pr.relationship
+    $pps = self::pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email
                                  FROM parent_relationships pr
                                  JOIN users u ON u.id=pr.adult_id
                                  WHERE pr.youth_id=?

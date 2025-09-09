@@ -343,7 +343,6 @@ header_html('Edit Youth');
         <tr>
           <th>Parent</th>
           <th>Email</th>
-          <th>Relationship</th>
           <th></th>
         </tr>
       </thead>
@@ -352,7 +351,6 @@ header_html('Edit Youth');
           <tr>
             <td><?=h($p['first_name'].' '.$p['last_name'])?></td>
             <td><?=h($p['email'])?></td>
-            <td><?=h($p['relationship'])?></td>
             <td class="small">
               <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Remove this parent from this child? (At least one parent must remain)');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
@@ -387,13 +385,6 @@ header_html('Edit Youth');
             echo '<option value="'.(int)$a['id'].'">'.$label.'</option>';
           }
           ?>
-        </select>
-      </label>
-      <label>Relationship
-        <select name="relationship">
-          <option value="father">father</option>
-          <option value="mother">mother</option>
-          <option value="guardian">guardian</option>
         </select>
       </label>
     </div>

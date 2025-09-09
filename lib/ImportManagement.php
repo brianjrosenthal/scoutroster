@@ -366,21 +366,21 @@ class ImportManagement {
       $p1Id = $upsertAdult($p1);
       $p2Id = $upsertAdult($p2);
 
-      // Link relationships as 'parent'
+      // Link relationships
       if ($p1Id) {
-        self::ensureParentRelationship($youthId, $p1Id, 'parent');
-        $logger("Row #$rowNo: Linked Parent 1 to youth (relationship=parent)");
+        self::ensureParentRelationship($youthId, $p1Id);
+        $logger("Row #$rowNo: Linked Parent 1 to youth");
       }
       if ($p2Id) {
-        self::ensureParentRelationship($youthId, $p2Id, 'parent');
-        $logger("Row #$rowNo: Linked Parent 2 to youth (relationship=parent)");
+        self::ensureParentRelationship($youthId, $p2Id);
+        $logger("Row #$rowNo: Linked Parent 2 to youth");
       }
     }
   }
 
-  private static function ensureParentRelationship(int $youthId, int $adultId, string $rel): void {
+  private static function ensureParentRelationship(int $youthId, int $adultId): void {
     // INSERT IGNORE-like behavior
-    $st = self::pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?,?,?)');
-    $st->execute([$youthId, $adultId, $rel]);
+    $st = self::pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+    $st->execute([$youthId, $adultId]);
   }
 }

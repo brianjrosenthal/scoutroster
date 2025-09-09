@@ -145,8 +145,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $yid = (int)pdo()->lastInsertId();
 
         // Link parent relationship
-        pdo()->prepare("INSERT INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?,?,?)")
-            ->execute([$yid, (int)$me['id'], 'guardian']);
+        pdo()->prepare("INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)")
+            ->execute([$yid, (int)$me['id']]);
 
         $msg = 'Child added.';
       } catch (Throwable $e) {
@@ -211,7 +211,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Link another parent to a child (existing or invite)
     $yid = (int)($_POST['youth_id'] ?? 0);
     $email = strtolower(trim($_POST['email'] ?? ''));
-    $rel = $_POST['relationship'] ?? 'guardian';
     $first = trim($_POST['first_name'] ?? '');
     $last  = trim($_POST['last_name'] ?? '');
 
@@ -256,8 +255,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           }
 
           // Add relationship if not exists
-          pdo()->prepare("INSERT IGNORE INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?,?,?)")
-              ->execute([$yid, $aid, in_array($rel, ['father','mother','guardian'], true) ? $rel : 'guardian']);
+          pdo()->prepare("INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)")
+              ->execute([$yid, $aid]);
 
           $msg = 'Parent linked.';
         } catch (Throwable $e) {
@@ -485,7 +484,7 @@ header_html('My Profile');
         <div class="card" style="margin-top:8px;">
           <h4>Current Parents/Guardians</h4>
           <?php
-            $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email, pr.relationship FROM parent_relationships pr JOIN users u ON u.id=pr.adult_id WHERE pr.youth_id=? ORDER BY u.last_name,u.first_name");
+            $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email FROM parent_relationships pr JOIN users u ON u.id=pr.adult_id WHERE pr.youth_id=? ORDER BY u.last_name,u.first_name");
             $pps->execute([(int)$c['id']]);
             $parents = $pps->fetchAll();
           ?>
@@ -497,7 +496,6 @@ header_html('My Profile');
                 <tr>
                   <th>Parent</th>
                   <th>Email</th>
-                  <th>Relationship</th>
                   <th></th>
                 </tr>
               </thead>
@@ -506,7 +504,6 @@ header_html('My Profile');
                   <tr>
                     <td><?=h($p['first_name'].' '.$p['last_name'])?></td>
                     <td><?=h($p['email'])?></td>
-                    <td><?=h($p['relationship'])?></td>
                     <td class="small">
                       <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Remove this parent from this child? (At least one parent must remain)');">
                         <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
@@ -532,13 +529,6 @@ header_html('My Profile');
             <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
               <label>Email (existing user or invite)
                 <input type="email" name="email" required>
-              </label>
-              <label>Relationship
-                <select name="relationship">
-                  <option value="father">father</option>
-                  <option value="mother">mother</option>
-                  <option value="guardian">guardian</option>
-                </select>
               </label>
               <label>First name (if inviting)
                 <input type="text" name="first_name">
