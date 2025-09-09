@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $adultId = (int)($_POST['adult_id'] ?? 0);
 $adultId2 = (int)($_POST['adult_id2'] ?? 0);
-if ($adultId <= 0) { $errors[] = 'Link to Adult is required.'; }
+if ($adultId <= 0) { $errors[] = 'You must specify a parent to add a child.'; }
 if ($adultId2 === $adultId) { $adultId2 = 0; }
 
 if (empty($errors)) {
@@ -400,16 +400,16 @@ header_html('Add Youth');
     <h3>Child</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>First name
-        <input type="text" name="first_name" required>
+        <input type="text" name="first_name" value="<?= h($first ?? '') ?>" required>
       </label>
       <label>Last name
-        <input type="text" name="last_name" required>
+        <input type="text" name="last_name" value="<?= h($last ?? '') ?>" required>
       </label>
       <label>Suffix
-        <input type="text" name="suffix" placeholder="Jr, III">
+        <input type="text" name="suffix" value="<?= h($suffix ?? '') ?>" placeholder="Jr, III">
       </label>
       <label>Preferred name
-        <input type="text" name="preferred_name">
+        <input type="text" name="preferred_name" value="<?= h($preferred ?? '') ?>">
       </label>
       <label>Grade
         <select name="grade" required>
@@ -423,9 +423,9 @@ header_html('Add Youth');
         </select>
       </label>
       <label>School
-        <input type="text" name="school">
+        <input type="text" name="school" value="<?= h($school ?? '') ?>">
       </label>
-      <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
+      <label class="inline"><input type="checkbox" name="sibling" value="1" <?= !empty($sibling) ? 'checked' : '' ?>> Sibling</label>
     </div>
 
 
