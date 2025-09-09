@@ -22,7 +22,6 @@ if (!function_exists('respond_json')) {
 $action = $_POST['action'] ?? '';
 $adultId = (int)($_POST['adult_id'] ?? 0);
 $youthId = (int)($_POST['youth_id'] ?? 0);
-$rel = $_POST['relationship'] ?? 'guardian';
 
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -72,9 +71,8 @@ if (!$isAdmin && $action !== 'create_and_link') {
 
 try {
   if ($action === 'link') {
-    if (!in_array($rel, ['parent','father','mother','guardian'], true)) $rel = 'parent';
-    $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?,?,?)');
-    $st->execute([$youthId, $adultId, $rel]);
+    $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+    $st->execute([$youthId, $adultId]);
     if ($ajax) { respond_json(true, null); }
     header('Location: '.$back); exit;
   } elseif ($action === 'unlink') {
@@ -99,8 +97,6 @@ try {
     $gradeLabel = trim((string)($_POST['grade'] ?? ''));
     $school = trim((string)($_POST['school'] ?? ''));
     $sibling = !empty($_POST['sibling']) ? 1 : 0;
-    $rel2 = $_POST['relationship'] ?? 'parent';
-    if (!in_array($rel2, ['parent','father','mother','guardian'], true)) $rel2 = 'parent';
 
     $errors = [];
     if ($first === '') $errors[] = 'First name is required.';
@@ -130,8 +126,8 @@ try {
       $newYid = YouthManagement::create($ctx, $data);
 
       // Link to adult
-      $st = $pdoTx->prepare('INSERT INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?,?,?)');
-      $st->execute([$newYid, $adultId, $rel2]);
+      $st = $pdoTx->prepare('INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+      $st->execute([$newYid, $adultId]);
 
       $pdoTx->commit();
       if ($ajax) { respond_json(true, null); }

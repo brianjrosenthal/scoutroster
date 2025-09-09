@@ -89,7 +89,6 @@ CREATE TABLE parent_relationships (
   id INT AUTO_INCREMENT PRIMARY KEY,
   youth_id INT NOT NULL,
   adult_id INT NOT NULL,
-  relationship ENUM('father','mother','guardian','parent') NOT NULL,
   CONSTRAINT fk_pr_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
   CONSTRAINT fk_pr_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE,
   UNIQUE KEY uniq_youth_adult (youth_id, adult_id)

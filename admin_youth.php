@@ -75,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $adultId = (int)($_POST['adult_id'] ?? 0);
 $adultId2 = (int)($_POST['adult_id2'] ?? 0);
-$relationship = 'parent';
 if ($adultId <= 0) { $errors[] = 'Link to Adult is required.'; }
 if ($adultId2 === $adultId) { $adultId2 = 0; }
 
@@ -131,10 +130,10 @@ if (empty($errors)) {
       }
 
       // Link youth to adult(s)
-      $stRel = $pdo->prepare('INSERT INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?, ?, ?)');
-      $stRel->execute([$id, $adultId, $relationship]);
+      $stRel = $pdo->prepare('INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+      $stRel->execute([$id, $adultId]);
       if ($adultId2 > 0) {
-        $stRel->execute([$id, $adultId2, $relationship]);
+        $stRel->execute([$id, $adultId2]);
       }
 
       $pdo->commit();

@@ -559,14 +559,6 @@ header_html('Edit Adult');
               <?php endforeach; ?>
             </select>
           </label>
-          <label>Relationship
-            <select name="relationship">
-              <option value="parent">parent</option>
-              <option value="father">father</option>
-              <option value="mother">mother</option>
-              <option value="guardian">guardian</option>
-            </select>
-          </label>
         </div>
         <div class="actions">
           <button class="button primary" id="acLinkSubmit" type="submit">Link Child</button>
