@@ -82,17 +82,81 @@ if (!empty($adults)) {
   }
 }
 
+/** Build merged contacts: Adults + Recommendations (dedupe by email, prefer Adults) */
+$contacts = [];
+
+// Seed from adults with email
+foreach ($adults as $a) {
+  $emailRaw = (string)($a['email'] ?? '');
+  $emailKey = strtolower(trim($emailRaw));
+  if ($emailKey === '' || !filter_var($emailKey, FILTER_VALIDATE_EMAIL)) continue;
+  $name = trim((string)($a['first_name'] ?? '') . ' ' . (string)($a['last_name'] ?? ''));
+  $aid = (int)($a['id'] ?? 0);
+  $grades = $gradesByAdult[$aid] ?? [];
+  if (!isset($contacts[$emailKey])) {
+    $contacts[$emailKey] = [
+      'name' => $name,
+      'email' => $emailRaw,
+      'grades' => $grades,
+      'source' => 'adult',
+    ];
+  }
+}
+
+// Fetch recommendations with email and optional search filter
+$recParams = [];
+$recSql = "SELECT r.parent_name, r.child_name, r.email FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
+if ($q !== '') {
+  $tokens = Search::tokenize($q);
+  $recSql .= Search::buildAndLikeClause(['r.parent_name','r.child_name','r.email'], $tokens, $recParams);
+}
+$stRec = pdo()->prepare($recSql);
+$stRec->execute($recParams);
+$recs = $stRec->fetchAll() ?: [];
+
+// Merge recs (skip if email exists from adults)
+foreach ($recs as $r) {
+  $emailRaw = (string)($r['email'] ?? '');
+  $emailKey = strtolower(trim($emailRaw));
+  if ($emailKey === '' || !filter_var($emailKey, FILTER_VALIDATE_EMAIL)) continue;
+  if (isset($contacts[$emailKey])) continue; // prefer adult record
+  $name = trim((string)($r['parent_name'] ?? ''));
+  if ($name === '') {
+    $nmChild = trim((string)($r['child_name'] ?? ''));
+    $name = ($nmChild !== '') ? $nmChild : $emailRaw;
+  }
+  $contacts[$emailKey] = [
+    'name' => $name,
+    'email' => $emailRaw,
+    'grades' => [],
+    'source' => 'rec',
+  ];
+}
+
+// Sort contacts by name (case-insensitive), then email
+$contactsSorted = array_values($contacts);
+usort($contactsSorted, function($a, $b){
+  $na = strtolower($a['name'] ?? '');
+  $nb = strtolower($b['name'] ?? '');
+  if ($na === $nb) {
+    return strcasecmp((string)($a['email'] ?? ''), (string)($b['email'] ?? ''));
+  }
+  return $na <=> $nb;
+});
+
 // CSV export
+ // CSV export
 if ($export) {
   header('Content-Type: text/csv; charset=utf-8');
   header('Content-Disposition: attachment; filename="mailing_list.csv"');
   $out = fopen('php://output', 'w');
-  // Evite format: name,email (no header usually, but we'll include a simple header)
+  // Evite format: name,email (include a simple header)
   fputcsv($out, ['name', 'email']);
-  foreach ($adults as $a) {
-    if (!empty($a['email'])) {
-      $name = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? ''));
-      fputcsv($out, [$name, $a['email']]);
+  foreach ($contactsSorted as $c) {
+    $name = (string)($c['name'] ?? '');
+    $email = (string)($c['email'] ?? '');
+    if ($email !== '') {
+      fputcsv($out, [$name, $email]);
     }
   }
   fclose($out);
@@ -136,8 +200,8 @@ header_html('Mailing List');
 </div>
 
 <div class="card">
-  <?php if (empty($adults)): ?>
-    <p class="small">No matching adults.</p>
+  <?php if (empty($contactsSorted)): ?>
+    <p class="small">No matching contacts.</p>
   <?php else: ?>
     <table class="list">
       <thead>
@@ -148,17 +212,17 @@ header_html('Mailing List');
         </tr>
       </thead>
       <tbody>
-        <?php foreach ($adults as $a): ?>
+        <?php foreach ($contactsSorted as $c): ?>
           <tr>
-            <td><?=h(($a['first_name'] ?? '').' '.($a['last_name'] ?? ''))?></td>
-            <td><?=h($a['email'] ?? '')?></td>
-            <?php $grades = $gradesByAdult[(int)($a['id'] ?? 0)] ?? []; ?>
+            <td><?= h((string)($c['name'] ?? '')) ?></td>
+            <td><?= h((string)($c['email'] ?? '')) ?></td>
+            <?php $grades = (array)($c['grades'] ?? []); ?>
             <td><?= h(!empty($grades) ? implode(', ', $grades) : '') ?></td>
           </tr>
         <?php endforeach; ?>
       </tbody>
     </table>
-    <p class="small" style="margin-top:8px;"><?= count($adults) ?> adults listed. Only rows with an email will be included in CSV export.</p>
+    <p class="small" style="margin-top:8px;"><?= count($contactsSorted) ?> contacts listed.</p>
   <?php endif; ?>
 </div>
 

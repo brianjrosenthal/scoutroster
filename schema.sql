@@ -23,6 +23,8 @@ CREATE TABLE users (
   state   VARCHAR(50)  DEFAULT NULL,
   zip     VARCHAR(20)  DEFAULT NULL,
   email2  VARCHAR(255) DEFAULT NULL,
+  suppress_email_directory TINYINT(1) NOT NULL DEFAULT 0,
+  suppress_phone_directory TINYINT(1) NOT NULL DEFAULT 0,
   phone_home VARCHAR(30) DEFAULT NULL,
   phone_cell VARCHAR(30) DEFAULT NULL,
   shirt_size VARCHAR(20) DEFAULT NULL,
@@ -222,6 +224,37 @@ INSERT INTO settings (key_name, value) VALUES
   ('timezone', ''),
   ('google_calendar_url', '')
 ON DUPLICATE KEY UPDATE value=VALUES(value);
+
+-- Recommendations
+CREATE TABLE recommendations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  parent_name VARCHAR(255) NOT NULL,
+  child_name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) DEFAULT NULL,
+  phone VARCHAR(50) DEFAULT NULL,
+  notes TEXT DEFAULT NULL,
+  reached_out TINYINT(1) NOT NULL DEFAULT 0,
+  reached_out_at DATETIME DEFAULT NULL,
+  reached_out_by_user_id INT DEFAULT NULL,
+  created_by_user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_recommendations_created_at (created_at),
+  INDEX idx_recommendations_reached_out (reached_out),
+  CONSTRAINT fk_recommendations_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id),
+  CONSTRAINT fk_recommendations_reached_by FOREIGN KEY (reached_out_by_user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
+
+CREATE TABLE recommendation_comments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  recommendation_id INT NOT NULL,
+  created_by_user_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  text TEXT NOT NULL,
+  INDEX idx_rec_comments_rec (recommendation_id),
+  INDEX idx_rec_comments_created_at (created_at),
+  CONSTRAINT fk_rec_comments_rec FOREIGN KEY (recommendation_id) REFERENCES recommendations(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rec_comments_user FOREIGN KEY (created_by_user_id) REFERENCES users(id)
+) ENGINE=InnoDB;
 
 -- Reimbursements
 CREATE TABLE reimbursement_requests (
