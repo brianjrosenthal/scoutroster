@@ -74,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
   $adultId = (int)($_POST['adult_id'] ?? 0);
-$relationship = trim((string)($_POST['relationship'] ?? 'parent'));
-$allowedRel = ['father','mother','guardian','parent'];
+$adultId2 = (int)($_POST['adult_id2'] ?? 0);
+$relationship = 'parent';
 if ($adultId <= 0) { $errors[] = 'Link to Adult is required.'; }
-if (!in_array($relationship, $allowedRel, true)) { $relationship = 'parent'; }
+if ($adultId2 === $adultId) { $adultId2 = 0; }
 
 if (empty($errors)) {
     // Compute class_of from grade
@@ -123,10 +123,19 @@ if (empty($errors)) {
       if (!$stA->fetchColumn()) {
         throw new RuntimeException('Selected adult not found.');
       }
+      if ($adultId2 > 0) {
+        $stA->execute([$adultId2]);
+        if (!$stA->fetchColumn()) {
+          throw new RuntimeException('Selected second adult not found.');
+        }
+      }
 
-      // Link youth to adult
+      // Link youth to adult(s)
       $stRel = $pdo->prepare('INSERT INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?, ?, ?)');
       $stRel->execute([$id, $adultId, $relationship]);
+      if ($adultId2 > 0) {
+        $stRel->execute([$id, $adultId2, $relationship]);
+      }
 
       $pdo->commit();
       header('Location: /youth.php'); exit;
@@ -152,7 +161,7 @@ header_html('Add Youth');
 <div class="card">
   <form method="post" class="stack">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-    <h3>Select parent</h3>
+    <h3>Select parent(s)</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Parent
         <select name="adult_id" required>
@@ -168,14 +177,16 @@ header_html('Add Youth');
           ?>
         </select>
       </label>
-      <label>Relationship
-        <select name="relationship" required>
+      <label>Parent 2
+        <select name="adult_id2">
           <?php
-            $rel = isset($_POST['relationship']) ? (string)$_POST['relationship'] : 'parent';
-            $rels = ['parent'=>'parent','father'=>'father','mother'=>'mother','guardian'=>'guardian'];
-            foreach ($rels as $rv => $label) {
-              $sel = ($rel === $rv) ? ' selected' : '';
-              echo '<option value="'.h($rv).'"'.$sel.'>'.h($label).'</option>';
+            $selAdult2 = isset($_POST['adult_id2']) ? (int)$_POST['adult_id2'] : 0;
+            echo '<option value="0">None</option>';
+            foreach ($allAdults as $a) {
+              $aid2 = (int)($a['id'] ?? 0);
+              $an2 = trim((string)($a['last_name'] ?? '') . ', ' . (string)($a['first_name'] ?? ''));
+              $sel2 = ($selAdult2 === $aid2) ? ' selected' : '';
+              echo '<option value="'.$aid2.'"'.$sel2.'">'.h($an2).'</option>';
             }
           ?>
         </select>
@@ -198,11 +209,14 @@ header_html('Add Youth');
       </label>
       <label>Grade
         <select name="grade" required>
-          <?php for ($i=0; $i<=5; $i++): $lbl = \GradeCalculator::gradeLabel($i); ?>
-            <option value="<?= h($lbl) ?>" <?= ($selectedGradeLabel === $lbl ? 'selected' : '') ?>><?= $i === 0 ? 'K' : $i ?></option>
-          <?php endfor; ?>
+          <?php
+            $grades = [-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12];
+            foreach ($grades as $i):
+              $lbl = \GradeCalculator::gradeLabel($i);
+          ?>
+            <option value="<?= h($lbl) ?>" <?= ($selectedGradeLabel === $lbl ? 'selected' : '') ?>><?= h($lbl) ?></option>
+          <?php endforeach; ?>
         </select>
-        <small class="small">class_of will be computed from the grade based on the current school year.</small>
       </label>
       <label>School
         <input type="text" name="school">
