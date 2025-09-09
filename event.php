@@ -237,7 +237,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 </div>
 
 <div class="card">
-  <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null); ?>
+  <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null); ?>
   <?php if ($imgUrl !== ''): ?>
     <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>

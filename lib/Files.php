@@ -14,23 +14,17 @@ final class Files {
     return '/secure_file_download.php?id=' . $reimbursementFileRowId;
   }
 
-  // Profile photo URL with legacy fallback
-  public static function profilePhotoUrl(?int $publicFileId, ?string $legacyPath): string {
+  // Profile photo URL (DB-backed only)
+  public static function profilePhotoUrl(?int $publicFileId): string {
     if ($publicFileId && $publicFileId > 0) {
       return self::publicFileUrl($publicFileId);
-    }
-    $legacyPath = is_string($legacyPath) ? trim($legacyPath) : '';
-    if ($legacyPath !== '') {
-      // Ensure leading slash for legacy stored relative paths like "uploads/..."
-      if ($legacyPath[0] !== '/') return '/' . $legacyPath;
-      return $legacyPath;
     }
     return '';
   }
 
-  // Event photo URL with legacy fallback
-  public static function eventPhotoUrl(?int $publicFileId, ?string $legacyPath): string {
-    return self::profilePhotoUrl($publicFileId, $legacyPath);
+  // Event photo URL (DB-backed only)
+  public static function eventPhotoUrl(?int $publicFileId): string {
+    return self::profilePhotoUrl($publicFileId);
   }
 
   // Helper: insert a public file row and return new id

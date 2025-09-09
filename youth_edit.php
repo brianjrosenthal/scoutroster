@@ -193,7 +193,7 @@ header_html('Edit Youth');
     <?php
       $yName = trim((string)($y['first_name'] ?? '').' '.(string)($y['last_name'] ?? ''));
       $yInitials = strtoupper((string)substr((string)($y['first_name'] ?? ''),0,1).(string)substr((string)($y['last_name'] ?? ''),0,1));
-      $yPhotoUrl = Files::profilePhotoUrl($y['photo_public_file_id'] ?? null, $y['photo_path'] ?? null);
+      $yPhotoUrl = Files::profilePhotoUrl($y['photo_public_file_id'] ?? null);
     ?>
     <a href="/youth_edit.php?id=<?= (int)$id ?>" style="text-decoration:none">
       <?php if ($yPhotoUrl !== ''): ?>

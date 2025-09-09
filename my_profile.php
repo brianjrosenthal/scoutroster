@@ -305,7 +305,7 @@ header_html('My Profile');
     <?php
       $meName = trim((string)($me['first_name'] ?? '').' '.(string)($me['last_name'] ?? ''));
       $meInitials = strtoupper((string)substr((string)($me['first_name'] ?? ''),0,1).(string)substr((string)($me['last_name'] ?? ''),0,1));
-      $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null, $me['photo_path'] ?? null);
+      $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null);
     ?>
     <?php if ($mePhotoUrl !== ''): ?>
       <img class="avatar" src="<?= h($mePhotoUrl) ?>" alt="<?= h($meName) ?>" style="width:80px;height:80px">

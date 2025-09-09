@@ -26,52 +26,26 @@ $req = [
 ];
 if (!Reimbursements::canView($ctx, $req)) { http_response_code(403); exit('Forbidden'); }
 
-// Prefer DB blob if present, else fallback to legacy filesystem path
+/* Stream from secure_files only (no filesystem fallback) */
 $secureFileId = isset($row['secure_file_id']) ? (int)$row['secure_file_id'] : 0;
+if ($secureFileId <= 0) { http_response_code(404); exit('File missing'); }
 
-if ($secureFileId > 0) {
-  $st2 = pdo()->prepare("SELECT data, content_type, original_filename, byte_length FROM secure_files WHERE id = ? LIMIT 1");
-  $st2->execute([$secureFileId]);
-  $blob = $st2->fetch();
-  if (!$blob) { http_response_code(404); exit('File missing'); }
+$st2 = pdo()->prepare("SELECT data, content_type, original_filename, byte_length FROM secure_files WHERE id = ? LIMIT 1");
+$st2->execute([$secureFileId]);
+$blob = $st2->fetch();
+if (!$blob) { http_response_code(404); exit('File missing'); }
 
-  $data = (string)$blob['data'];
-  $len = (int)($blob['byte_length'] ?? strlen($data));
-  $ctype = (string)($blob['content_type'] ?? '');
-  if ($ctype === '') $ctype = 'application/octet-stream';
-  $name = (string)($blob['original_filename'] ?? $row['original_filename'] ?? 'file');
+$data = (string)$blob['data'];
+$len = (int)($blob['byte_length'] ?? strlen($data));
+$ctype = (string)($blob['content_type'] ?? '');
+if ($ctype === '') $ctype = 'application/octet-stream';
+$name = (string)($blob['original_filename'] ?? $row['original_filename'] ?? 'file');
 
-  header('Content-Type: ' . $ctype);
-  header('Content-Length: ' . $len);
-  header('Content-Disposition: inline; filename="' . rawbasename($name) . '"');
-  header('X-Content-Type-Options: nosniff');
-  echo $data;
-  exit;
-}
-
-// Legacy fallback: stored_path on disk
-$storedRel = (string)($row['stored_path'] ?? '');
-$base = realpath(__DIR__ . '/uploads/reimbursements');
-$abs  = realpath(__DIR__ . '/' . $storedRel);
-if ($base === false || $abs === false || strpos($abs, $base) !== 0) {
-  http_response_code(404); exit('File not accessible');
-}
-if (!is_file($abs)) { http_response_code(404); exit('File missing'); }
-
-$orig = $row['original_filename'] ?: basename($abs);
-$mime = 'application/octet-stream';
-$ext = strtolower(pathinfo($abs, PATHINFO_EXTENSION));
-if ($ext === 'pdf') $mime = 'application/pdf';
-elseif (in_array($ext, ['jpg','jpeg'])) $mime = 'image/jpeg';
-elseif ($ext === 'png') $mime = 'image/png';
-elseif ($ext === 'webp') $mime = 'image/webp';
-elseif ($ext === 'heic') $mime = 'image/heic';
-
-header('Content-Type: ' . $mime);
-header('Content-Length: ' . filesize($abs));
-header('Content-Disposition: inline; filename="' . rawbasename($orig) . '"');
+header('Content-Type: ' . $ctype);
+header('Content-Length: ' . $len);
+header('Content-Disposition: inline; filename="' . rawbasename($name) . '"');
 header('X-Content-Type-Options: nosniff');
-readfile($abs);
+echo $data;
 exit;
 
 // Helper: rawbasename preserving multibyte while escaping quotes

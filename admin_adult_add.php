@@ -39,7 +39,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $phone_home = nn($_POST['phone_home'] ?? '');
   $phone_cell = nn($_POST['phone_cell'] ?? '');
   $shirt_size = nn($_POST['shirt_size'] ?? '');
-  $photo_path = nn($_POST['photo_path'] ?? '');
 
   // Optional scouting (admin-editable)
   $bsa_membership_number = nn($_POST['bsa_membership_number'] ?? '');
@@ -89,8 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'phone_home' => $phone_home,
         'phone_cell' => $phone_cell,
         'shirt_size' => $shirt_size,
-        'photo_path' => $photo_path,
-        'bsa_membership_number' => $bsa_membership_number,
+         'bsa_membership_number' => $bsa_membership_number,
         'bsa_registration_expires_on' => $bsa_registration_expires_on,
         'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
         'emergency_contact1_name' => $em1_name,
@@ -166,9 +164,6 @@ header_html('Create Adult');
       </label>
       <label>Shirt Size
         <input type="text" name="shirt_size" value="<?=h($form['shirt_size'] ?? '')?>">
-      </label>
-      <label>Photo Path
-        <input type="text" name="photo_path" value="<?=h($form['photo_path'] ?? '')?>">
       </label>
     </div>
 

@@ -26,7 +26,6 @@ CREATE TABLE users (
   phone_home VARCHAR(30) DEFAULT NULL,
   phone_cell VARCHAR(30) DEFAULT NULL,
   shirt_size VARCHAR(20) DEFAULT NULL,
-  photo_path VARCHAR(512) DEFAULT NULL,
 
   -- Scouting info
   bsa_membership_number VARCHAR(50) DEFAULT NULL,
@@ -144,7 +143,6 @@ CREATE TABLE events (
   location VARCHAR(255) DEFAULT NULL,
   location_address TEXT DEFAULT NULL,
   description TEXT DEFAULT NULL,
-  photo_path VARCHAR(512) DEFAULT NULL,
   max_cub_scouts INT DEFAULT NULL,
   allow_non_user_rsvp TINYINT(1) NOT NULL DEFAULT 1,
   evite_rsvp_url VARCHAR(512) DEFAULT NULL,
@@ -250,7 +248,6 @@ CREATE TABLE reimbursement_request_files (
   id INT AUTO_INCREMENT PRIMARY KEY,
   reimbursement_request_id INT NOT NULL,
   original_filename VARCHAR(255) NOT NULL,
-  stored_path VARCHAR(512) NOT NULL,
   description VARCHAR(255) DEFAULT NULL,
   created_by INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -349,9 +346,8 @@ ALTER TABLE users
   ADD CONSTRAINT fk_users_photo_public_file
     FOREIGN KEY (photo_public_file_id) REFERENCES public_files(id) ON DELETE SET NULL;
 
--- Ensure youth has photo_path (referenced by code) and add new photo_public_file_id
+-- Add new youth photo_public_file_id
 ALTER TABLE youth
-  ADD COLUMN photo_path VARCHAR(512) DEFAULT NULL,
   ADD COLUMN photo_public_file_id INT NULL;
 
 ALTER TABLE youth
