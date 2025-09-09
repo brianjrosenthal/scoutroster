@@ -271,6 +271,43 @@ class UserManagement {
       ->fetchAll();
   }
 
+  // Lightweight search for adults by name or email (case-insensitive), for admin typeahead.
+  public static function searchAdults(string $q, int $limit = 20): array {
+    $q = trim($q);
+    if ($q === '') return [];
+    $limit = max(1, min(100, (int)$limit));
+
+    // Tokenize on whitespace; require all tokens to match across name/email fields.
+    $tokens = preg_split('/\s+/', mb_strtolower($q));
+    $tokens = array_values(array_filter(array_map(static function ($t) {
+      $t = trim((string)$t);
+      return $t === '' ? null : $t;
+    }, $tokens)));
+
+    if (empty($tokens)) return [];
+
+    $whereParts = [];
+    $params = [];
+    foreach ($tokens as $tok) {
+      // Each token must match either first_name OR last_name OR email
+      $whereParts[] = '(LOWER(first_name) LIKE ? OR LOWER(last_name) LIKE ? OR LOWER(email) LIKE ?)';
+      $like = '%' . $tok . '%';
+      $params[] = $like;
+      $params[] = $like;
+      $params[] = $like;
+    }
+
+    $sql = 'SELECT id, first_name, last_name, email
+            FROM users
+            WHERE ' . implode(' AND ', $whereParts) . '
+            ORDER BY last_name, first_name
+            LIMIT ' . $limit;
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll();
+  }
+
   // Batch fetch parents (adults) for a set of youth IDs.
   // Returns map: youth_id => [ { adult fields ... }, ... ]
   public static function listParentsForYouthIds(UserContext $ctx, array $youthIds): array {
