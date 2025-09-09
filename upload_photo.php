@@ -19,11 +19,6 @@ function redirect_back(string $returnTo, array $params = []): void {
   exit;
 }
 
-function ensure_dir(string $dir): void {
-  if (!is_dir($dir)) {
-    @mkdir($dir, 0755, true);
-  }
-}
 
 function can_upload_adult_photo(int $currentId, bool $isAdmin, int $targetAdultId): bool {
   if ($isAdmin) return true;
@@ -97,35 +92,13 @@ if ($type === 'adult') {
 }
 
 if ($action === 'delete') {
-  // Delete existing photo_path (with permission checks already performed above)
+  // Delete existing photo reference (with permission checks already performed above)
   try {
     if ($type === 'adult') {
-      $st = pdo()->prepare("SELECT photo_path FROM users WHERE id=?");
-      $st->execute([$adultId]);
-      $path = trim((string)($st->fetchColumn() ?: ''));
-      if ($path !== '') {
-        $fs = __DIR__ . $path;
-        $allowedDir = realpath(__DIR__ . '/uploads/profile_photos') ?: (__DIR__ . '/uploads/profile_photos');
-        $fsReal = realpath($fs);
-        if ($fsReal !== false && strpos($fsReal, $allowedDir) === 0) {
-          @unlink($fsReal);
-        }
-      }
-      $up = pdo()->prepare("UPDATE users SET photo_path = NULL, photo_public_file_id = NULL WHERE id=?");
+      $up = pdo()->prepare("UPDATE users SET photo_public_file_id = NULL WHERE id=?");
       $up->execute([$adultId]);
     } else {
-      $st = pdo()->prepare("SELECT photo_path FROM youth WHERE id=?");
-      $st->execute([$youthId]);
-      $path = trim((string)($st->fetchColumn() ?: ''));
-      if ($path !== '') {
-        $fs = __DIR__ . $path;
-        $allowedDir = realpath(__DIR__ . '/uploads/profile_photos') ?: (__DIR__ . '/uploads/profile_photos');
-        $fsReal = realpath($fs);
-        if ($fsReal !== false && strpos($fsReal, $allowedDir) === 0) {
-          @unlink($fsReal);
-        }
-      }
-      $up = pdo()->prepare("UPDATE youth SET photo_path = NULL, photo_public_file_id = NULL WHERE id=?");
+      $up = pdo()->prepare("UPDATE youth SET photo_public_file_id = NULL WHERE id=?");
       $up->execute([$youthId]);
     }
   } catch (Throwable $e) {
@@ -180,10 +153,10 @@ if ($data === false) {
 try {
   $publicId = Files::insertPublicFile($data, $mime, $origName, $currentId);
   if ($type === 'adult') {
-    $st = pdo()->prepare("UPDATE users SET photo_public_file_id = ?, photo_path = NULL WHERE id = ?");
+    $st = pdo()->prepare("UPDATE users SET photo_public_file_id = ? WHERE id = ?");
     $st->execute([$publicId, $adultId]);
   } else {
-    $st = pdo()->prepare("UPDATE youth SET photo_public_file_id = ?, photo_path = NULL WHERE id = ?");
+    $st = pdo()->prepare("UPDATE youth SET photo_public_file_id = ? WHERE id = ?");
     $st->execute([$publicId, $youthId]);
   }
 } catch (Throwable $e) {

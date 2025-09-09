@@ -31,7 +31,7 @@ function header_html(string $title) {
     }
     // Add small avatar in the top-right nav linking to My Profile
     $initials = strtoupper(substr((string)($u['first_name'] ?? ''),0,1).substr((string)($u['last_name'] ?? ''),0,1));
-    $photoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
+    $photoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null);
     $avatar = $photoUrl !== ''
       ? '<img class="nav-avatar" src="'.h($photoUrl).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
       : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';

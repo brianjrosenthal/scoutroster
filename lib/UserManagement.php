@@ -326,7 +326,7 @@ class UserManagement {
     $allowed = [
       'first_name','last_name','email',
       'preferred_name','street1','street2','city','state','zip',
-      'email2','phone_home','phone_cell','shirt_size','photo_path',
+      'email2','phone_home','phone_cell','shirt_size',
       'suppress_email_directory','suppress_phone_directory',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
@@ -446,7 +446,6 @@ class UserManagement {
     $phone_home = $nn($data['phone_home'] ?? null);
     $phone_cell = $nn($data['phone_cell'] ?? null);
     $shirt_size = $nn($data['shirt_size'] ?? null);
-    $photo_path = $nn($data['photo_path'] ?? null);
 
     // Optional scouting
     $bsa_membership_number = $nn($data['bsa_membership_number'] ?? null);
@@ -466,14 +465,14 @@ class UserManagement {
     $sql = "INSERT INTO users
       (first_name, last_name, email, password_hash, is_admin,
        preferred_name, street1, street2, city, state, zip,
-       email2, phone_home, phone_cell, shirt_size, photo_path,
+       email2, phone_home, phone_cell, shirt_size,
        bsa_membership_number, bsa_registration_expires_on, safeguarding_training_completed_on,
        emergency_contact1_name, emergency_contact1_phone, emergency_contact2_name, emergency_contact2_phone,
        email_verify_token, email_verified_at, password_reset_token_hash, password_reset_expires_at)
       VALUES
       (:first_name, :last_name, :email, :password_hash, :is_admin,
        :preferred_name, :street1, :street2, :city, :state, :zip,
-       :email2, :phone_home, :phone_cell, :shirt_size, :photo_path,
+       :email2, :phone_home, :phone_cell, :shirt_size,
        :bsa_no, :bsa_exp, :safe_done,
        :em1_name, :em1_phone, :em2_name, :em2_phone,
        NULL, NULL, NULL, NULL)";
@@ -498,7 +497,6 @@ class UserManagement {
     $stmt->bindValue(':phone_home', $phone_home, $phone_home === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':phone_cell', $phone_cell, $phone_cell === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
     $stmt->bindValue(':shirt_size', $shirt_size, $shirt_size === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
-    $stmt->bindValue(':photo_path', $photo_path, $photo_path === null ? PDO::PARAM_NULL : PDO::PARAM_STR);
 
     // Scouting
     $stmt->bindValue(':bsa_no',  $bsa_membership_number, $bsa_membership_number === null ? PDO::PARAM_NULL : PDO::PARAM_STR);

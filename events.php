@@ -56,7 +56,7 @@ header_html('Upcoming Events');
     <?php foreach ($events as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
-        <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null); ?>
+        <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null); ?>
         <?php if ($imgUrl !== ''): ?>
           <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">
         <?php endif; ?>

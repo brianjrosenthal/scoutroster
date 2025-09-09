@@ -349,29 +349,14 @@ final class Reimbursements {
     $st->execute([$canon, (int)$req['id']]);
   }
 
-  // Files: record an already moved file path (page handles move_uploaded_file)
-  public static function recordFile(UserContext $ctx, int $reqId, string $storedPath, string $originalFilename, ?string $description = null): void {
-    if (!$ctx) throw new RuntimeException('Login required');
-    $req = self::getWithAuth($ctx, $reqId); // permission check
-    $st = self::pdo()->prepare("INSERT INTO reimbursement_request_files
-      (reimbursement_request_id, original_filename, stored_path, description, created_by, created_at)
-      VALUES (?, ?, ?, ?, ?, NOW())");
-    $st->execute([(int)$req['id'], $originalFilename, $storedPath, $description, (int)$ctx->id]);
-
-    try {
-      self::notifyNewFile((int)$req['id'], (int)$ctx->id, $originalFilename, $description);
-    } catch (\Throwable $e) {
-      // ignore notification failures
-    }
-  }
 
   // Store a secure file blob reference for this reimbursement (DB-backed, no filesystem path)
   public static function recordSecureFile(UserContext $ctx, int $reqId, int $secureFileId, string $originalFilename, ?string $description = null): void {
     if (!$ctx) throw new RuntimeException('Login required');
     $req = self::getWithAuth($ctx, $reqId); // permission check
     $st = self::pdo()->prepare("INSERT INTO reimbursement_request_files
-      (reimbursement_request_id, original_filename, stored_path, description, created_by, created_at, secure_file_id)
-      VALUES (?, ?, NULL, ?, ?, NOW(), ?)");
+      (reimbursement_request_id, original_filename, description, created_by, created_at, secure_file_id)
+      VALUES (?, ?, ?, ?, NOW(), ?)");
     $st->execute([(int)$req['id'], $originalFilename, $description, (int)$ctx->id, (int)$secureFileId]);
 
     try {

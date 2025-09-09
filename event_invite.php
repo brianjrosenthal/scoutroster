@@ -547,7 +547,7 @@ header_html('Event Invite');
 
 <div class="card">
   <?php
-    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null, $event['photo_path'] ?? null);
+    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null);
     if ($heroUrl !== ''):
   ?>
     <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">

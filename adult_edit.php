@@ -271,7 +271,7 @@ header_html('Edit Adult');
     <?php
       $aName = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
       $aInitials = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
-      $aPhotoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
+      $aPhotoUrl = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null);
     ?>
     <?php if ($aPhotoUrl !== ''): ?>
       <img class="avatar" src="<?= h($aPhotoUrl) ?>" alt="<?= h($aName) ?>" style="width:80px;height:80px">
@@ -306,7 +306,7 @@ header_html('Edit Adult');
     <?php
       $aNameFull = trim((string)($u['first_name'] ?? '').' '.(string)($u['last_name'] ?? ''));
       $aInitialsFull = strtoupper((string)substr((string)($u['first_name'] ?? ''),0,1).(string)substr((string)($u['last_name'] ?? ''),0,1));
-      $aPhotoUrlFull = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null, $u['photo_path'] ?? null);
+      $aPhotoUrlFull = Files::profilePhotoUrl($u['photo_public_file_id'] ?? null);
     ?>
     <?php if ($aPhotoUrlFull !== ''): ?>
       <img class="avatar" src="<?= h($aPhotoUrlFull) ?>" alt="<?= h($aNameFull) ?>" style="width:80px;height:80px">

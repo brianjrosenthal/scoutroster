@@ -106,7 +106,7 @@ header_html('Home');
   $showRegisterSection = false;
   try {
     $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_path, y.photo_public_file_id, y.sibling, y.date_paid_until
+      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_public_file_id, y.sibling, y.date_paid_until
       FROM parent_relationships pr
       JOIN youth y ON y.id = pr.youth_id
       WHERE pr.adult_id = ?
@@ -175,7 +175,7 @@ header_html('Home');
     $children = is_array($kids ?? null) ? $kids : [];
     $isAdmin = ((int)($me['is_admin'] ?? 0) === 1);
 
-    // Fetch co-parents and include photo_path for avatar
+    // Fetch co-parents and include photo_public_file_id for avatar
     $coParents = [];
     try {
       $childIds = array_map(function($k){ return (int)($k['id'] ?? 0); }, $children);
@@ -184,13 +184,13 @@ header_html('Home');
         $ph = implode(',', array_fill(0, count($childIds), '?'));
         $params = $childIds;
         $params[] = (int)($me['id'] ?? 0);
-        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_path, u.photo_public_file_id, u.bsa_membership_number,
+        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number,
                        GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
                 FROM users u
                 JOIN parent_relationships pr ON pr.adult_id = u.id
                 LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
                 WHERE pr.youth_id IN ($ph) AND u.id <> ?
-                GROUP BY u.id, u.first_name, u.last_name, u.photo_path, u.photo_public_file_id, u.bsa_membership_number
+                GROUP BY u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number
                 ORDER BY u.last_name, u.first_name";
         $st = pdo()->prepare($sql);
         $st->execute($params);
@@ -211,7 +211,6 @@ header_html('Home');
         'youth_id' => (int)($c['id'] ?? 0),
         'class_of' => (int)($c['class_of'] ?? 0),
         'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
-        'photo_path' => trim((string)($c['photo_path'] ?? '')),
         'photo_public_file_id' => (int)($c['photo_public_file_id'] ?? 0),
         'sibling' => (int)($c['sibling'] ?? 0),
       ];
@@ -225,7 +224,6 @@ header_html('Home');
         'adult_id' => (int)($p['id'] ?? 0),
         'positions' => trim((string)($p['positions'] ?? '')),
         'bsa_membership_number' => trim((string)($p['bsa_membership_number'] ?? '')),
-        'photo_path' => trim((string)($p['photo_path'] ?? '')),
         'photo_public_file_id' => (int)($p['photo_public_file_id'] ?? 0),
       ];
     }
@@ -262,7 +260,7 @@ header_html('Home');
                 $href = ($m['type'] === 'child')
                   ? '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0)
                   : '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
-                $avatarUrl = Files::profilePhotoUrl($m['photo_public_file_id'] ?? null, $m['photo_path'] ?? '');
+                $avatarUrl = Files::profilePhotoUrl($m['photo_public_file_id'] ?? null);
               ?>
               <a href="<?= h($href) ?>" class="avatar-link" title="Edit">
                 <?php if ($avatarUrl !== ''): ?>
@@ -407,11 +405,11 @@ header_html('Home');
   // Suppress child prompt on the immediate load after adult upload
   $suppressChildOnce = !empty($_GET['after_profile_upload']);
 
-  $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null, $me['photo_path'] ?? null);
+  $mePhotoUrl = Files::profilePhotoUrl($me['photo_public_file_id'] ?? null);
   $firstChildNoPhoto = null;
   if ($mePhotoUrl !== '' && is_array($kids ?? null)) {
     foreach ($kids as $k) {
-      $kPhotoUrl = Files::profilePhotoUrl($k['photo_public_file_id'] ?? null, $k['photo_path'] ?? null);
+      $kPhotoUrl = Files::profilePhotoUrl($k['photo_public_file_id'] ?? null);
       if ($kPhotoUrl === '') { $firstChildNoPhoto = $k; break; }
     }
   }
@@ -734,7 +732,7 @@ header_html('Home');
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></h3>
         <?php
-          $thumbUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null, $e['photo_path'] ?? null);
+          $thumbUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null);
           if ($thumbUrl !== ''):
         ?>
           <img src="<?= h($thumbUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">

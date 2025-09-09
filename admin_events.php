@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($data !== false) {
                   try {
                     $publicId = Files::insertPublicFile($data, $mime, $name, (int)($editing['id'] ?? 0));
-                    $up = pdo()->prepare("UPDATE events SET photo_public_file_id = ?, photo_path = NULL WHERE id=?");
+                    $up = pdo()->prepare("UPDATE events SET photo_public_file_id = ? WHERE id=?");
                     $up->execute([$publicId, (int)$eventId]);
                   } catch (Throwable $e) {
                     // swallow; leave without image if failed
@@ -230,7 +230,7 @@ header_html('Manage Events');
     <?php
       $imgUrl = '';
       if ($editing) {
-        $imgUrl = Files::eventPhotoUrl($editing['photo_public_file_id'] ?? null, $editing['photo_path'] ?? null);
+        $imgUrl = Files::eventPhotoUrl($editing['photo_public_file_id'] ?? null);
       }
     ?>
     <?php if ($imgUrl !== ''): ?>
