@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $adultId = (int)($_POST['adult_id'] ?? 0);
 $adultId2 = (int)($_POST['adult_id2'] ?? 0);
-if ($adultId <= 0) { $errors[] = 'Link to Adult is required.'; }
+if ($adultId <= 0) { $errors[] = 'You must specify a parent to add a child.'; }
 if ($adultId2 === $adultId) { $adultId2 = 0; }
 
 if (empty($errors)) {
