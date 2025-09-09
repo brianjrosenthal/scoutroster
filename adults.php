@@ -11,7 +11,7 @@ $isAdmin = !empty($me['is_admin']);
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0..5
 $g = ($gLabel !== '') ? GradeCalculator::parseGradeLabel($gLabel) : null;
-$showAll = $isAdmin ? (!empty($_GET['all'])) : false;
+$showAll = $isAdmin ? (isset($_GET['all']) ? (!empty($_GET['all'])) : true) : false;
 
 // Compute class_of to filter by child grade (if provided)
 $classOfFilter = null;
