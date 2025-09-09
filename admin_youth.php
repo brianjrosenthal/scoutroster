@@ -162,35 +162,240 @@ header_html('Add Youth');
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <h3>Select parent(s)</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Parent
-        <select name="adult_id" required>
-          <?php
-            $allAdults = pdo()->query("SELECT id, first_name, last_name FROM users ORDER BY last_name, first_name")->fetchAll();
-            $selAdult = isset($_POST['adult_id']) ? (int)$_POST['adult_id'] : 0;
-            foreach ($allAdults as $a) {
-              $aid = (int)($a['id'] ?? 0);
-              $an = trim((string)($a['last_name'] ?? '') . ', ' . (string)($a['first_name'] ?? ''));
-              $sel = ($selAdult === $aid) ? ' selected' : '';
-              echo '<option value="'.$aid.'"'.$sel.'">'.h($an).'</option>';
-            }
-          ?>
-        </select>
-      </label>
-      <label>Parent 2
-        <select name="adult_id2">
-          <?php
-            $selAdult2 = isset($_POST['adult_id2']) ? (int)$_POST['adult_id2'] : 0;
-            echo '<option value="0">None</option>';
-            foreach ($allAdults as $a) {
-              $aid2 = (int)($a['id'] ?? 0);
-              $an2 = trim((string)($a['last_name'] ?? '') . ', ' . (string)($a['first_name'] ?? ''));
-              $sel2 = ($selAdult2 === $aid2) ? ' selected' : '';
-              echo '<option value="'.$aid2.'"'.$sel2.'">'.h($an2).'</option>';
-            }
-          ?>
-        </select>
-      </label>
+      <?php
+        $selAdult = isset($_POST['adult_id']) ? (int)$_POST['adult_id'] : 0;
+        $selAdult2 = isset($_POST['adult_id2']) ? (int)$_POST['adult_id2'] : 0;
+
+        $label1 = '';
+        if ($selAdult > 0) {
+          $st = pdo()->prepare("SELECT last_name, first_name, email FROM users WHERE id=?");
+          $st->execute([$selAdult]);
+          if ($u = $st->fetch()) {
+            $label1 = trim((string)($u['last_name'] ?? '') . ', ' . (string)($u['first_name'] ?? '')) . (!empty($u['email']) ? ' <'.(string)$u['email'].'>' : '');
+          }
+        }
+        $label2 = '';
+        if ($selAdult2 > 0) {
+          $st = pdo()->prepare("SELECT last_name, first_name, email FROM users WHERE id=?");
+          $st->execute([$selAdult2]);
+          if ($u2 = $st->fetch()) {
+            $label2 = trim((string)($u2['last_name'] ?? '') . ', ' . (string)($u2['first_name'] ?? '')) . (!empty($u2['email']) ? ' <'.(string)$u2['email'].'>' : '');
+          }
+        }
+      ?>
+      <div class="stack">
+        <label for="adult_search_1">Parent</label>
+        <input type="hidden" name="adult_id" id="adult_id_1" value="<?= (int)$selAdult ?>">
+        <input
+          type="text"
+          id="adult_search_1"
+          placeholder="Type to search adults by name or email"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-owns="adult_results_1_list"
+          aria-autocomplete="list"
+          value="<?= h($label1) ?>">
+        <div id="adult_results_1" class="typeahead-results" role="listbox" style="position:relative;">
+          <div id="adult_results_1_list" class="list" style="position:absolute; z-index:1000; background:#fff; border:1px solid #ccc; max-height:200px; overflow:auto; width:100%; display:none;"></div>
+        </div>
+        <button type="button" class="button" id="adult_clear_1" style="margin-top:4px;">Clear</button>
+      </div>
+
+      <div class="stack">
+        <label for="adult_search_2">Parent 2</label>
+        <input type="hidden" name="adult_id2" id="adult_id_2" value="<?= (int)$selAdult2 ?>">
+        <input
+          type="text"
+          id="adult_search_2"
+          placeholder="Optional: search another adult"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-owns="adult_results_2_list"
+          aria-autocomplete="list"
+          value="<?= h($label2) ?>">
+        <div id="adult_results_2" class="typeahead-results" role="listbox" style="position:relative;">
+          <div id="adult_results_2_list" class="list" style="position:absolute; z-index:1000; background:#fff; border:1px solid #ccc; max-height:200px; overflow:auto; width:100%; display:none;"></div>
+        </div>
+        <button type="button" class="button" id="adult_clear_2" style="margin-top:4px;">Clear</button>
+      </div>
     </div>
+
+    <script>
+      (function(){
+        function debounce(fn, wait) {
+          let t = null;
+          return function() {
+            const ctx = this, args = arguments;
+            clearTimeout(t);
+            t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+          };
+        }
+
+        function attachTypeahead(opts) {
+          const input = document.getElementById(opts.inputId);
+          const hidden = document.getElementById(opts.hiddenId);
+          const otherHidden = document.getElementById(opts.otherHiddenId);
+          const resultsWrap = document.getElementById(opts.resultsWrapId);
+          const list = document.getElementById(opts.resultsListId);
+          const clearBtn = document.getElementById(opts.clearBtnId);
+          let items = [];
+          let highlight = -1;
+          let open = false;
+
+          function close() {
+            if (!list) return;
+            list.style.display = 'none';
+            input.setAttribute('aria-expanded', 'false');
+            open = false;
+            highlight = -1;
+            input.removeAttribute('aria-activedescendant');
+          }
+
+          function openList() {
+            if (!list) return;
+            if (items.length === 0) { close(); return; }
+            list.style.display = '';
+            input.setAttribute('aria-expanded', 'true');
+            open = true;
+          }
+
+          function render() {
+            if (!list) return;
+            list.innerHTML = '';
+            const excludeId = (otherHidden && otherHidden.value) ? parseInt(otherHidden.value, 10) : 0;
+            const frag = document.createDocumentFragment();
+            items.forEach(function(it, idx){
+              if (excludeId && parseInt(it.id, 10) === excludeId) return;
+              const div = document.createElement('div');
+              div.setAttribute('role', 'option');
+              div.setAttribute('id', opts.resultsListId + '_opt_' + idx);
+              div.setAttribute('tabindex', '-1');
+              div.style.padding = '6px 8px';
+              div.style.cursor = 'pointer';
+              div.textContent = it.label;
+              if (idx === highlight) {
+                div.style.background = '#eef';
+              }
+              div.addEventListener('mousedown', function(e){
+                // prevent blur before click handler
+                e.preventDefault();
+              });
+              div.addEventListener('click', function(){
+                select(idx);
+              });
+              frag.appendChild(div);
+            });
+            list.appendChild(frag);
+            openList();
+          }
+
+          function select(idx) {
+            const excludeId = (otherHidden && otherHidden.value) ? parseInt(otherHidden.value, 10) : 0;
+            // compute visible items mapping to original items (since we filtered duplicates in render)
+            const visible = items.filter(function(it){
+              return !(excludeId && parseInt(it.id, 10) === excludeId);
+            });
+            const it = visible[idx];
+            if (!it) return;
+            if (excludeId && parseInt(it.id, 10) === excludeId) {
+              alert('Parent 2 cannot be the same as Parent 1.');
+              return;
+            }
+            hidden.value = it.id;
+            input.value = it.label;
+            close();
+          }
+
+          const doSearch = debounce(function(){
+            const q = (input.value || '').trim();
+            if (q.length < 1) { items = []; render(); return; }
+            fetch('/admin_adult_search.php?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+              .then(function(r){ return r.json(); })
+              .then(function(json){
+                if (!json || !json.ok) { items = []; render(); return; }
+                items = json.items || [];
+                highlight = (items.length > 0 ? 0 : -1);
+                render();
+                if (items.length > 0) {
+                  input.setAttribute('aria-activedescendant', opts.resultsListId + '_opt_0');
+                } else {
+                  input.removeAttribute('aria-activedescendant');
+                }
+              })
+              .catch(function(){ items = []; render(); });
+          }, 200);
+
+          if (input) {
+            input.addEventListener('input', function(){
+              // Clear selected id if user edits text
+              hidden.value = hidden.value || '';
+              doSearch();
+            });
+            input.addEventListener('keydown', function(e){
+              if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                openList();
+              }
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                const excludeId = (otherHidden && otherHidden.value) ? parseInt(otherHidden.value, 10) : 0;
+                const visibleCount = items.filter(function(it){ return !(excludeId && parseInt(it.id, 10) === excludeId); }).length;
+                if (visibleCount === 0) return;
+                highlight = (highlight + 1) % visibleCount;
+                input.setAttribute('aria-activedescendant', opts.resultsListId + '_opt_' + highlight);
+                render();
+              } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                const excludeId = (otherHidden && otherHidden.value) ? parseInt(otherHidden.value, 10) : 0;
+                const visibleCount = items.filter(function(it){ return !(excludeId && parseInt(it.id, 10) === excludeId); }).length;
+                if (visibleCount === 0) return;
+                highlight = (highlight - 1 + visibleCount) % visibleCount;
+                input.setAttribute('aria-activedescendant', opts.resultsListId + '_opt_' + highlight);
+                render();
+              } else if (e.key === 'Enter') {
+                if (open && highlight >= 0) {
+                  e.preventDefault();
+                  select(highlight);
+                }
+              } else if (e.key === 'Escape') {
+                close();
+              }
+            });
+            input.addEventListener('blur', function(){
+              // Slight delay to allow click on option
+              setTimeout(close, 120);
+            });
+          }
+
+          if (clearBtn) {
+            clearBtn.addEventListener('click', function(){
+              if (hidden) hidden.value = '';
+              if (input) input.value = '';
+              items = [];
+              render();
+            });
+          }
+        }
+
+        attachTypeahead({
+          inputId: 'adult_search_1',
+          hiddenId: 'adult_id_1',
+          otherHiddenId: 'adult_id_2',
+          resultsWrapId: 'adult_results_1',
+          resultsListId: 'adult_results_1_list',
+          clearBtnId: 'adult_clear_1'
+        });
+        attachTypeahead({
+          inputId: 'adult_search_2',
+          hiddenId: 'adult_id_2',
+          otherHiddenId: 'adult_id_1',
+          resultsWrapId: 'adult_results_2',
+          resultsListId: 'adult_results_2_list',
+          clearBtnId: 'adult_clear_2'
+        });
+      })();
+    </script>
 
     <h3>Child</h3>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
