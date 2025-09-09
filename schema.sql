@@ -314,7 +314,8 @@ CREATE TABLE public_files (
   byte_length INT UNSIGNED DEFAULT NULL,
   sha256 CHAR(64) DEFAULT NULL,
   created_by_user_id INT DEFAULT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_pf_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_pf_sha256 ON public_files(sha256);
