@@ -110,7 +110,7 @@ header_html('Adults Roster');
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Adults Roster</h2>
   <?php if ($isAdmin): ?>
-    <a class="button" href="/admin_adults.php">Add Adult</a>
+    <a class="button" href="/admin_adult_add.php">Add Adult</a>
   <?php endif; ?>
 </div>
 

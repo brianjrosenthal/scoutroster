@@ -122,7 +122,7 @@ header_html('Youth Roster');
       if (!form) return;
       var q = form.querySelector('input[name="q"]');
       var g = form.querySelector('select[name="g"]');
-      var only = form.querySelector('input[name="only_reg_sib"]');
+      var only = form.querySelector('input[type="checkbox"][name="only_reg_sib"]');
       var t;
       function submitNow() {
         if (typeof form.requestSubmit === 'function') form.requestSubmit();

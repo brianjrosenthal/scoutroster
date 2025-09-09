@@ -203,7 +203,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
         'emergency_contact2_phone' => $em2_phone,
       ], true);
       if ($ok) {
-        header('Location: /adults.php'); exit;
+        header('Location: /adult_edit.php?id='.(int)$id.'&saved=1'); exit;
       } else {
         $err = 'Failed to update adult.';
       }
@@ -259,6 +259,7 @@ header_html('Edit Adult');
 <?php
   if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
+  if (isset($_GET['saved'])) { $msg = 'Profile updated.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>

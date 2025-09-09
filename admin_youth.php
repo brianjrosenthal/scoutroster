@@ -73,13 +73,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   }
 
-  if (empty($errors)) {
+  $adultId = (int)($_POST['adult_id'] ?? 0);
+$relationship = trim((string)($_POST['relationship'] ?? 'parent'));
+$allowedRel = ['father','mother','guardian','parent'];
+if ($adultId <= 0) { $errors[] = 'Link to Adult is required.'; }
+if (!in_array($relationship, $allowedRel, true)) { $relationship = 'parent'; }
+
+if (empty($errors)) {
     // Compute class_of from grade
     $currentFifthClassOf = GradeCalculator::schoolYearEndYear();
     $class_of = $currentFifthClassOf + (5 - (int)$g);
 
     try {
       $ctx = UserContext::getLoggedInUserContext();
+      $pdo = pdo();
+      $pdo->beginTransaction();
+
       $createData = [
         'first_name' => $first,
         'last_name' => $last,
@@ -104,9 +113,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       if ($canEditPaidUntil && $paidUntil !== '') {
         $createData['date_paid_until'] = $paidUntil;
       }
+
+      // Create youth
       $id = YouthManagement::create($ctx, $createData);
+
+      // Ensure adult exists
+      $stA = $pdo->prepare('SELECT id FROM users WHERE id = ? LIMIT 1');
+      $stA->execute([$adultId]);
+      if (!$stA->fetchColumn()) {
+        throw new RuntimeException('Selected adult not found.');
+      }
+
+      // Link youth to adult
+      $stRel = $pdo->prepare('INSERT INTO parent_relationships (youth_id, adult_id, relationship) VALUES (?, ?, ?)');
+      $stRel->execute([$id, $adultId, $relationship]);
+
+      $pdo->commit();
       header('Location: /youth.php'); exit;
     } catch (Throwable $e) {
+      if (isset($pdo) && $pdo->inTransaction()) { $pdo->rollBack(); }
       $err = 'Error creating youth.';
     }
   } else {
@@ -208,6 +233,36 @@ header_html('Add Youth');
       <?php endif; ?>
     </div>
     <p class="small">Note: “Paid Until” is pack dues coverage and may not match BSA registration expiration.</p>
+
+    <h3>Link to Adult</h3>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+      <label>Adult
+        <select name="adult_id" required>
+          <?php
+            $allAdults = pdo()->query("SELECT id, first_name, last_name FROM users ORDER BY last_name, first_name")->fetchAll();
+            $selAdult = isset($_POST['adult_id']) ? (int)$_POST['adult_id'] : 0;
+            foreach ($allAdults as $a) {
+              $aid = (int)($a['id'] ?? 0);
+              $an = trim((string)($a['last_name'] ?? '') . ', ' . (string)($a['first_name'] ?? ''));
+              $sel = ($selAdult === $aid) ? ' selected' : '';
+              echo '<option value="'.$aid.'"'.$sel.'">'.h($an).'</option>';
+            }
+          ?>
+        </select>
+      </label>
+      <label>Relationship
+        <select name="relationship" required>
+          <?php
+            $rel = isset($_POST['relationship']) ? (string)$_POST['relationship'] : 'parent';
+            $rels = ['parent'=>'parent','father'=>'father','mother'=>'mother','guardian'=>'guardian'];
+            foreach ($rels as $rv => $label) {
+              $sel = ($rel === $rv) ? ' selected' : '';
+              echo '<option value="'.h($rv).'"'.$sel.'>'.h($label).'</option>';
+            }
+          ?>
+        </select>
+      </label>
+    </div>
 
     <div class="actions">
       <button class="primary" type="submit">Create</button>
