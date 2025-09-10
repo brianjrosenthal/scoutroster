@@ -9,7 +9,7 @@ $err = null;
 
 // Inputs
 $q = trim($_GET['q'] ?? '');
-$rf = trim($_GET['r'] ?? 'all'); // all|yes|no
+$sf = trim($_GET['s'] ?? 'new_active'); // new_active|new|active|joined|unsubscribed
 
 // Build query
 $params = [];
@@ -31,10 +31,23 @@ if ($q !== '') {
   );
 }
 
-if ($rf === 'yes') {
-  $sql .= " AND r.reached_out = 1";
-} elseif ($rf === 'no') {
-  $sql .= " AND r.reached_out = 0";
+switch ($sf) {
+  case 'new':
+    $sql .= " AND r.status = 'new'";
+    break;
+  case 'active':
+    $sql .= " AND r.status = 'active'";
+    break;
+  case 'joined':
+    $sql .= " AND r.status = 'joined'";
+    break;
+  case 'unsubscribed':
+    $sql .= " AND r.status = 'unsubscribed'";
+    break;
+  case 'new_active':
+  default:
+    $sql .= " AND r.status IN ('new','active')";
+    break;
 }
 
 $sql .= " ORDER BY r.created_at DESC";
@@ -55,11 +68,13 @@ header_html('Recommendations');
       <label>Search
         <input type="text" name="q" value="<?= h($q) ?>" placeholder="Parent, child, email, phone">
       </label>
-      <label>Reached out
-        <select name="r">
-          <option value="all" <?= $rf==='all'?'selected':'' ?>>All</option>
-          <option value="yes" <?= $rf==='yes'?'selected':'' ?>>Yes</option>
-          <option value="no"  <?= $rf==='no'?'selected':'' ?>>No</option>
+      <label>Status
+        <select name="s">
+          <option value="new_active" <?= $sf==='new_active'?'selected':'' ?>>New and Active</option>
+          <option value="new" <?= $sf==='new'?'selected':'' ?>>New</option>
+          <option value="active" <?= $sf==='active'?'selected':'' ?>>Active</option>
+          <option value="joined" <?= $sf==='joined'?'selected':'' ?>>Joined</option>
+          <option value="unsubscribed" <?= $sf==='unsubscribed'?'selected':'' ?>>Unsubscribed</option>
         </select>
       </label>
     </div>
@@ -69,11 +84,11 @@ header_html('Recommendations');
       var f=document.getElementById('filterForm');
       if(!f) return;
       var q=f.querySelector('input[name="q"]');
-      var r=f.querySelector('select[name="r"]');
+      var s=f.querySelector('select[name="s"]');
       var t;
       function submitNow(){ if(typeof f.requestSubmit==='function') f.requestSubmit(); else f.submit(); }
       if(q){ q.addEventListener('input', function(){ if(t) clearTimeout(t); t=setTimeout(submitNow,600); }); }
-      if(r){ r.addEventListener('change', submitNow); }
+      if(s){ s.addEventListener('change', submitNow); }
     })();
   </script>
 </div>
@@ -88,7 +103,7 @@ header_html('Recommendations');
           <th>Parent</th>
           <th>Child</th>
           <th>Contact</th>
-          <th>Reached Out</th>
+          <th>Status</th>
           <th></th>
         </tr>
       </thead>
@@ -98,13 +113,13 @@ header_html('Recommendations');
             $contact = [];
             if (!empty($r['email'])) $contact[] = h($r['email']);
             if (!empty($r['phone'])) $contact[] = h($r['phone']);
-            $reached = !empty($r['reached_out']);
+            $statusLabel = isset($r['status']) ? ucfirst((string)$r['status']) : '';
           ?>
           <tr>
             <td><?= h($r['parent_name']) ?></td>
             <td><?= h($r['child_name']) ?></td>
             <td><?= !empty($contact) ? implode('<br>', $contact) : '&mdash;' ?></td>
-            <td><?= $reached ? 'Yes' : 'No' ?></td>
+            <td><?= $statusLabel !== '' ? h($statusLabel) : '&mdash;' ?></td>
             <td class="small">
               <a class="button" href="/admin_recommendation_view.php?id=<?= (int)$r['id'] ?>">View</a>
             </td>

@@ -18,6 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $email       = trim($_POST['email'] ?? '');
   $phone       = trim($_POST['phone'] ?? '');
   $notes       = trim($_POST['notes'] ?? '');
+  $grade_raw   = trim($_POST['grade'] ?? '');
+  $grade       = in_array($grade_raw, ['K','1','2','3','4','5'], true) ? $grade_raw : null;
 
   $errors = [];
   if ($parent_name === '') $errors[] = 'Parent name is required.';
@@ -28,15 +30,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // Insert into recommendations
       $st = pdo()->prepare("
         INSERT INTO recommendations
-          (parent_name, child_name, email, phone, notes, created_by_user_id, created_at, reached_out, reached_out_at, reached_out_by_user_id)
+          (parent_name, child_name, email, phone, grade, notes, created_by_user_id, created_at)
         VALUES
-          (?, ?, ?, ?, ?, ?, NOW(), 0, NULL, NULL)
+          (?, ?, ?, ?, ?, ?, ?, NOW())
       ");
       $ok = $st->execute([
         $parent_name,
         $child_name,
         ($email !== '' ? $email : null),
         ($phone !== '' ? $phone : null),
+        $grade,
         ($notes !== '' ? $notes : null),
         (int)($me['id'] ?? 0),
       ]);
@@ -124,6 +127,17 @@ header_html('Recommend a friend');
     </label>
     <label>Phone number:
       <input type="text" name="phone" value="<?= h($_POST['phone'] ?? '') ?>">
+    </label>
+    <label>Grade:
+      <select name="grade">
+        <option value="">Unknown</option>
+        <option value="K" <?= (($_POST['grade'] ?? '')==='K')?'selected':'' ?>>K</option>
+        <option value="1" <?= (($_POST['grade'] ?? '')==='1')?'selected':'' ?>>1</option>
+        <option value="2" <?= (($_POST['grade'] ?? '')==='2')?'selected':'' ?>>2</option>
+        <option value="3" <?= (($_POST['grade'] ?? '')==='3')?'selected':'' ?>>3</option>
+        <option value="4" <?= (($_POST['grade'] ?? '')==='4')?'selected':'' ?>>4</option>
+        <option value="5" <?= (($_POST['grade'] ?? '')==='5')?'selected':'' ?>>5</option>
+      </select>
     </label>
     <label>Notes (how do you know the child or the family? what do you think they'd like most about scouts?):
       <textarea name="notes" rows="4"><?= h($_POST['notes'] ?? '') ?></textarea>
