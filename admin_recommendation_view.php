@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/settings.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 require_admin();
 
 $err = null;
@@ -100,9 +101,7 @@ $canCreateAdult = false;
 try {
   $recEmail = trim((string)($rec['email'] ?? ''));
   if ($recEmail !== '') {
-    $stE = pdo()->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-    $stE->execute([$recEmail]);
-    $exists = $stE->fetchColumn() ? true : false;
+    $exists = (UserManagement::findIdByEmail($recEmail) !== null);
 
     if (($rec['status'] ?? '') === 'joined' && !$exists) {
       $full = trim((string)($rec['parent_name'] ?? ''));

@@ -3,6 +3,7 @@ require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Text.php'; // for safe description rendering
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 
 // No login required for invite landing
 
@@ -77,10 +78,8 @@ try {
   // If parsing fails, allow but it's unlikely
 }
 
-// Load target adult (invitee)
-$st = pdo()->prepare("SELECT * FROM users WHERE id=? LIMIT 1");
-$st->execute([$uid]);
-$invitee = $st->fetch();
+ // Load target adult (invitee)
+$invitee = UserManagement::findFullById((int)$uid);
 if (!$invitee) {
   header_html('Event Invite');
   echo '<h2>Event Invite</h2>';

@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/GradeCalculator.php';
+require_once __DIR__ . '/Search.php';
+require_once __DIR__ . '/ActivityLog.php';
 
 class UserManagement {
   private static function pdo(): PDO {
@@ -24,9 +26,19 @@ class UserManagement {
     return !empty($v) ? 1 : 0;
   }
 
-  // Placeholder for future activity logging
-  private static function log(string $action, ?int $userId, array $details = []): void {
-    // no-op for now
+  // Activity logging - do not perform extra queries, just log what's provided.
+  private static function log(string $action, ?int $targetUserId, array $details = []): void {
+    try {
+      // Actor is the currently logged in user (if any). May be null for some flows.
+      $ctx = \UserContext::getLoggedInUserContext();
+      $meta = $details;
+      if ($targetUserId !== null && !array_key_exists('target_user_id', $meta)) {
+        $meta['target_user_id'] = (int)$targetUserId;
+      }
+      \ActivityLog::log($ctx, (string)$action, (array)$meta);
+    } catch (\Throwable $e) {
+      // Best-effort logging; never disrupt the main flow.
+    }
   }
 
   private static function assertAdmin(?UserContext $ctx): void {
@@ -674,5 +686,197 @@ class UserManagement {
     $st = self::pdo()->prepare('DELETE FROM adult_leadership_positions WHERE id=? AND adult_id=?');
     $st->execute([$leadershipId, $adultId]);
     // No error if 0 rows affected; treat as no-op
+
+    // Log removal
+    self::log('user.leadership_remove', $adultId, [
+      'leadership_id' => (int)$leadershipId,
+    ]);
+  }
+
+  // =========================
+  // Read helpers and utilities (Users)
+  // =========================
+
+  public static function getFullName(int $id): ?string {
+    $st = self::pdo()->prepare('SELECT first_name, last_name FROM users WHERE id=? LIMIT 1');
+    $st->execute([$id]);
+    $row = $st->fetch();
+    if (!$row) return null;
+    $first = trim((string)($row['first_name'] ?? ''));
+    $last  = trim((string)($row['last_name'] ?? ''));
+    $name = trim($first . ' ' . $last);
+    return $name !== '' ? $name : null;
+  }
+
+  public static function existsById(int $id): bool {
+    $st = self::pdo()->prepare('SELECT 1 FROM users WHERE id=? LIMIT 1');
+    $st->execute([$id]);
+    return (bool)$st->fetchColumn();
+  }
+
+  public static function emailExists(string $email): bool {
+    $norm = self::normEmail($email);
+    if (!$norm) return false;
+    $st = self::pdo()->prepare('SELECT 1 FROM users WHERE email = ? LIMIT 1');
+    $st->execute([$norm]);
+    return (bool)$st->fetchColumn();
+  }
+
+  public static function computeClassOfFromGradeLabel(?string $gradeLabel): ?int {
+    $gradeLabel = (string)$gradeLabel;
+    if ($gradeLabel === '') return null;
+    $g = \GradeCalculator::parseGradeLabel($gradeLabel);
+    if ($g === null) return null;
+    $currentFifth = \GradeCalculator::schoolYearEndYear();
+    return $currentFifth + (5 - (int)$g);
+  }
+
+  // Returns grouped adults with their children according to filters.
+  // filters: ['q' => ?string, 'class_of' => ?int, 'registered_only' => bool]
+  public static function listAdultsWithChildren(array $filters): array {
+    $q = isset($filters['q']) ? trim((string)$filters['q']) : '';
+    $classOf = array_key_exists('class_of', $filters) ? ($filters['class_of'] === null ? null : (int)$filters['class_of']) : null;
+    $registeredOnly = !empty($filters['registered_only']);
+
+    $params = [];
+    $sql = "
+      SELECT 
+        u.*,
+        y.id         AS child_id,
+        y.first_name AS child_first_name,
+        y.last_name  AS child_last_name,
+        y.class_of   AS child_class_of
+      FROM users u
+      LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
+      LEFT JOIN youth y ON y.id = pr.youth_id
+      WHERE 1=1
+    ";
+
+    if ($q !== '') {
+      $tokens = \Search::tokenize($q);
+      $sql .= \Search::buildAndLikeClause(
+        ['u.first_name','u.last_name','u.email','y.first_name','y.last_name'],
+        $tokens,
+        $params
+      );
+    }
+
+    if ($classOf !== null) {
+      $sql .= " AND y.class_of = ?";
+      $params[] = $classOf;
+    }
+
+    if ($registeredOnly) {
+      $sql .= " AND ((u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> ''))";
+    }
+
+    $sql .= " ORDER BY u.last_name, u.first_name, y.last_name, y.first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll();
+
+    $grouped = []; // id => ['adult' => ..., 'children' => []]
+    foreach ($rows as $r) {
+      $aid = (int)$r['id'];
+      if (!isset($grouped[$aid])) {
+        $grouped[$aid] = [
+          'adult' => [
+            'id' => $aid,
+            'first_name' => $r['first_name'],
+            'last_name' => $r['last_name'],
+            'email' => $r['email'],
+            'email2' => $r['email2'] ?? null,
+            'phone_home' => $r['phone_home'] ?? null,
+            'phone_cell' => $r['phone_cell'] ?? null,
+            'email_verified_at' => $r['email_verified_at'] ?? null,
+            'suppress_email_directory' => (int)($r['suppress_email_directory'] ?? 0),
+            'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
+          ],
+          'children' => [],
+        ];
+      }
+      if (!empty($r['child_id'])) {
+        $classOfChild = (int)$r['child_class_of'];
+        $grade = \GradeCalculator::gradeForClassOf($classOfChild);
+        $grouped[$aid]['children'][] = [
+          'id' => (int)$r['child_id'],
+          'name' => trim((string)($r['child_first_name'] ?? '') . ' ' . (string)($r['child_last_name'] ?? '')),
+          'class_of' => $classOfChild,
+          'grade' => $grade,
+        ];
+      }
+    }
+
+    return array_values($grouped);
+  }
+
+  public static function listAdultsWithAnyEmail(): array {
+    $st = self::pdo()->query("SELECT id, first_name, last_name, email FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY last_name, first_name");
+    return $st->fetchAll();
+  }
+
+  public static function listAdultsWithRegisteredChildrenEmails(): array {
+    $sql = "
+      SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
+      FROM users u
+      JOIN parent_relationships pr ON pr.adult_id = u.id
+      JOIN youth y ON y.id = pr.youth_id
+      WHERE u.email IS NOT NULL AND u.email <> '' AND y.bsa_registration_number IS NOT NULL
+      ORDER BY u.last_name, u.first_name
+    ";
+    $st = self::pdo()->prepare($sql);
+    $st->execute();
+    return $st->fetchAll();
+  }
+
+  public static function listAdultsByChildClassOfEmails(int $classOf): array {
+    $sql = "
+      SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
+      FROM users u
+      JOIN parent_relationships pr ON pr.adult_id = u.id
+      JOIN youth y ON y.id = pr.youth_id
+      WHERE u.email IS NOT NULL AND u.email <> '' AND y.class_of = ?
+      ORDER BY u.last_name, u.first_name
+    ";
+    $st = self::pdo()->prepare($sql);
+    $st->execute([$classOf]);
+    return $st->fetchAll();
+  }
+
+  public static function findBasicForEmailingById(int $id): ?array {
+    $st = self::pdo()->prepare("SELECT id, first_name, last_name, email FROM users WHERE id=? LIMIT 1");
+    $st->execute([$id]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  // Determine if a user may upload a photo for the target adult.
+  public static function canUploadAdultPhoto(?UserContext $ctx, int $targetAdultId): bool {
+    if (!$ctx) return false;
+    if ($ctx->admin || $ctx->id === $targetAdultId) return true;
+
+    $st = self::pdo()->prepare("
+      SELECT 1
+      FROM parent_relationships pr1
+      JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
+      WHERE pr1.adult_id = ? AND pr2.adult_id = ?
+      LIMIT 1
+    ");
+    $st->execute([(int)$ctx->id, (int)$targetAdultId]);
+    return (bool)$st->fetchColumn();
+  }
+
+  // List all youth linked to an adult (for relationship management UIs).
+  public static function listChildrenForAdult(int $adultId): array {
+    $st = self::pdo()->prepare("
+      SELECT y.*
+      FROM parent_relationships pr
+      JOIN youth y ON y.id = pr.youth_id
+      WHERE pr.adult_id = ?
+      ORDER BY y.last_name, y.first_name
+    ");
+    $st->execute([$adultId]);
+    return $st->fetchAll();
   }
 }

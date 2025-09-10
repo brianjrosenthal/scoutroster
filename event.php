@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -217,10 +218,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <?php
         $creatorId = (int)($myRsvp['created_by_user_id'] ?? 0);
         if ($creatorId && $creatorId !== (int)$me['id']) {
-          $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
-          $stc->execute([$creatorId]);
-          if ($cn = $stc->fetch()) {
-            echo ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
+          $nameBy = UserManagement::getFullName($creatorId);
+          if ($nameBy !== null) {
+            echo ' <span class="small">(by ' . h($nameBy) . ')</span>';
           }
         }
       ?>

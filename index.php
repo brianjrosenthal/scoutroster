@@ -9,6 +9,7 @@ require_once __DIR__ . '/lib/Reimbursements.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -854,11 +855,10 @@ header_html('Home');
               $byText = '';
               $creatorId = (int)($my['created_by_user_id'] ?? 0);
               if ($creatorId && $creatorId !== (int)$me['id']) {
-                $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
-                $stc->execute([$creatorId]);
-                if ($cn = $stc->fetch()) {
-                  $byText = ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
-                }
+              $nameBy = UserManagement::getFullName($creatorId);
+              if ($nameBy !== null) {
+                $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
+              }
               }
           ?>
             <p class="small">

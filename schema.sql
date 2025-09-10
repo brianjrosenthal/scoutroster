@@ -398,3 +398,17 @@ CREATE INDEX idx_pnfu_created_at ON payment_notifications_from_users(created_at)
 CREATE INDEX idx_pnfu_status ON payment_notifications_from_users(status);
 CREATE INDEX idx_pnfu_youth ON payment_notifications_from_users(youth_id);
 CREATE INDEX idx_pnfu_created_by ON payment_notifications_from_users(created_by);
+
+-- ===== Activity Log =====
+CREATE TABLE activity_log (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  user_id INT NULL,
+  action_type VARCHAR(64) NOT NULL,
+  json_metadata LONGTEXT NULL,
+  CONSTRAINT fk_activity_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_al_created_at ON activity_log(created_at);
+CREATE INDEX idx_al_user_id ON activity_log(user_id);
+CREATE INDEX idx_al_action_type ON activity_log(action_type);

@@ -7,6 +7,7 @@
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/ActivityLog.php';
 
 function redirect_back(string $returnTo, array $params = []): void {
   // Basic allowlist: require leading slash to avoid offsite redirects
@@ -104,6 +105,13 @@ if ($action === 'delete') {
   } catch (Throwable $e) {
     redirect_back($returnTo, ['err' => 'db_failed']);
   }
+  // Activity log for adult profile photo delete
+  if ($type === 'adult') {
+    ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.upload_profile_photo', [
+      'target_user_id' => (int)$adultId,
+      'deleted' => true,
+    ]);
+  }
   redirect_back($returnTo, ['deleted' => 1]);
   exit;
 }
@@ -161,5 +169,12 @@ try {
   }
 } catch (Throwable $e) {
   redirect_back($returnTo, ['err' => 'db_failed']);
+}
+// Activity log for adult profile photo upload
+if ($type === 'adult') {
+  ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.upload_profile_photo', [
+    'target_user_id' => (int)$adultId,
+    'public_file_id' => (int)$publicId,
+  ]);
 }
 redirect_back($returnTo, ['uploaded' => 1]);
