@@ -65,5 +65,90 @@
         if (q) q.addEventListener('input', debounce(submitForm, 600));
       }
     }
+
+    // Activity Log: admin user typeahead for filtering
+    if (path.endsWith('/admin_activity_log.php')) {
+      const form = findForm();
+      const input = document.getElementById('userTypeahead');
+      const hidden = document.getElementById('userId');
+      const results = document.getElementById('userTypeaheadResults');
+      const clearBtn = document.getElementById('clearUserBtn');
+
+      if (clearBtn && hidden && input && results) {
+        clearBtn.addEventListener('click', function() {
+          hidden.value = '';
+          input.value = '';
+          results.innerHTML = '';
+          results.style.display = 'none';
+        });
+      }
+
+      if (input && hidden && results) {
+        let seq = 0;
+
+        const hideResults = () => {
+          results.style.display = 'none';
+          results.innerHTML = '';
+        };
+
+        const render = (items) => {
+          if (!Array.isArray(items) || items.length === 0) {
+            hideResults();
+            return;
+          }
+          results.innerHTML = '';
+          items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.setAttribute('role', 'option');
+            div.dataset.id = String(item.id || '');
+            div.textContent = String(item.label || '');
+            div.addEventListener('click', function() {
+              hidden.value = this.dataset.id || '';
+              input.value = this.textContent || '';
+              hideResults();
+            });
+            results.appendChild(div);
+          });
+          results.style.display = 'block';
+        };
+
+        const doSearch = (q, mySeq) => {
+          fetch('/admin_adult_search.php?q=' + encodeURIComponent(q) + '&limit=20', { headers: { 'Accept': 'application/json' } })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(json => {
+              if (mySeq !== seq) return; // ignore out-of-order responses
+              const items = (json && json.items) ? json.items : [];
+              render(items);
+            })
+            .catch(() => {
+              if (mySeq === seq) hideResults();
+            });
+        };
+
+        const onInput = () => {
+          const q = input.value.trim();
+          seq++;
+          const mySeq = seq;
+          if (q.length < 2) {
+            hideResults();
+            return;
+          }
+          doSearch(q, mySeq);
+        };
+
+        input.addEventListener('input', debounce(onInput, 350));
+
+        // Dismiss suggestions on outside click or Escape
+        document.addEventListener('click', function(e) {
+          if (!results || !input) return;
+          const within = results.contains(e.target) || input.contains(e.target);
+          if (!within) hideResults();
+        });
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') hideResults();
+        });
+      }
+    }
   });
 })();

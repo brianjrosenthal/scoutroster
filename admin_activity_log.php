@@ -46,6 +46,18 @@ $rows = ActivityLog::list($filters, $qLimit, $offset);
 $users = UserManagement::listAllForSelect(); // id, first_name, last_name, email
 $actionTypes = ActivityLog::distinctActionTypes();
 
+// Prefill user typeahead label if a specific user_id is selected
+$prefillLabel = '';
+if ($qUserId > 0) {
+  $uSel = UserManagement::findBasicForEmailingById($qUserId);
+  if ($uSel) {
+    $first = (string)($uSel['first_name'] ?? '');
+    $last  = (string)($uSel['last_name'] ?? '');
+    $email = (string)($uSel['email'] ?? '');
+    $prefillLabel = trim($last . ', ' . $first) . ($email !== '' ? ' <' . $email . '>' : '');
+  }
+}
+
 // Build quick lookup for user names
 $userMap = [];
 foreach ($users as $u) {
@@ -83,6 +95,11 @@ function build_url(array $overrides): string {
 
 header_html('Activity Log');
 ?>
+<style>
+#userTypeaheadResults { display:none; border:1px solid #ddd; border-radius:6px; background:#fff; max-height:220px; overflow:auto; margin-top:4px; }
+#userTypeaheadResults .item { padding:6px 8px; cursor:pointer; }
+#userTypeaheadResults .item:hover { background:#f5f5f5; }
+</style>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Activity Log</h2>
 </div>
@@ -90,14 +107,10 @@ header_html('Activity Log');
 <div class="card">
   <form method="get" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;">
     <label>User
-      <select name="user_id">
-        <option value="">Any User</option>
-        <?php foreach ($users as $u): $id=(int)$u['id']; $sel = ($qUserId === $id) ? ' selected' : ''; ?>
-          <option value="<?= (int)$id ?>"<?= $sel ?>>
-            <?= h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))) ?><?php if (!empty($u['email'])): ?> (<?= h($u['email']) ?>)<?php endif; ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
+      <input type="text" id="userTypeahead" name="user_label" value="<?= h($prefillLabel) ?>" placeholder="Search name or email">
+      <input type="hidden" id="userId" name="user_id" value="<?= $qUserId > 0 ? (int)$qUserId : '' ?>">
+      <button type="button" class="button" id="clearUserBtn" style="margin-top:4px;">Clear</button>
+      <div id="userTypeaheadResults" class="typeahead-results"></div>
     </label>
     <label>Action Type
       <select name="action_type">
