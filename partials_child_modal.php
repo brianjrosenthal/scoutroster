@@ -79,7 +79,8 @@ if (!function_exists('render_child_modal')) {
               <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
             </div>
             <div class="actions">
-              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formNewId) ?>_submit"><?= $mode === 'edit' ? 'Add Child' : 'Stage Child' ?></button>
+              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" 
+              id="<?= h($formNewId) ?>_submit">Add Child</button>
             </div>
           </form>
         </div>

@@ -183,7 +183,7 @@ header_html('Create Adult');
         <button type="button" class="button" data-open-child-modal="ac_add">Add Child</button>
       </h3>
       <input type="hidden" name="pending_children" id="pending_children" value="<?= h($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['pending_children'] ?? '[]') : '[]') ?>">
-      <div id="pending_children_list" class="stack small"></div>
+      <div id="pending_children_list" class="stack"></div>
     </div>
 
 
@@ -230,7 +230,6 @@ header_html('Create Adult');
           listEl.innerHTML = '';
           if (!items.length) {
             var p = document.createElement('p');
-            p.className = 'small';
             p.textContent = 'No children staged.';
             listEl.appendChild(p);
             return;
