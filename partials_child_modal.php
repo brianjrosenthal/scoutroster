@@ -123,10 +123,41 @@ if (!function_exists('render_child_modal')) {
       var FORM_NEW = MODAL ? MODAL.querySelector('#' + IDP + '_formNew') : null;
       var FORM_LINK = MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null;
 
+      function resetNewForm() {
+        var form = FORM_NEW || (MODAL ? MODAL.querySelector('#' + IDP + '_formNew') : null);
+        if (!form) return;
+        var fns = ['first_name','last_name','suffix','preferred_name','school'];
+        for (var i=0;i<fns.length;i++){
+          var inp = form.querySelector('[name="' + fns[i] + '"]');
+          if (inp) inp.value = '';
+        }
+        var gradeSel = form.querySelector('select[name="grade"]');
+        if (gradeSel) gradeSel.selectedIndex = 0;
+        var sib = form.querySelector('input[name="sibling"]');
+        if (sib) sib.checked = false;
+      }
+      function resetLinkForm() {
+        var form = FORM_LINK || (MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null);
+        if (!form) return;
+        var sel = form.querySelector('select[name="youth_id"]');
+        if (sel) sel.selectedIndex = 0;
+      }
+
       function showErr(msg) { if (ERR){ ERR.style.display=''; ERR.textContent = msg || 'Operation failed.'; } }
       function clearErr(){ if (ERR){ ERR.style.display='none'; ERR.textContent=''; } }
 
-      function showModal(){ if (MODAL){ MODAL.classList.remove('hidden'); MODAL.setAttribute('aria-hidden','false'); } }
+      function showModal(){
+        if (!MODAL) return;
+        MODAL.classList.remove('hidden');
+        MODAL.setAttribute('aria-hidden','false');
+        // re-resolve forms on open to avoid stale/null refs
+        FORM_NEW = MODAL.querySelector('#' + IDP + '_formNew');
+        FORM_LINK = MODAL.querySelector('#' + IDP + '_formLink');
+        // present a fresh UI each open
+        resetNewForm();
+        resetLinkForm();
+        switchTab('new');
+      }
       function hideModal(){ if (MODAL){ MODAL.classList.add('hidden'); MODAL.setAttribute('aria-hidden','true'); } }
 
       // Expose a helper and hook any launcher with matching data attribute
@@ -143,8 +174,15 @@ if (!function_exists('render_child_modal')) {
 
       function switchTab(which){
         if (!PANEL_NEW || !PANEL_LINK) return;
-        if (which === 'new'){ PANEL_NEW.style.display=''; PANEL_LINK.style.display='none'; }
-        else { PANEL_NEW.style.display='none'; PANEL_LINK.style.display=''; }
+        if (which === 'new'){
+          PANEL_NEW.style.display='';
+          PANEL_LINK.style.display='none';
+          resetNewForm();
+        } else {
+          PANEL_NEW.style.display='none';
+          PANEL_LINK.style.display='';
+          resetLinkForm();
+        }
       }
       if (TAB_NEW) TAB_NEW.addEventListener('click', function(e){ e.preventDefault(); switchTab('new'); });
       if (TAB_LINK) TAB_LINK.addEventListener('click', function(e){ e.preventDefault(); switchTab('link'); });
