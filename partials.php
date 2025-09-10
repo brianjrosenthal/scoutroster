@@ -71,6 +71,24 @@ function header_html(string $title) {
     echo $link('/admin_import_upload.php','Import Members');
     echo $link('/admin_regdates_upload.php','Reg Dates Import');
     echo $link('/admin_mailing_list.php','Mailing List');
+    // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
+    $showPaymentNotifs = false;
+    try {
+      $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+      $stPos->execute([(int)($u['id'] ?? 0)]);
+      $rowsPos = $stPos->fetchAll();
+      if (is_array($rowsPos)) {
+        foreach ($rowsPos as $pr) {
+          $p = trim((string)($pr['p'] ?? ''));
+          if ($p === 'cubmaster' || $p === 'treasurer') { $showPaymentNotifs = true; break; }
+        }
+      }
+    } catch (Throwable $e) {
+      $showPaymentNotifs = false;
+    }
+    if ($showPaymentNotifs) {
+      echo $link('/payment_notifications_from_users.php','Payment notifs');
+    }
     echo $link('/admin_recommendations.php','Recommendations');
     echo $link('/admin_settings.php','Settings');
     echo '</div>';
