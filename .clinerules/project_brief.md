@@ -67,3 +67,6 @@ ISSUE - there should be a way to "archive" a recommendation.
 
 ## Data Model Notes
 1. The data model is best understood by reading schema.sql
+
+## Grade and class_of
+To make it easier to transition from year to year, instead of storing "grade" for youths, we store "class_of" which is the year the youth will graduate from Grade 12 (ie, high school).  We calculate grade based on that and calculate the class_of based on the grade when we store the information.

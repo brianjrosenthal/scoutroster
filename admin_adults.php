@@ -64,7 +64,7 @@ if ($g !== null) {
   $classOfFilter = $currentFifthClassOf + (5 - $g);
 }
 
-// Query adults and any of their children/dens
+ // Query adults and any of their children
 $params = [];
 $sql = "
   SELECT 
@@ -72,14 +72,10 @@ $sql = "
     y.id         AS child_id,
     y.first_name AS child_first_name,
     y.last_name  AS child_last_name,
-    y.class_of   AS child_class_of,
-    dm.den_id    AS child_den_id,
-    d.den_name   AS child_den_name
+    y.class_of   AS child_class_of
   FROM users u
   LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
   LEFT JOIN youth y ON y.id = pr.youth_id
-  LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-  LEFT JOIN dens d ON d.id = dm.den_id
   WHERE 1=1
 ";
 
@@ -134,8 +130,6 @@ foreach ($rows as $r) {
       'name' => trim(($r['child_first_name'] ?? '').' '.($r['child_last_name'] ?? '')),
       'class_of' => (int)$r['child_class_of'],
       'grade' => $childGrade,
-      'den_id' => $r['child_den_id'] ? (int)$r['child_den_id'] : null,
-      'den_name' => $r['child_den_name'] ?? null,
     ];
   }
 }
@@ -206,7 +200,7 @@ header_html('Manage Adults');
       <thead>
         <tr>
           <th>Adult</th>
-          <th>Children (grade, den)</th>
+          <th>Children (grade)</th>
           <th>Email(s)</th>
           <th>Phone(s)</th>
           <th></th>
@@ -220,7 +214,7 @@ header_html('Manage Adults');
           $childLines = [];
           foreach ($A['children'] as $c) {
             $gradeLabel = ($c['grade'] < 0 ? 'PreK' : ($c['grade'] === 0 ? 'K' : (int)$c['grade']));
-            $childLines[] = h($c['name']).' ('.$gradeLabel.($c['den_name'] ? ', '.h($c['den_name']) : '').')';
+            $childLines[] = h($c['name']).' ('.$gradeLabel.')';
           }
           $childrenSummary = implode('<br>', $childLines);
 

@@ -29,14 +29,10 @@ $sql = "
     y.id         AS child_id,
     y.first_name AS child_first_name,
     y.last_name  AS child_last_name,
-    y.class_of   AS child_class_of,
-    dm.den_id    AS child_den_id,
-    d.den_name   AS child_den_name
+    y.class_of   AS child_class_of
   FROM users u
   LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
   LEFT JOIN youth y ON y.id = pr.youth_id
-  LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-  LEFT JOIN dens d ON d.id = dm.den_id
   WHERE 1=1
 ";
 
@@ -64,7 +60,7 @@ $st->execute($params);
 $rows = $st->fetchAll();
 
 // Group rows by adult
-$adults = []; // id => ['adult' => u, 'children' => [...], 'den_ids' => set]
+$adults = []; // id => ['adult' => u, 'children' => [...]]
 foreach ($rows as $r) {
   $aid = (int)$r['id'];
   if (!isset($adults[$aid])) {
@@ -82,7 +78,6 @@ foreach ($rows as $r) {
       'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
       ],
       'children' => [],
-      'den_ids' => [],
     ];
   }
   if (!empty($r['child_id'])) {
@@ -92,12 +87,7 @@ foreach ($rows as $r) {
       'name' => trim(($r['child_first_name'] ?? '').' '.($r['child_last_name'] ?? '')),
       'class_of' => (int)$r['child_class_of'],
       'grade' => $childGrade,
-      'den_id' => $r['child_den_id'] ? (int)$r['child_den_id'] : null,
-      'den_name' => $r['child_den_name'] ?? null,
     ];
-    if (!empty($r['child_den_id'])) {
-      $adults[$aid]['den_ids'][(int)$r['child_den_id']] = true;
-    }
   }
 }
 
@@ -178,7 +168,7 @@ header_html('Adults Roster');
       <thead>
         <tr>
           <th>Adult</th>
-          <th>Children (grade, den)</th>
+          <th>Children (grade)</th>
           <th>Email(s)</th>
           <th>Phone(s)</th>
           <?php if ($isAdmin): ?><th></th><?php endif; ?>
@@ -191,7 +181,7 @@ header_html('Adults Roster');
           // Children summary
           $childLines = [];
           foreach ($A['children'] as $c) {
-            $childLines[] = h($c['name']).' ('.($c['grade'] === 0 ? 'K' : (int)$c['grade']).($c['den_name'] ? ', '.h($c['den_name']) : '').')';
+            $childLines[] = h($c['name']).' ('.($c['grade'] === 0 ? 'K' : (int)$c['grade']).')';
           }
           $childrenSummary = implode('; ', $childLines);
 

@@ -99,10 +99,8 @@ class YouthManagement {
     self::assertLogin($ctx);
 
     $params = [];
-    $sql = "SELECT y.*, dm.den_id, d.den_name
+    $sql = "SELECT y.*
             FROM youth y
-            LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-            LEFT JOIN dens d ON d.id = dm.den_id
             WHERE 1=1";
 
     if ($q !== null && trim($q) !== '') {

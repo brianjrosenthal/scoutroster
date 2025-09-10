@@ -97,43 +97,20 @@ CREATE TABLE parent_relationships (
 CREATE INDEX idx_pr_adult ON parent_relationships(adult_id);
 CREATE INDEX idx_pr_youth ON parent_relationships(youth_id);
 
--- Dens (by class_of / grade)
-CREATE TABLE dens (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  den_name VARCHAR(100) NOT NULL,
-  class_of INT NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
 
-CREATE INDEX idx_dens_class_of ON dens(class_of);
-CREATE UNIQUE INDEX uniq_dens_name_classof ON dens(den_name, class_of);
 
--- Den membership (each youth at most one den)
-CREATE TABLE den_memberships (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  youth_id INT NOT NULL,
-  den_id   INT NOT NULL,
-  CONSTRAINT fk_dm_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
-  CONSTRAINT fk_dm_den   FOREIGN KEY (den_id)   REFERENCES dens(id)  ON DELETE CASCADE,
-  UNIQUE KEY uniq_den_membership (youth_id)
-) ENGINE=InnoDB;
-
-CREATE INDEX idx_dm_den ON den_memberships(den_id);
-
--- Adult leadership positions (optionally for a specific den)
+-- Adult leadership positions
 CREATE TABLE adult_leadership_positions (
   id INT AUTO_INCREMENT PRIMARY KEY,
   adult_id INT NOT NULL,
   position VARCHAR(255) NOT NULL,
-  den_id INT DEFAULT NULL,
+  class_of INT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_alp_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE,
-  CONSTRAINT fk_alp_den   FOREIGN KEY (den_id)   REFERENCES dens(id)  ON DELETE SET NULL
+  CONSTRAINT fk_alp_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_alp_adult ON adult_leadership_positions(adult_id);
-CREATE INDEX idx_alp_den ON adult_leadership_positions(den_id);
-CREATE UNIQUE INDEX uniq_alp_adult_position ON adult_leadership_positions(adult_id, position);
+CREATE UNIQUE INDEX uniq_alp_adult_position_class ON adult_leadership_positions(adult_id, position, class_of);
 
 -- Events
 CREATE TABLE events (

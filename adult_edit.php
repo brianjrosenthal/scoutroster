@@ -68,25 +68,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array
         $pos = $other;
       } elseif ($ptype === 'Den Leader' || $ptype === 'Assistant Den Leader') {
         $gLbl = trim((string)($_POST['grade'] ?? ''));
-        // Normalize to K or 0..5 label
-        $g = GradeCalculator::parseGradeLabel($gLbl);
-        if ($g === null) {
-          throw new InvalidArgumentException('Please select a valid grade for '.$ptype.'.');
+        $gradeInt = null;
+        if ($gLbl !== '') {
+          $g = GradeCalculator::parseGradeLabel($gLbl);
+          if ($g === null || (int)$g < 0 || (int)$g > 5) {
+            throw new InvalidArgumentException('Please select a valid grade (K–5) for '.$ptype.'.');
+          }
+          $gradeInt = (int)$g;
         }
-        $display = GradeCalculator::gradeLabel((int)$g);
-        $pos = $ptype.' (Grade '.$display.')';
+        $pos = $ptype;
       } else {
         // Fixed titles
         $allowed = [
-          'Cubmaster','Committee Chair','Treasurer','Assistant Cubmaster','Social Chair','Safety Chair',
-          'Den Leader','Assistant Den Leader'
+          'Cubmaster','Committee Chair','Treasurer','Assistant Cubmaster','Social Chair','Safety Chair'
         ];
         if (!in_array($ptype, $allowed, true)) {
           throw new InvalidArgumentException('Invalid position.');
         }
         $pos = $ptype;
+        $gradeInt = null;
       }
-      UserManagement::addLeadershipPosition(UserContext::getLoggedInUserContext(), $id, $pos);
+      UserManagement::addLeadershipPosition(UserContext::getLoggedInUserContext(), $id, $pos, $gradeInt);
       $msg = 'Leadership position added.';
     } elseif ($act === 'lp_remove') {
       $lpId = (int)($_POST['leadership_id'] ?? 0);
@@ -242,11 +244,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
 /** Load linked children for relationship management */
 $stChildren = pdo()->prepare("
-  SELECT y.*, dm.den_id, d.den_name
+  SELECT y.*
   FROM parent_relationships pr
   JOIN youth y ON y.id = pr.youth_id
-  LEFT JOIN den_memberships dm ON dm.youth_id = y.id
-  LEFT JOIN dens d ON d.id = dm.den_id
   WHERE pr.adult_id = ?
   ORDER BY y.last_name, y.first_name
 ");
@@ -516,7 +516,16 @@ header_html('Edit Adult');
     <ul class="list">
       <?php foreach ($positions as $p): ?>
         <li>
-          <?= h($p['position']) ?>
+          <?php
+            $posTitle = (string)($p['position'] ?? '');
+            if (($posTitle === 'Den Leader' || $posTitle === 'Assistant Den Leader') && array_key_exists('class_of', $p) && $p['class_of'] !== null) {
+              $gi = GradeCalculator::gradeForClassOf((int)$p['class_of']);
+              $gl = GradeCalculator::gradeLabel((int)$gi);
+              echo h($posTitle.' (Grade '.$gl.')');
+            } else {
+              echo h($posTitle);
+            }
+          ?>
           <?php if ($canEditLeadership): ?>
             <form method="post" style="display:inline; margin-left:8px;" onsubmit="return confirm('Remove this position?');">
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
