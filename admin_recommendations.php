@@ -85,8 +85,6 @@ header_html('Recommendations');
     <table class="list">
       <thead>
         <tr>
-          <th>Submitted</th>
-          <th>Submitted By</th>
           <th>Parent</th>
           <th>Child</th>
           <th>Contact</th>
@@ -97,16 +95,12 @@ header_html('Recommendations');
       <tbody>
         <?php foreach ($rows as $r): ?>
           <?php
-            $submitted = Settings::formatDateTime($r['created_at'] ?? '');
-            $submitter = trim((string)($r['submit_first'] ?? '').' '.(string)($r['submit_last'] ?? ''));
             $contact = [];
             if (!empty($r['email'])) $contact[] = h($r['email']);
             if (!empty($r['phone'])) $contact[] = h($r['phone']);
             $reached = !empty($r['reached_out']);
           ?>
           <tr>
-            <td><?= h($submitted) ?></td>
-            <td><?= h($submitter) ?></td>
             <td><?= h($r['parent_name']) ?></td>
             <td><?= h($r['child_name']) ?></td>
             <td><?= !empty($contact) ? implode('<br>', $contact) : '&mdash;' ?></td>
