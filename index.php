@@ -351,11 +351,11 @@ header_html('Home');
 <?php if (!empty($qualifying)): ?>
 <div class="card" style="margin-top:16px;">
   <h3>Renew Your Membership</h3>
-  <p class="small">
+  <p>
     Welcome back to Cub Scouts. Please renew your memebership this year by paying your dues<?= $duesText ?> through any of the payment options here:
     <a href="https://www.scarsdalepack440.com/join" target="_blank" rel="noopener">https://www.scarsdalepack440.com/join</a>.
   </p>
-  <p class="small">
+  <p>
     And afterwards, please click the button below to let us know you sent in your dues so that we can process them.
   </p>
 

@@ -214,6 +214,11 @@ header_html('Edit Youth');
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
+<?php if ($canEditPaidUntil): ?>
+<div class="actions" style="margin:8px 0;">
+  <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <h3>Profile Photo</h3>
@@ -324,12 +329,7 @@ header_html('Edit Youth');
     </div>
 
     <?php if ($canEditRegExpires || $canEditPaidUntil || $isParentOfThis): ?>
-      <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-        Registration & Dues
-        <?php if ($canEditPaidUntil): ?>
-          <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
-        <?php endif; ?>
-      </h3>
+      <h3>Registration & Dues</h3>
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
         <?php if ($canEditRegExpires): ?>
           <label>BSA Registration Expires
