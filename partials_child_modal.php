@@ -120,8 +120,8 @@ if (!function_exists('render_child_modal')) {
       var PANEL_NEW = document.getElementById(IDP + '_panelNew');
       var PANEL_LINK = document.getElementById(IDP + '_panelLink');
       var ERR = document.getElementById(IDP + '_err');
-      var FORM_NEW = document.getElementById(IDP + '_formNew');
-      var FORM_LINK = document.getElementById(IDP + '_formLink');
+      var FORM_NEW = MODAL ? MODAL.querySelector('#' + IDP + '_formNew') : null;
+      var FORM_LINK = MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null;
 
       function showErr(msg) { if (ERR){ ERR.style.display=''; ERR.textContent = msg || 'Operation failed.'; } }
       function clearErr(){ if (ERR){ ERR.style.display='none'; ERR.textContent=''; } }
@@ -180,13 +180,15 @@ if (!function_exists('render_child_modal')) {
       if (BTN_NEW){
         BTN_NEW.addEventListener('click', function(e){
           e.preventDefault(); clearErr();
-          var first = (FORM_NEW.querySelector('input[name="first_name"]') || {}).value || '';
-          var last  = (FORM_NEW.querySelector('input[name="last_name"]') || {}).value || '';
-          var suffix = (FORM_NEW.querySelector('input[name="suffix"]') || {}).value || '';
-          var preferred = (FORM_NEW.querySelector('input[name="preferred_name"]') || {}).value || '';
-          var grade = (FORM_NEW.querySelector('select[name="grade"]') || {}).value || '';
-          var school = (FORM_NEW.querySelector('input[name="school"]') || {}).value || '';
-          var sibling = (FORM_NEW.querySelector('input[name="sibling"]') || {}).checked ? 1 : 0;
+          var form = BTN_NEW.closest && BTN_NEW.closest('form') ? BTN_NEW.closest('form') : (FORM_NEW || (MODAL ? MODAL.querySelector('#' + IDP + '_formNew') : null));
+          if (!form) { console.warn('Child modal: new form not found'); return; }
+          var first = (form.querySelector('input[name="first_name"]') || {}).value || '';
+          var last  = (form.querySelector('input[name="last_name"]') || {}).value || '';
+          var suffix = (form.querySelector('input[name="suffix"]') || {}).value || '';
+          var preferred = (form.querySelector('input[name="preferred_name"]') || {}).value || '';
+          var grade = (form.querySelector('select[name="grade"]') || {}).value || '';
+          var school = (form.querySelector('input[name="school"]') || {}).value || '';
+          var sibling = (form.querySelector('input[name="sibling"]') || {}).checked ? 1 : 0;
 
           if (!first.trim() || !last.trim() || !grade.trim()) {
             showErr('First name, Last name, and Grade are required.');
@@ -203,6 +205,10 @@ if (!function_exists('render_child_modal')) {
             sibling: sibling
           }, label: label };
           dispatchItem(item);
+          try {
+            var hook = window['childModalAdd_' + IDP];
+            if (typeof hook === 'function') { hook({ item: item }); }
+          } catch (ex) {}
           hideModal();
         });
       }
@@ -210,7 +216,9 @@ if (!function_exists('render_child_modal')) {
       if (BTN_LINK){
         BTN_LINK.addEventListener('click', function(e){
           e.preventDefault(); clearErr();
-          var sel = FORM_LINK.querySelector('select[name="youth_id"]');
+          var form = BTN_LINK.closest && BTN_LINK.closest('form') ? BTN_LINK.closest('form') : (FORM_LINK || (MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null));
+          if (!form) { console.warn('Child modal: link form not found'); return; }
+          var sel = form.querySelector('select[name="youth_id"]');
           if (!sel || !sel.value) { showErr('Please select a child to link.'); return; }
           var yid = parseInt(sel.value, 10) || 0;
           if (!yid) { showErr('Please select a valid child.'); return; }
@@ -218,6 +226,10 @@ if (!function_exists('render_child_modal')) {
           var label = opt ? opt.textContent : ('Youth #' + yid);
           var item = { type: 'link', youth_id: yid, label: label };
           dispatchItem(item);
+          try {
+            var hook = window['childModalAdd_' + IDP];
+            if (typeof hook === 'function') { hook({ item: item }); }
+          } catch (ex) {}
           hideModal();
         });
       }
