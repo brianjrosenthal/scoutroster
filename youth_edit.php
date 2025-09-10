@@ -32,6 +32,31 @@ try {
 $canEditPaidUntil = \UserManagement::isApprover((int)($me['id'] ?? 0));
 $canEditRegExpires = $isAdmin;
 
+/** Handle POST (mark paid until via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark_paid_until')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    if (!$canEditPaidUntil) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
+    }
+    $date = trim((string)($_POST['date_paid_until'] ?? ''));
+    if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
+    // Basic Y-m-d validation
+    $dt = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$dt || $dt->format('Y-m-d') !== $date) {
+      echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+    }
+    $ok = YouthManagement::update(UserContext::getLoggedInUserContext(), $id, ['date_paid_until' => $date]);
+    if ($ok) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to update.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed']); exit;
+  }
+}
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
@@ -184,6 +209,9 @@ header_html('Edit Youth');
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
 ?>
+<?php
+  if (isset($_GET['paid'])) { $msg = 'Paid Until updated.'; }
+?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
 
@@ -296,7 +324,12 @@ header_html('Edit Youth');
     </div>
 
     <?php if ($canEditRegExpires || $canEditPaidUntil || $isParentOfThis): ?>
-      <h3>Registration & Dues</h3>
+      <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        Registration & Dues
+        <?php if ($canEditPaidUntil): ?>
+          <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+        <?php endif; ?>
+      </h3>
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
         <?php if ($canEditRegExpires): ?>
           <label>BSA Registration Expires
@@ -370,6 +403,78 @@ header_html('Edit Youth');
     </table>
   <?php endif; ?>
 </div>
+
+<?php
+  // Paid Until Modal (approvers only)
+  if ($canEditPaidUntil):
+    // Compute default: next Aug 31st at least two months away
+    $now = new DateTime('now');
+    $threshold = (clone $now)->modify('+2 months');
+    $yr = (int)$now->format('Y');
+    $candidate = new DateTime($yr . '-08-31');
+    if ($candidate < $threshold) {
+      $candidate = new DateTime(($yr + 1) . '-08-31');
+    }
+    $paidDefault = $candidate->format('Y-m-d');
+?>
+<div id="paid_modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:420px;">
+    <button class="close" type="button" id="paid_close" aria-label="Close">&times;</button>
+    <h3>Mark Paid for this year</h3>
+    <div id="paid_err" class="error small" style="display:none;"></div>
+    <form id="paid_form" class="stack" method="post" action="/youth_edit.php?id=<?= (int)$id ?>">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="mark_paid_until">
+      <label>Paid Until (YYYY-MM-DD)
+        <input type="date" name="date_paid_until" id="paid_date" value="<?= h($paidDefault) ?>" required>
+      </label>
+      <p class="small">Confirm setting this youth's dues "Paid Until" date.</p>
+      <div class="actions">
+        <button class="button primary" type="submit">Set Paid Until</button>
+        <button class="button" type="button" id="paid_cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  var openBtn = document.getElementById('btn_mark_paid');
+  var modal = document.getElementById('paid_modal');
+  var closeBtn = document.getElementById('paid_close');
+  var cancelBtn = document.getElementById('paid_cancel');
+  var form = document.getElementById('paid_form');
+  var err = document.getElementById('paid_err');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(){ if(modal){ modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); clearErr(); } }
+  function close(){ if(modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
+
+  if (openBtn) openBtn.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      var fd = new FormData(form);
+      fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json().catch(function(){ throw new Error('Invalid server response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            window.location = '/youth_edit.php?id=<?= (int)$id ?>&paid=1';
+          } else {
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showErr('Network error.'); });
+    });
+  }
+})();
+</script>
+<?php endif; ?>
 
 <?php
   require_once __DIR__ . '/partials_parent_modal.php';
