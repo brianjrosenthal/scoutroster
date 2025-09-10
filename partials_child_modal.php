@@ -103,7 +103,7 @@ if (!function_exists('render_child_modal')) {
               </label>
             </div>
             <div class="actions">
-              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formLinkId) ?>_submit"><?= $mode === 'edit' ? 'Link Child' : 'Stage Link' ?></button>
+              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formLinkId) ?>_submit">Stage Link</button>
             </div>
           </form>
         </div>
