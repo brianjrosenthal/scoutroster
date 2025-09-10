@@ -13,6 +13,18 @@ function nn($v) { $v = is_string($v) ? trim($v) : $v; return ($v === '' ? null :
 // For repopulating form after errors
 $form = [];
 
+// Prefill from GET on initial load (for convenience links like from recommendations)
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  $prefillKeys = ['first_name','last_name','email','preferred_name','phone_cell','phone_home'];
+  foreach ($prefillKeys as $k) {
+    if (isset($_GET[$k]) && !isset($form[$k])) {
+      $val = trim((string)$_GET[$k]);
+      // Basic sanitation; form rendering escapes via h()
+      $form[$k] = $val;
+    }
+  }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
 

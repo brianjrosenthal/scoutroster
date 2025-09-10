@@ -94,8 +94,47 @@ try {
   $comments = [];
 }
 
-header_html('Recommendation Details');
+<?php
+// Precompute conditional "Create adult account" link (only if status=joined and email present with no existing user)
+$createAdultUrl = '';
+$canCreateAdult = false;
+try {
+  $recEmail = trim((string)($rec['email'] ?? ''));
+  if ($recEmail !== '') {
+    $stE = pdo()->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+    $stE->execute([$recEmail]);
+    $exists = $stE->fetchColumn() ? true : false;
+
+    if (($rec['status'] ?? '') === 'joined' && !$exists) {
+      $full = trim((string)($rec['parent_name'] ?? ''));
+      $first = ''; $last = '';
+      if ($full !== '') {
+        $parts = preg_split('/\s+/', $full);
+        if ($parts) {
+          $last = (string)array_pop($parts);
+          $first = trim(implode(' ', $parts));
+          if ($first === '') { $first = $last; $last = ''; }
+        }
+      }
+      $qs = [
+        'first_name' => $first,
+        'last_name'  => $last,
+        'email'      => $recEmail,
+      ];
+      $recPhone = trim((string)($rec['phone'] ?? ''));
+      if ($recPhone !== '') {
+        $qs['phone_cell'] = $recPhone;
+      }
+      $createAdultUrl = '/admin_adult_add.php?'.http_build_query($qs);
+      $canCreateAdult = true;
+    }
+  }
+} catch (Throwable $e) {
+  $createAdultUrl = '';
+  $canCreateAdult = false;
+}
 ?>
+<?php header_html('Recommendation Details'); ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Recommendation Details</h2>
   <div class="actions">
@@ -122,6 +161,9 @@ header_html('Recommendation Details');
         <input type="hidden" name="action" value="unsubscribe">
         <button class="button">Unsubscribe</button>
       </form>
+    <?php endif; ?>
+    <?php if ($canCreateAdult): ?>
+      <a class="button" href="<?= h($createAdultUrl) ?>">Create adult account</a>
     <?php endif; ?>
   </div>
 </div>
