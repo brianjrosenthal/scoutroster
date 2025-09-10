@@ -110,11 +110,10 @@ header_html('Upcoming Events');
             // Creator hint if RSVP was created by someone else
             $byText = '';
             $creatorId = (int)($my['created_by_user_id'] ?? 0);
-              if ($creatorId && $creatorId !== (int)$u['id']) {
-                $nameBy = UserManagement::getFullName($creatorId);
-                if ($nameBy !== null) {
-                  $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
-                }
+            if ($creatorId && $creatorId !== (int)$u['id']) {
+              $nameBy = UserManagement::getFullName($creatorId);
+              if ($nameBy !== null) {
+                $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
               }
             }
         ?>
