@@ -139,7 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'birthdate' => $birthdate,
         'school' => $school,
         'shirt_size' => $shirt,
-        'bsa_registration_number' => $bsa,
         'street1' => $street1,
         'street2' => $street2,
         'city' => $city,
@@ -148,12 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'sibling' => $sibling,
         'grade_label' => $gradeLabel,
       ];
-      if ($canEditRegExpires) {
-        $data['bsa_registration_expires_date'] = ($regExpires !== '' ? $regExpires : null);
+      if ($isAdmin) {
+        $data['bsa_registration_number'] = ($bsa !== '' ? $bsa : null);
       }
-      if ($canEditPaidUntil) {
-        $data['date_paid_until'] = ($paidUntil !== '' ? $paidUntil : null);
-      }
+      // bsa_registration_expires_date is import-only and not editable here
+      // date_paid_until is managed via the "Mark Paid for this year" modal action, not via the main form
       $ok = YouthManagement::update($ctx, $id, $data);
       if ($ok) {
         $msg = 'Success editing youth.';
@@ -305,9 +303,16 @@ header_html('Edit Youth');
       <label>Shirt size
         <input type="text" name="shirt_size" value="<?=h($y['shirt_size'])?>">
       </label>
-      <label>BSA Registration #
-        <input type="text" name="bsa_registration_number" value="<?=h($y['bsa_registration_number'])?>">
-      </label>
+      <?php if ($isAdmin): ?>
+        <label>BSA Registration #
+          <input type="text" name="bsa_registration_number" value="<?=h($y['bsa_registration_number'])?>">
+        </label>
+      <?php else: ?>
+        <div>
+          <div class="small">BSA Registration #</div>
+          <div><?= h($y['bsa_registration_number'] ?? '—') ?></div>
+        </div>
+      <?php endif; ?>
       <label class="inline"><input type="checkbox" name="sibling" value="1" <?= !empty($y['sibling']) ? 'checked' : '' ?>> Sibling</label>
     </div>
 
@@ -333,27 +338,14 @@ header_html('Edit Youth');
     <?php if ($canEditRegExpires || $canEditPaidUntil || $isParentOfThis): ?>
       <h3>Registration & Dues</h3>
       <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-        <?php if ($canEditRegExpires): ?>
-          <label>BSA Registration Expires
-            <input type="date" name="bsa_registration_expires_date" value="<?= h($y['bsa_registration_expires_date'] ?? '') ?>" placeholder="YYYY-MM-DD">
-          </label>
-        <?php elseif ($isParentOfThis): ?>
-          <div>
-            <div class="small">BSA Registration Expires</div>
-            <div><?= h($y['bsa_registration_expires_date'] ?? '—') ?></div>
-          </div>
-        <?php endif; ?>
-
-        <?php if ($canEditPaidUntil): ?>
-          <label>Paid Until
-            <input type="date" name="date_paid_until" value="<?= h($y['date_paid_until'] ?? '') ?>" placeholder="YYYY-MM-DD">
-          </label>
-        <?php elseif ($isParentOfThis): ?>
-          <div>
-            <div class="small">Paid Until</div>
-            <div><?= h($y['date_paid_until'] ?? '—') ?></div>
-          </div>
-        <?php endif; ?>
+        <div>
+          <div class="small">BSA Registration Expires</div>
+          <div><?= h($y['bsa_registration_expires_date'] ?? '—') ?></div>
+        </div>
+        <div>
+          <div class="small">Paid Until</div>
+          <div><?= h($y['date_paid_until'] ?? '—') ?></div>
+        </div>
       </div>
       <p class="small">Note: “Paid Until” indicates pack dues status and may not align with BSA registration expiration.</p>
     <?php endif; ?>

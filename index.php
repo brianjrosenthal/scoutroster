@@ -36,7 +36,7 @@ header_html('Home');
 
 <div class="card">
   <h2>Welcome back, <?= h($me['first_name'] ?? '') ?> to <?= h($siteTitle) ?></h2>
-  <p class="small">Use the navigation above to view rosters, events, and your profile.</p>
+  <p class="small">Questions?  Contact brian.rosenthal@gmail.com</p>
 </div>
 
 <?php
