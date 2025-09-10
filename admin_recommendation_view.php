@@ -30,28 +30,48 @@ if (!$rec) { http_response_code(404); exit('Not found'); }
 
 $me = current_user();
 
+function rec_format_date_only(?string $sqlDt): string {
+  if (!$sqlDt) return '';
+  try {
+    $dt = new DateTime($sqlDt);
+    $dt->setTimezone(new DateTimeZone(Settings::timezoneId()));
+    return $dt->format('Y-m-d');
+  } catch (Throwable $e) {
+    return '';
+  }
+}
+
 // Handle POST actions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
   $action = $_POST['action'] ?? '';
   try {
-    if ($action === 'toggle_reached') {
-      $newVal = !empty($_POST['reached_out']) ? 1 : 0;
-      if ($newVal === 1) {
-        $st = pdo()->prepare("UPDATE recommendations SET reached_out=1, reached_out_at=NOW(), reached_out_by_user_id=? WHERE id=?");
+    switch ($action) {
+      case 'mark_reached_out':
+        $st = pdo()->prepare("UPDATE recommendations SET status='active', reached_out_at=NOW(), reached_out_by_user_id=? WHERE id=? AND status='new'");
         $st->execute([(int)($me['id'] ?? 0), $id]);
-      } else {
-        $st = pdo()->prepare("UPDATE recommendations SET reached_out=0, reached_out_at=NULL, reached_out_by_user_id=NULL WHERE id=?");
+        $msg = 'Saved.';
+        $rec = loadRecommendation($id);
+        break;
+      case 'mark_joined':
+        $st = pdo()->prepare("UPDATE recommendations SET status='joined' WHERE id=? AND status='active'");
         $st->execute([$id]);
-      }
-      $msg = 'Saved.';
-      $rec = loadRecommendation($id);
-    } elseif ($action === 'add_comment') {
-      $text = trim($_POST['text'] ?? '');
-      if ($text === '') throw new InvalidArgumentException('Comment cannot be empty.');
-      $st = pdo()->prepare("INSERT INTO recommendation_comments (recommendation_id, created_by_user_id, text, created_at) VALUES (?,?,?,NOW())");
-      $st->execute([$id, (int)($me['id'] ?? 0), $text]);
-      $msg = 'Comment added.';
+        $msg = 'Saved.';
+        $rec = loadRecommendation($id);
+        break;
+      case 'unsubscribe':
+        $st = pdo()->prepare("UPDATE recommendations SET status='unsubscribed' WHERE id=? AND status IN ('new','active')");
+        $st->execute([$id]);
+        $msg = 'Saved.';
+        $rec = loadRecommendation($id);
+        break;
+      case 'add_comment':
+        $text = trim($_POST['text'] ?? '');
+        if ($text === '') throw new InvalidArgumentException('Comment cannot be empty.');
+        $st = pdo()->prepare("INSERT INTO recommendation_comments (recommendation_id, created_by_user_id, text, created_at) VALUES (?,?,?,NOW())");
+        $st->execute([$id, (int)($me['id'] ?? 0), $text]);
+        $msg = 'Comment added.';
+        break;
     }
   } catch (Throwable $e) {
     $err = 'Unable to save changes.';
@@ -80,20 +100,59 @@ header_html('Recommendation Details');
   <h2>Recommendation Details</h2>
   <div class="actions">
     <a class="button" href="/admin_recommendations.php">Back to list</a>
+    <?php if (($rec['status'] ?? '') === 'new'): ?>
+      <form method="post" style="display:inline-block;margin-left:8px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="mark_reached_out">
+        <button class="button">Mark as reached out</button>
+      </form>
+      <form method="post" style="display:inline-block;margin-left:8px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="unsubscribe">
+        <button class="button">Unsubscribe</button>
+      </form>
+    <?php elseif (($rec['status'] ?? '') === 'active'): ?>
+      <form method="post" style="display:inline-block;margin-left:8px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="mark_joined">
+        <button class="button">Mark as joined</button>
+      </form>
+      <form method="post" style="display:inline-block;margin-left:8px;">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="unsubscribe">
+        <button class="button">Unsubscribe</button>
+      </form>
+    <?php endif; ?>
   </div>
 </div>
 <?php if ($msg): ?><p class="flash"><?= h($msg) ?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?= h($err) ?></p><?php endif; ?>
 
 <div class="card">
-  <h3>Summary</h3>
+  <h3><?= h($rec['parent_name'] ?? '') ?> (<?= h(ucfirst((string)($rec['status'] ?? ''))) ?>)</h3>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;">
-    <div><strong>Submitted:</strong> <?= h(Settings::formatDateTime($rec['created_at'] ?? '')) ?></div>
-    <div><strong>Submitted By:</strong> <?= h(trim((string)($rec['submit_first'] ?? '').' '.(string)($rec['submit_last'] ?? ''))) ?></div>
-    <div><strong>Parent:</strong> <?= h($rec['parent_name'] ?? '') ?></div>
-    <div><strong>Child:</strong> <?= h($rec['child_name'] ?? '') ?></div>
+    <div><strong>Child Name:</strong> <?= h($rec['child_name'] ?? '') ?></div>
     <div><strong>Email:</strong> <?= h($rec['email'] ?? '') ?></div>
-    <div><strong>Phone:</strong> <?= h($rec['phone'] ?? '') ?></div>
+    <div><strong>Phone number:</strong> <?= h($rec['phone'] ?? '') ?></div>
+    <div><strong>Grade:</strong> <?= isset($rec['grade']) && $rec['grade'] !== null && $rec['grade'] !== '' ? h($rec['grade']) : 'Unknown' ?></div>
+    <div style="grid-column:1/-1;"><strong>Submitted:</strong>
+      <?php
+        $submitName = trim((string)($rec['submit_first'] ?? '').' '.(string)($rec['submit_last'] ?? ''));
+        $submittedDate = rec_format_date_only($rec['created_at'] ?? null);
+        echo h($submitName !== '' ? $submitName : '');
+        echo $submittedDate !== '' ? ' ('.h($submittedDate).')' : '';
+      ?>
+    </div>
+    <?php if (!empty($rec['reached_out_at'])): ?>
+      <div style="grid-column:1/-1;"><strong>Reached out:</strong>
+        <?php
+          $whoReached = trim((string)($rec['reached_first'] ?? '').' '.(string)($rec['reached_last'] ?? ''));
+          $reachedDate = rec_format_date_only($rec['reached_out_at'] ?? null);
+          echo h($whoReached !== '' ? $whoReached : '');
+          echo $reachedDate !== '' ? ' at '.h($reachedDate) : '';
+        ?>
+      </div>
+    <?php endif; ?>
     <div style="grid-column:1/-1;">
       <strong>Notes:</strong>
       <div class="small" style="white-space:pre-wrap;"><?= nl2br(h($rec['notes'] ?? '')) ?></div>
@@ -101,32 +160,6 @@ header_html('Recommendation Details');
   </div>
 </div>
 
-<div class="card">
-  <h3>Reached Out</h3>
-  <form method="post" class="stack" style="max-width:520px;">
-    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-    <input type="hidden" name="action" value="toggle_reached">
-    <label class="inline">
-      <input type="hidden" name="reached_out" value="0">
-      <input type="checkbox" name="reached_out" value="1" <?= !empty($rec['reached_out']) ? 'checked' : '' ?>>
-      Mark as reached out
-    </label>
-    <div class="small">
-      <?php if (!empty($rec['reached_out'])): ?>
-        Marked reached out on <?= h(Settings::formatDateTime($rec['reached_out_at'] ?? '')) ?>
-        <?php
-          $who = trim((string)($rec['reached_first'] ?? '').' '.(string)($rec['reached_last'] ?? ''));
-          if ($who !== '') echo ' by '.h($who);
-        ?>
-      <?php else: ?>
-        Not yet marked as reached out.
-      <?php endif; ?>
-    </div>
-    <div class="actions">
-      <button class="button">Save</button>
-    </div>
-  </form>
-</div>
 
 <div class="card">
   <h3>Comments</h3>

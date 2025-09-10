@@ -231,14 +231,15 @@ CREATE TABLE recommendations (
   child_name VARCHAR(255) NOT NULL,
   email VARCHAR(255) DEFAULT NULL,
   phone VARCHAR(50) DEFAULT NULL,
+  grade ENUM('K','1','2','3','4','5') DEFAULT NULL,
   notes TEXT DEFAULT NULL,
-  reached_out TINYINT(1) NOT NULL DEFAULT 0,
+  status ENUM('new','active','joined','unsubscribed') NOT NULL DEFAULT 'new',
   reached_out_at DATETIME DEFAULT NULL,
   reached_out_by_user_id INT DEFAULT NULL,
   created_by_user_id INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_recommendations_created_at (created_at),
-  INDEX idx_recommendations_reached_out (reached_out),
+  INDEX idx_recommendations_status (status),
   CONSTRAINT fk_recommendations_created_by FOREIGN KEY (created_by_user_id) REFERENCES users(id),
   CONSTRAINT fk_recommendations_reached_by FOREIGN KEY (reached_out_by_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB;

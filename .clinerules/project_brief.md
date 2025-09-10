@@ -36,7 +36,6 @@ Not built yet:
 ## Key admin flows
 1. All of the user flows (since admins are also users)
 2. Adding new adults to the system and their kids (individually through /admin_adults.php, /admin_youth.php, or in bulk through /admin_import_upload.php)
-ISSUE - Now it's possible to add a youth without an adult, which probably doesn't make sense.
 3. Updating the bsa registration expiration date in buik by important from the export from scouting.org
 4. Adding new events to the system
 ... editing them over time, configuring the volunteer roles for the event, viewing RSVP's for an event.
@@ -48,9 +47,6 @@ ISSUE - there should be a way to "archive" a recommendation.
 ## Reimbuirsement "approver" flows
 - Cubmaster Treasurer, Committee Chair) can approve (or reject) reimbursements, as well as send re-imbursements back to the submitter for more information.
 - These approvers see pending reimbursement requests on the homepage in a homepage section.
-
-## Issues
-1. File uploads now are stored in the file system, which makes it confusing to have a dev and production environment on the same database.  I need to change this so that it stores file uploads in the database.
 
 ## Architectural notes:
 1. The application is a PHP / MYSQL application
