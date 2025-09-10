@@ -109,7 +109,7 @@ header_html('Recommendations');
             <td><?= h($submitter) ?></td>
             <td><?= h($r['parent_name']) ?></td>
             <td><?= h($r['child_name']) ?></td>
-            <td class="small"><?= !empty($contact) ? implode('<br>', $contact) : '&mdash;' ?></td>
+            <td><?= !empty($contact) ? implode('<br>', $contact) : '&mdash;' ?></td>
             <td><?= $reached ? 'Yes' : 'No' ?></td>
             <td class="small">
               <a class="button" href="/admin_recommendation_view.php?id=<?= (int)$r['id'] ?>">View</a>
