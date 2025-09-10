@@ -174,7 +174,7 @@ header_html('Youth Roster');
                 echo h(trim($fullName));
               ?>
             </td>
-            <td class="small">
+            <td>
               <?php
                 $plist = $parentsByYouth[(int)$y['id']] ?? [];
                 $parentStrs = [];
