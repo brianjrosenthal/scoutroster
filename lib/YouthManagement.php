@@ -90,6 +90,16 @@ class YouthManagement {
     return $currentFifthClassOf + (5 - $grade);
   }
 
+  // Lightweight permission helper for youth photo uploads:
+  // Admins OR linked parents may upload a youth's photo.
+  public static function canUploadYouthPhoto(?UserContext $ctx, int $youthId): bool {
+    if (!$ctx) return false;
+    if ($ctx->admin) return true;
+    $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
+    $st->execute([$youthId, (int)$ctx->id]);
+    return (bool)$st->fetchColumn();
+  }
+
   // =========================
   // Reads / Queries
   // =========================

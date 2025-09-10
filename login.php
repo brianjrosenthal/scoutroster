@@ -1,6 +1,7 @@
 <?php // login.php
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/ActivityLog.php';
 
 // Validate optional next target from GET (relative path only)
 $nextRaw = $_GET['next'] ?? '';
@@ -58,6 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // Initialize request-scoped context immediately (partials will also bootstrap next request)
       if (class_exists('UserContext')) {
         UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
+      }
+      if (class_exists('ActivityLog')) {
+        ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.login', [
+          'super' => $isSuper ? 1 : 0,
+          'public_computer' => !empty($_POST['public_computer']) ? 1 : 0,
+        ]);
       }
       header('Location: ' . ($nextPost ?: '/index.php')); exit;
     }

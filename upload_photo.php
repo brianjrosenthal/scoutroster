@@ -8,6 +8,8 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/ActivityLog.php';
+require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/YouthManagement.php';
 
 function redirect_back(string $returnTo, array $params = []): void {
   // Basic allowlist: require leading slash to avoid offsite redirects
@@ -21,35 +23,7 @@ function redirect_back(string $returnTo, array $params = []): void {
 }
 
 
-function can_upload_adult_photo(int $currentId, bool $isAdmin, int $targetAdultId): bool {
-  if ($isAdmin) return true;
-  if ($currentId === $targetAdultId) return true;
-  // Co-parent check: share at least one youth
-  try {
-    $st = pdo()->prepare("
-      SELECT 1
-      FROM parent_relationships pr1
-      JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
-      WHERE pr1.adult_id = ? AND pr2.adult_id = ?
-      LIMIT 1
-    ");
-    $st->execute([$currentId, $targetAdultId]);
-    return (bool)$st->fetchColumn();
-  } catch (Throwable $e) {
-    return false;
-  }
-}
 
-function can_upload_youth_photo(int $currentId, bool $isAdmin, int $youthId): bool {
-  if ($isAdmin) return true;
-  try {
-    $st = pdo()->prepare("SELECT 1 FROM parent_relationships WHERE adult_id = ? AND youth_id = ? LIMIT 1");
-    $st->execute([$currentId, $youthId]);
-    return (bool)$st->fetchColumn();
-  } catch (Throwable $e) {
-    return false;
-  }
-}
 
 require_login();
 
@@ -80,13 +54,13 @@ if ($type !== 'adult' && $type !== 'youth') {
 
 if ($type === 'adult') {
   if ($adultId <= 0) redirect_back($returnTo, ['err' => 'missing_adult_id']);
-  if (!can_upload_adult_photo($currentId, $isAdmin, $adultId)) {
+  if (!UserManagement::canUploadAdultPhoto(UserContext::getLoggedInUserContext(), $adultId)) {
     http_response_code(403);
     exit('Forbidden');
   }
 } else {
   if ($youthId <= 0) redirect_back($returnTo, ['err' => 'missing_youth_id']);
-  if (!can_upload_youth_photo($currentId, $isAdmin, $youthId)) {
+  if (!YouthManagement::canUploadYouthPhoto(UserContext::getLoggedInUserContext(), $youthId)) {
     http_response_code(403);
     exit('Forbidden');
   }
