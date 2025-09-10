@@ -61,14 +61,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
       }
       if (class_exists('ActivityLog')) {
-        ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.login', [
-          'super' => $isSuper ? 1 : 0,
-          'public_computer' => !empty($_POST['public_computer']) ? 1 : 0,
-        ]);
+        ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.login', []);
       }
       header('Location: ' . ($nextPost ?: '/index.php')); exit;
     }
   } else {
+    // Log to the ActivityLog that someone tried unsuccessfully to log in with the email
+    ActivityLog::log(null, 'user.invalid_login', 
+      ['email' => $email, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
     $error = 'Invalid email or password.';
   }
 }
