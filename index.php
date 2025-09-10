@@ -232,7 +232,14 @@ header_html('Home');
               <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
               <?php if ($yReg !== ''): ?>
                 <div>BSA Registration ID: <?= h($yReg) ?></div>
-                <?php if ($needsRenewal): ?><div style="color:#c00;">Needs Renewal</div><?php endif; ?>
+                <?php
+                  $paidUntilFmt = ($paidUntilRaw !== '' ? date('n/j/Y', strtotime($paidUntilRaw)) : '');
+                ?>
+                <?php if ($needsRenewal): ?>
+                  <div style="color:#c00;">Needs Renewal</div>
+                <?php elseif ($paidUntilFmt !== ''): ?>
+                  <div>Paid until <?= h($paidUntilFmt) ?></div>
+                <?php endif; ?>
               <?php elseif (!empty($m['sibling'])): ?>
                 <div>Sibling</div>
               <?php else: ?>
