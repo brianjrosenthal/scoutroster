@@ -153,6 +153,7 @@ header_html('Home');
         'bsa_registration_number' => trim((string)($c['bsa_registration_number'] ?? '')),
         'photo_public_file_id' => (int)($c['photo_public_file_id'] ?? 0),
         'sibling' => (int)($c['sibling'] ?? 0),
+        'date_paid_until' => (string)($c['date_paid_until'] ?? ''),
       ];
     }
 
@@ -221,10 +222,17 @@ header_html('Home');
                 $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
                 $gradeLabel = ($grade !== null) ? GradeCalculator::gradeLabel($grade) : null;
                 $yReg = trim((string)($m['bsa_registration_number'] ?? ''));
+                $paidUntilRaw = trim((string)($m['date_paid_until'] ?? ''));
+                $needsRenewal = false;
+                if ($yReg !== '' && empty($m['sibling']) && $grade !== null && $grade >= 0 && $grade <= 5) {
+                  $ts = $paidUntilRaw !== '' ? strtotime($paidUntilRaw . ' 23:59:59') : false;
+                  $needsRenewal = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
+                }
               ?>
               <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
               <?php if ($yReg !== ''): ?>
                 <div>BSA Registration ID: <?= h($yReg) ?></div>
+                <?php if ($needsRenewal): ?><div style="color:#c00;">Needs Renewal</div><?php endif; ?>
               <?php elseif (!empty($m['sibling'])): ?>
                 <div>Sibling</div>
               <?php else: ?>
@@ -306,14 +314,27 @@ header_html('Home');
         $qClass = (int)($q['class_of'] ?? 0);
         $qGrade = $qClass > 0 ? GradeCalculator::gradeForClassOf($qClass) : null;
         $qGradeLabel = ($qGrade !== null) ? GradeCalculator::gradeLabel($qGrade) : null;
+        // Avatar for Renew card
+        $avatarUrl = Files::profilePhotoUrl($q['photo_public_file_id'] ?? null);
+        $initials = strtoupper(
+          substr((string)($q['first_name'] ?? ''), 0, 1) .
+          substr((string)($q['last_name'] ?? ''), 0, 1)
+        );
       ?>
       <div class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:12px;max-width:560px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div>
-            <strong><?= h($childName) ?></strong>
-            <?php if ($qGradeLabel !== null): ?>
-              <span class="small">(Grade <?= h($qGradeLabel) ?>)</span>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <?php if ($avatarUrl !== ''): ?>
+              <img class="avatar" src="<?= h($avatarUrl) ?>" alt="<?= h($childName) ?>" style="width:40px;height:40px">
+            <?php else: ?>
+              <div class="avatar avatar-initials" aria-hidden="true" style="width:40px;height:40px;"><?= h($initials) ?></div>
             <?php endif; ?>
+            <div>
+              <strong><?= h($childName) ?></strong>
+              <?php if ($qGradeLabel !== null): ?>
+                <span class="small">(Grade <?= h($qGradeLabel) ?>)</span>
+              <?php endif; ?>
+            </div>
           </div>
           <button class="button open-paid-modal"
                   data-youth-id="<?= (int)($q['id'] ?? 0) ?>"
