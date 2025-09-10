@@ -68,8 +68,7 @@ function header_html(string $title) {
     echo '<div id="adminBar" class="admin-bar hidden">';
     echo $link('/admin_events.php','Manage Events');
     echo $link('/admin_adults.php','Manage Adults');
-    echo $link('/admin_import_upload.php','Import Members');
-    echo $link('/admin_regdates_upload.php','Reg Dates Import');
+    echo $link('/admin_imports.php','Import Data');
     echo $link('/admin_mailing_list.php','Mailing List');
     // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
     $showPaymentNotifs = false;
