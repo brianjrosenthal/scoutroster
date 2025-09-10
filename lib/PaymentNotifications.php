@@ -1,0 +1,151 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/UserContext.php';
+require_once __DIR__ . '/Search.php';
+require_once __DIR__ . '/YouthManagement.php';
+require_once __DIR__ . '/UserManagement.php';
+
+class PaymentNotifications {
+  private static function pdo(): PDO { return pdo(); }
+
+  // Only Cubmaster/Committee Chair/Treasurer qualify as "approver" for this feature
+  private static function assertApprover(?UserContext $ctx): void {
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    if (!\UserManagement::isApprover((int)$ctx->id)) {
+      throw new RuntimeException('Forbidden');
+    }
+  }
+
+  // Ensure the given youth is linked to current user (parent)
+  private static function assertParentOfYouth(?UserContext $ctx, int $youthId): void {
+    if (!$ctx) { throw new RuntimeException('Login required'); }
+    $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
+    $st->execute([$youthId, (int)$ctx->id]);
+    if (!$st->fetchColumn()) { throw new RuntimeException('Forbidden'); }
+  }
+
+  public static function create(UserContext $ctx, int $youthId, string $method, ?string $comment = null): int {
+    self::assertParentOfYouth($ctx, $youthId);
+    $valid = ['Paypal','Zelle','Venmo','Check','Other'];
+    if (!in_array($method, $valid, true)) {
+      throw new InvalidArgumentException('Invalid payment method.');
+    }
+    $cmt = trim((string)($comment ?? ''));
+    if ($cmt === '') $cmt = null;
+
+    $st = self::pdo()->prepare("
+      INSERT INTO payment_notifications_from_users (youth_id, created_by, payment_method, comment, status, created_at)
+      VALUES (?, ?, ?, ?, 'new', NOW())
+    ");
+    $ok = $st->execute([$youthId, (int)$ctx->id, $method, $cmt]);
+    if (!$ok) throw new RuntimeException('Failed to save notification.');
+    return (int)self::pdo()->lastInsertId();
+  }
+
+  // Filters: ['q' => string, 'status' => 'new'|'verified'|'deleted', 'limit' => int, 'offset' => int]
+  public static function list(UserContext $ctx, array $filters, int $limit = 20, int $offset = 0): array {
+    self::assertApprover($ctx);
+
+    $params = [];
+    $where = ['1=1'];
+
+    // Status filter
+    $status = isset($filters['status']) ? trim((string)$filters['status']) : 'new';
+    if (!in_array($status, ['new','verified','deleted'], true)) {
+      $status = 'new';
+    }
+    $where[] = 'pn.status = ?';
+    $params[] = $status;
+
+    // Tokenized text search across youth/adult names
+    $q = isset($filters['q']) ? trim((string)$filters['q']) : '';
+    $tokens = [];
+    if ($q !== '') {
+      $tokens = \Search::tokenize($q);
+      foreach ($tokens as $tok) {
+        $where[] = "(LOWER(y.first_name) LIKE ? OR LOWER(y.last_name) LIKE ? OR LOWER(u.first_name) LIKE ? OR LOWER(u.last_name) LIKE ?)";
+        $like = '%' . mb_strtolower($tok, 'UTF-8') . '%';
+        array_push($params, $like, $like, $like, $like);
+      }
+    }
+
+    $whereSql = implode(' AND ', $where);
+    $limit = max(1, min(100, (int)$limit));
+    $offset = max(0, (int)$offset);
+
+    // Total count
+    $stCount = self::pdo()->prepare("
+      SELECT COUNT(*) AS c
+      FROM payment_notifications_from_users pn
+      JOIN youth y ON y.id = pn.youth_id
+      JOIN users u ON u.id = pn.created_by
+      WHERE $whereSql
+    ");
+    $stCount->execute($params);
+    $total = (int)($stCount->fetchColumn() ?? 0);
+
+    // Page rows
+    $sql = "
+      SELECT pn.*, y.first_name AS youth_first, y.last_name AS youth_last,
+             u.first_name AS by_first, u.last_name AS by_last
+      FROM payment_notifications_from_users pn
+      JOIN youth y ON y.id = pn.youth_id
+      JOIN users u ON u.id = pn.created_by
+      WHERE $whereSql
+      ORDER BY pn.created_at DESC, pn.id DESC
+      LIMIT $limit OFFSET $offset
+    ";
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll();
+
+    return [
+      'total' => $total,
+      'rows' => $rows ?: [],
+      'limit' => $limit,
+      'offset' => $offset,
+      'status' => $status,
+      'q' => $q,
+    ];
+  }
+
+  public static function verify(UserContext $ctx, int $id, string $paidUntilYmd): void {
+    self::assertApprover($ctx);
+    // Validate notification
+    $row = self::findById($id);
+    if (!$row) throw new RuntimeException('Not found');
+    // Update youth "paid until" (YouthManagement enforces approver)
+    YouthManagement::update($ctx, (int)$row['youth_id'], ['date_paid_until' => $paidUntilYmd]);
+    // Mark verified
+    $st = self::pdo()->prepare("UPDATE payment_notifications_from_users SET status='verified' WHERE id=?");
+    $st->execute([$id]);
+  }
+
+  public static function delete(UserContext $ctx, int $id): void {
+    self::assertApprover($ctx);
+    $row = self::findById($id);
+    if (!$row) throw new RuntimeException('Not found');
+    $st = self::pdo()->prepare("UPDATE payment_notifications_from_users SET status='deleted' WHERE id=?");
+    $st->execute([$id]);
+  }
+
+  public static function findById(int $id): ?array {
+    $st = self::pdo()->prepare("SELECT * FROM payment_notifications_from_users WHERE id=? LIMIT 1");
+    $st->execute([$id]);
+    $r = $st->fetch();
+    return $r ?: null;
+  }
+
+  // Helper to fetch leadership recipients (Cubmaster/Committee Chair/Treasurer with emails)
+  public static function leaderRecipients(): array {
+    $st = self::pdo()->prepare("SELECT DISTINCT u.email, u.first_name, u.last_name
+                                FROM adult_leadership_positions alp
+                                JOIN users u ON u.id = alp.adult_id
+                                WHERE alp.position IN ('Cubmaster','Committee Chair','Treasurer')
+                                  AND u.email IS NOT NULL AND u.email <> ''");
+    $st->execute();
+    return $st->fetchAll() ?: [];
+  }
+}

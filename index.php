@@ -18,68 +18,8 @@ if ($isApprover) {
 
 $me = current_user();
 
-// Handle "I've paid" submission for dues renewal notification
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'renew_paid') {
-  require_csrf();
-  try {
-    $youthId = (int)($_POST['youth_id'] ?? 0);
-    if ($youthId <= 0) { throw new RuntimeException('Invalid youth.'); }
-
-    // Ensure this youth belongs to the current user
-    $chk = pdo()->prepare('SELECT y.id, y.first_name, y.last_name FROM parent_relationships pr JOIN youth y ON y.id = pr.youth_id WHERE pr.adult_id = ? AND y.id = ? LIMIT 1');
-    $chk->execute([(int)($me['id'] ?? 0), $youthId]);
-    $row = $chk->fetch();
-    if (!$row) { throw new RuntimeException('Forbidden'); }
-
-    // Build recipients: Cubmaster, Committee Chair, Treasurer (distinct, non-null emails)
-    $st = pdo()->prepare("SELECT DISTINCT u.email, u.first_name, u.last_name
-                          FROM adult_leadership_positions alp
-                          JOIN users u ON u.id = alp.adult_id
-                          WHERE alp.position IN ('Cubmaster','Committee Chair','Treasurer')
-                            AND u.email IS NOT NULL AND u.email <> ''");
-    $st->execute();
-    $recips = $st->fetchAll() ?: [];
-
-    if (!empty($recips)) {
-      require_once __DIR__ . '/mailer.php';
-      $personName = trim((string)($me['first_name'] ?? '') . ' ' . (string)($me['last_name'] ?? ''));
-      $childName  = trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? ''));
-      $subject = 'Cub Scouts: ' . ($personName ?: 'A parent') . ' paid dues for ' . $childName;
-
-      $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-      $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-      $editUrl = $scheme.'://'.$host.'/youth_edit.php?id='.(int)$youthId;
-
-      $safePerson = htmlspecialchars($personName, ENT_QUOTES, 'UTF-8');
-      $safeChild  = htmlspecialchars($childName, ENT_QUOTES, 'UTF-8');
-      $safeUrl    = htmlspecialchars($editUrl, ENT_QUOTES, 'UTF-8');
-
-      $html = '<p>This is an automated notification that <strong>'.$safePerson.'</strong> marked that the dues have been paid for <strong>'.$safeChild.'</strong>.</p>'
-            . '<p><a href="'.$safeUrl.'">Click here to edit the youth profile</a> and mark the dues as paid until next calendar year.</p>';
-
-      foreach ($recips as $r) {
-        $to = (string)($r['email'] ?? '');
-        if ($to === '') continue;
-        $name = trim((string)($r['first_name'] ?? '').' '.(string)($r['last_name'] ?? ''));
-        @send_email($to, $subject, $html, $name ?: $to);
-      }
-    }
-
-    // Suppress the renewal section for 7 days
-    $maxAge = 7*24*60*60;
-    $until = time() + $maxAge;
-    setcookie('renew_prompt_dismiss_until', (string)$until, [
-      'expires' => $until,
-      'path' => '/',
-      'samesite' => 'Lax',
-    ]);
-
-    header('Location: /index.php?renewed=1');
-    exit;
-  } catch (Throwable $e) {
-    // Fall through: do not block page render
-  }
-}
+/* "I've paid" now uses a modal + AJAX (see Renew Your Membership section JS).
+   Email to leadership is sent server-side from payment_notifications_actions.php upon creation. */
 
 header_html('Home');
 ?>
@@ -367,10 +307,7 @@ header_html('Home');
         $qGrade = $qClass > 0 ? GradeCalculator::gradeForClassOf($qClass) : null;
         $qGradeLabel = ($qGrade !== null) ? GradeCalculator::gradeLabel($qGrade) : null;
       ?>
-      <form method="post" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:12px;max-width:560px;">
-        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-        <input type="hidden" name="action" value="renew_paid">
-        <input type="hidden" name="youth_id" value="<?= (int)($q['id'] ?? 0) ?>">
+      <div class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:12px;max-width:560px;">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
           <div>
             <strong><?= h($childName) ?></strong>
@@ -378,13 +315,115 @@ header_html('Home');
               <span class="small">(Grade <?= h($qGradeLabel) ?>)</span>
             <?php endif; ?>
           </div>
-          <button class="button">I’ve paid</button>
+          <button class="button open-paid-modal"
+                  data-youth-id="<?= (int)($q['id'] ?? 0) ?>"
+                  data-child-name="<?= h($childName) ?>">
+            I’ve paid
+          </button>
         </div>
-      </form>
+      </div>
     <?php endforeach; ?>
   </div>
 </div>
 <?php endif; ?>
+
+<!-- Renew: Paid Modal -->
+<div id="renewPaidModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:520px;">
+    <button class="close" type="button" id="renewPaidClose" aria-label="Close">&times;</button>
+    <h3>How did you pay?</h3>
+    <div id="renewPaidErr" class="error small" style="display:none;"></div>
+    <form id="renewPaidForm" class="stack" method="post" action="/payment_notifications_actions.php">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="create">
+      <input type="hidden" name="youth_id" id="renewPaidYouthId" value="">
+      <label>Payment Method
+        <select name="payment_method" id="renewPaidMethod" required>
+          <option value="">-- Select --</option>
+          <option value="Paypal">Paypal</option>
+          <option value="Zelle">Zelle</option>
+          <option value="Venmo">Venmo</option>
+          <option value="Check">Check</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+      <label>Comment (optional)
+        <textarea name="comment" id="renewPaidComment" rows="3" placeholder="Anything helpful to identify your payment (last 4 digits, date, etc.)"></textarea>
+      </label>
+      <div class="actions">
+        <button class="button primary" type="submit">Submit</button>
+        <button class="button" type="button" id="renewPaidCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var modal = document.getElementById('renewPaidModal');
+  var closeBtn = document.getElementById('renewPaidClose');
+  var cancelBtn = document.getElementById('renewPaidCancel');
+  var err = document.getElementById('renewPaidErr');
+  var form = document.getElementById('renewPaidForm');
+  var youthIdInp = document.getElementById('renewPaidYouthId');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(id){
+    if (!modal) return;
+    clearErr();
+    if (youthIdInp) youthIdInp.value = id || '';
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function hide(){
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  // Open buttons
+  var btns = document.querySelectorAll('.open-paid-modal');
+  for (var i=0;i<btns.length;i++){
+    btns[i].addEventListener('click', function(e){
+      e.preventDefault();
+      var id = this.getAttribute('data-youth-id');
+      open(id);
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', function(){ hide(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ hide(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) hide(); });
+
+  function suppressRenewFor(days){
+    try {
+      var maxAge = days*24*60*60;
+      var now = Math.floor(Date.now()/1000);
+      var until = now + maxAge;
+      document.cookie = 'renew_prompt_dismiss_until=' + until + '; Max-Age=' + maxAge + '; Path=/; SameSite=Lax';
+    } catch (e) {}
+  }
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      var fd = new FormData(form);
+      fetch(form.getAttribute('action') || '/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            suppressRenewFor(7);
+            window.location = '/index.php?renewed=1';
+          } else {
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showErr('Network error.'); });
+    });
+  }
+})();
+</script>
 
 <?php
   // Complete Your Profile section (single next step)
