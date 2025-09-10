@@ -182,14 +182,10 @@ header_html('Create Adult');
         Children to Add
         <button type="button" class="button" data-open-child-modal="ac_add">Add Child</button>
       </h3>
-      <input type="hidden" name="pending_children" id="pending_children" value="<?= h($_POST['pending_children'] ?? '') ?>">
+      <input type="hidden" name="pending_children" id="pending_children" value="<?= h($_SERVER['REQUEST_METHOD'] === 'POST' ? ($_POST['pending_children'] ?? '[]') : '[]') ?>">
       <div id="pending_children_list" class="stack small"></div>
     </div>
 
-    <?php
-      require_once __DIR__ . '/partials_child_modal.php';
-      render_child_modal(['mode' => 'add', 'id_prefix' => 'ac_add']);
-    ?>
 
     <script>
       (function(){
@@ -257,8 +253,7 @@ header_html('Create Adult');
           listEl.appendChild(ul);
         }
 
-        window.addEventListener('childModal:add', function(e){
-          var d = (e && e.detail && e.detail.item) || null;
+        function addStagedItem(d) {
           if (!d) return;
           if (d.type === 'link') {
             if (!hasLink(d.youth_id)) {
@@ -271,7 +266,15 @@ header_html('Create Adult');
               render();
             }
           }
+        }
+        window.addEventListener('childModal:add', function(e){
+          addStagedItem((e && e.detail && e.detail.item) || null);
         });
+        // Optional callback hook used by modal
+        window.childModalAdd_ac_add = function(payload){
+          var d = payload && payload.item;
+          addStagedItem(d);
+        };
 
         render();
       })();
@@ -285,4 +288,9 @@ header_html('Create Adult');
   </form>
 </div>
 
-<?php footer_html(); ?>
+<?php
+  // Render modal outside the main form to avoid nested forms
+  require_once __DIR__ . '/partials_child_modal.php';
+  render_child_modal(['mode' => 'add', 'id_prefix' => 'ac_add']);
+  footer_html();
+?>
