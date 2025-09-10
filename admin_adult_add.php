@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/YouthManagement.php';
 require_admin();
 
 $msg = null;
@@ -96,6 +97,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'emergency_contact2_name' => $em2_name,
         'emergency_contact2_phone' => $em2_phone,
       ]);
+
+      // Process staged children (pending_children JSON)
+      try {
+        $ctx = UserContext::getLoggedInUserContext();
+        $pendingJson = $_POST['pending_children'] ?? '[]';
+        $items = json_decode($pendingJson, true);
+        if (is_array($items)) {
+          $link = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+          $chkYouth = pdo()->prepare('SELECT 1 FROM youth WHERE id=? LIMIT 1');
+          foreach ($items as $it) {
+            if (!is_array($it) || empty($it['type'])) continue;
+            if ($it['type'] === 'new' && !empty($it['child']) && is_array($it['child'])) {
+              $c = $it['child'];
+              $data = [
+                'first_name' => trim((string)($c['first_name'] ?? '')),
+                'last_name' => trim((string)($c['last_name'] ?? '')),
+                'preferred_name' => trim((string)($c['preferred_name'] ?? '')),
+                'suffix' => trim((string)($c['suffix'] ?? '')),
+                'grade_label' => (string)($c['grade_label'] ?? ''),
+                'school' => trim((string)($c['school'] ?? '')),
+                'sibling' => !empty($c['sibling']) ? 1 : 0,
+              ];
+              if ($data['first_name'] !== '' && $data['last_name'] !== '' && $data['grade_label'] !== '') {
+                $newYid = \YouthManagement::create($ctx, $data);
+                $link->execute([$newYid, (int)$id]);
+              }
+            } elseif ($it['type'] === 'link' && !empty($it['youth_id'])) {
+              $yid = (int)$it['youth_id'];
+              if ($yid > 0) {
+                $chkYouth->execute([$yid]);
+                if ($chkYouth->fetchColumn()) {
+                  $link->execute([$yid, (int)$id]);
+                }
+              }
+            }
+          }
+        }
+      } catch (Throwable $e) {
+        // Ignore child staging errors; adult was created successfully
+      }
+
       header('Location: /adult_edit.php?id='.(int)$id.'&created=1'); exit;
     } catch (Throwable $e) {
       // Likely duplicate email (if not null) or other constraint
@@ -129,72 +171,111 @@ header_html('Create Adult');
       <label>Preferred name
         <input type="text" name="preferred_name" value="<?=h($form['preferred_name'] ?? '')?>">
       </label>
-      <label class="inline"><input type="checkbox" name="is_admin" value="1" <?= !empty($form['is_admin']) ? 'checked' : '' ?>> Admin</label>
-    </div>
-
-    <h3>Address</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Street 1
-        <input type="text" name="street1" value="<?=h($form['street1'] ?? '')?>">
-      </label>
-      <label>Street 2
-        <input type="text" name="street2" value="<?=h($form['street2'] ?? '')?>">
-      </label>
-      <label>City
-        <input type="text" name="city" value="<?=h($form['city'] ?? '')?>">
-      </label>
-      <label>State
-        <input type="text" name="state" value="<?=h($form['state'] ?? '')?>">
-      </label>
-      <label>Zip
-        <input type="text" name="zip" value="<?=h($form['zip'] ?? '')?>">
-      </label>
-    </div>
-
-    <h3>Contact</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Secondary Email
-        <input type="email" name="email2" value="<?=h($form['email2'] ?? '')?>">
-      </label>
-      <label>Home Phone
-        <input type="text" name="phone_home" value="<?=h($form['phone_home'] ?? '')?>">
-      </label>
       <label>Cell Phone
         <input type="text" name="phone_cell" value="<?=h($form['phone_cell'] ?? '')?>">
       </label>
-      <label>Shirt Size
-        <input type="text" name="shirt_size" value="<?=h($form['shirt_size'] ?? '')?>">
-      </label>
+      <label class="inline"><input type="checkbox" name="is_admin" value="1" <?= !empty($form['is_admin']) ? 'checked' : '' ?>> Admin</label>
     </div>
 
-    <h3>Scouting</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>BSA Membership #
-        <input type="text" name="bsa_membership_number" value="<?=h($form['bsa_membership_number'] ?? '')?>">
-      </label>
-      <label>BSA Registration Expires On
-        <input type="date" name="bsa_registration_expires_on" value="<?=h($form['bsa_registration_expires_on'] ?? '')?>" placeholder="YYYY-MM-DD">
-      </label>
-      <label>Safeguarding Training Completed On
-        <input type="date" name="safeguarding_training_completed_on" value="<?=h($form['safeguarding_training_completed_on'] ?? '')?>" placeholder="YYYY-MM-DD">
-      </label>
+    <div class="card" style="margin-top:8px;">
+      <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        Children to Add
+        <button type="button" class="button" data-open-child-modal="ac_add">Add Child</button>
+      </h3>
+      <input type="hidden" name="pending_children" id="pending_children" value="<?= h($_POST['pending_children'] ?? '') ?>">
+      <div id="pending_children_list" class="stack small"></div>
     </div>
 
-    <h3>Emergency Contacts</h3>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Emergency Contact 1 Name
-        <input type="text" name="emergency_contact1_name" value="<?=h($form['emergency_contact1_name'] ?? '')?>">
-      </label>
-      <label>Emergency Contact 1 Phone
-        <input type="text" name="emergency_contact1_phone" value="<?=h($form['emergency_contact1_phone'] ?? '')?>">
-      </label>
-      <label>Emergency Contact 2 Name
-        <input type="text" name="emergency_contact2_name" value="<?=h($form['emergency_contact2_name'] ?? '')?>">
-      </label>
-      <label>Emergency Contact 2 Phone
-        <input type="text" name="emergency_contact2_phone" value="<?=h($form['emergency_contact2_phone'] ?? '')?>">
-      </label>
-    </div>
+    <?php
+      require_once __DIR__ . '/partials_child_modal.php';
+      render_child_modal(['mode' => 'add', 'id_prefix' => 'ac_add']);
+    ?>
+
+    <script>
+      (function(){
+        var hidden = document.getElementById('pending_children');
+        var listEl = document.getElementById('pending_children_list');
+        var items = [];
+        try { items = JSON.parse(hidden && hidden.value ? hidden.value : '[]') || []; } catch (e) { items = []; }
+
+        function serialize() {
+          if (hidden) hidden.value = JSON.stringify(items);
+        }
+        function removeAt(idx) {
+          if (idx >= 0 && idx < items.length) {
+            items.splice(idx, 1);
+            render();
+          }
+        }
+        function dedupeNew(item) {
+          // Prevent duplicate new child by same first/last/grade
+          for (var i=0;i<items.length;i++){
+            var it = items[i];
+            if (it.type === 'new' && item.type === 'new') {
+              var a = it.child || {}; var b = item.child || {};
+              if ((a.first_name||'').toLowerCase() === (b.first_name||'').toLowerCase() &&
+                  (a.last_name||'').toLowerCase() === (b.last_name||'').toLowerCase() &&
+                  (a.grade_label||'') === (b.grade_label||'')) return true;
+            }
+          }
+          return false;
+        }
+        function hasLink(yid) {
+          yid = parseInt(yid,10)||0;
+          for (var i=0;i<items.length;i++){
+            var it = items[i];
+            if (it.type === 'link' && parseInt(it.youth_id,10) === yid) return true;
+          }
+          return false;
+        }
+        function render() {
+          serialize();
+          if (!listEl) return;
+          listEl.innerHTML = '';
+          if (!items.length) {
+            var p = document.createElement('p');
+            p.className = 'small';
+            p.textContent = 'No children staged.';
+            listEl.appendChild(p);
+            return;
+          }
+          var ul = document.createElement('ul');
+          ul.className = 'list';
+          items.forEach(function(it, idx){
+            var li = document.createElement('li');
+            var label = it.label || (it.type === 'link' ? ('Youth #' + it.youth_id) : ((it.child && (it.child.last_name + ', ' + it.child.first_name)) || 'New child'));
+            li.textContent = (it.type === 'link' ? '[Link] ' : '[New] ') + label + ' ';
+            var btn = document.createElement('button');
+            btn.className = 'button danger';
+            btn.type = 'button';
+            btn.style.marginLeft = '8px';
+            btn.textContent = 'Remove';
+            btn.addEventListener('click', function(){ removeAt(idx); });
+            li.appendChild(btn);
+            ul.appendChild(li);
+          });
+          listEl.appendChild(ul);
+        }
+
+        window.addEventListener('childModal:add', function(e){
+          var d = (e && e.detail && e.detail.item) || null;
+          if (!d) return;
+          if (d.type === 'link') {
+            if (!hasLink(d.youth_id)) {
+              items.push({ type: 'link', youth_id: parseInt(d.youth_id,10)||0, label: d.label || null });
+              render();
+            }
+          } else if (d.type === 'new') {
+            if (!dedupeNew(d)) {
+              items.push(d);
+              render();
+            }
+          }
+        });
+
+        render();
+      })();
+    </script>
 
     <div class="actions">
       <button class="primary" type="submit">Create</button>
