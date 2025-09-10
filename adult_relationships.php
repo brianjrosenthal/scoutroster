@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
+require_once __DIR__.'/lib/ActivityLog.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('Method Not Allowed'); }
@@ -75,6 +76,12 @@ try {
   if ($action === 'link') {
     $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
     $st->execute([$youthId, $adultId]);
+    if ((int)$st->rowCount() > 0) {
+      ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.child_link_add', [
+        'parent_id' => (int)$adultId,
+        'youth_id' => (int)$youthId,
+      ]);
+    }
     if ($ajax) { respond_json(true, null); }
     header('Location: '.$back); exit;
   } elseif ($action === 'unlink') {
@@ -86,6 +93,12 @@ try {
 
     $st = pdo()->prepare('DELETE FROM parent_relationships WHERE youth_id=? AND adult_id=?');
     $st->execute([$youthId, $adultId]);
+    if ((int)$st->rowCount() > 0) {
+      ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.child_link_remove', [
+        'parent_id' => (int)$adultId,
+        'youth_id' => (int)$youthId,
+      ]);
+    }
     if ($ajax) { respond_json(true, null); }
     header('Location: '.$back); exit;
   } elseif ($action === 'create_and_link') {
@@ -132,6 +145,10 @@ try {
       $st->execute([$newYid, $adultId]);
 
       $pdoTx->commit();
+      ActivityLog::log($ctx, 'user.child_link_add', [
+        'parent_id' => (int)$adultId,
+        'youth_id' => (int)$newYid,
+      ]);
       if ($ajax) { respond_json(true, null); }
       header('Location: '.$back); exit;
     } catch (Throwable $ex) {
@@ -165,9 +182,7 @@ try {
       $errors[] = 'Email is invalid.';
     }
     if ($email !== null) {
-      $chk = pdo()->prepare('SELECT 1 FROM users WHERE email = ? LIMIT 1');
-      $chk->execute([$email]);
-      if ($chk->fetchColumn()) {
+      if (UserManagement::emailExists($email)) {
         $errors[] = 'Email already in use.';
       }
     }
@@ -192,6 +207,12 @@ try {
       $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
       $st->execute([$youthId, (int)$newAdultId]);
 
+      if ((int)$st->rowCount() > 0) {
+        ActivityLog::log($ctx, 'user.child_link_add', [
+          'parent_id' => (int)$newAdultId,
+          'youth_id' => (int)$youthId,
+        ]);
+      }
       if ($ajax) { respond_json(true, null); }
       header('Location: '.$back); exit;
     } catch (Throwable $ex) {

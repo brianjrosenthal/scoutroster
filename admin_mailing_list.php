@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/Search.php';
+require_once __DIR__.'/lib/MailingListManagement.php';
 require_admin();
 
 // Inputs
@@ -18,149 +19,18 @@ if ($g !== null) {
   $classOfFilter = $currentFifthClassOf + (5 - $g);
 }
 
-// Base query: include all adults; left join to children for filtering
-$params = [];
-$sqlBase = "
-  FROM users u
-  LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
-  LEFT JOIN youth y ON y.id = pr.youth_id
-  WHERE 1=1
-";
 
-// Search across adult name/email and child name
-if ($q !== '') {
-  $tokens = Search::tokenize($q);
-  $sqlBase .= Search::buildAndLikeClause(
-    ['u.first_name','u.last_name','u.email','y.first_name','y.last_name'],
-    $tokens,
-    $params
-  );
-}
-// Grade filter
-if ($classOfFilter !== null) {
-  $sqlBase .= " AND y.class_of = ?";
-  $params[] = $classOfFilter;
-}
-// Registered filter (by child registration)
-if ($registered === 'yes') {
-  $sqlBase .= " AND y.bsa_registration_number IS NOT NULL";
-} elseif ($registered === 'no') {
-  $sqlBase .= " AND (y.id IS NOT NULL AND y.bsa_registration_number IS NULL)";
-}
+/** Build merged contacts via domain class */
+$filters = [
+  'q' => $q,
+  'grade_label' => $gLabel,
+  'registered' => $registered,
+];
+$contactsSorted = MailingListManagement::mergedContacts($filters);
 
-// For listing/export, select distinct adults
-$sqlSelectDistinctAdults = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email ".$sqlBase." ORDER BY u.last_name, u.first_name";
-
- // Fetch adults
-$st = pdo()->prepare($sqlSelectDistinctAdults);
-$st->execute($params);
-$adults = $st->fetchAll();
-
-// Build grade map for on-screen display (not used in CSV export)
-$gradesByAdult = [];
-if (!empty($adults)) {
-  $adultIds = array_column($adults, 'id');
-  $placeholders = implode(',', array_fill(0, count($adultIds), '?'));
-  // Reuse the same filters as listing, and restrict to these adult ids
-  $sqlGrades = "SELECT u.id AS adult_id, y.class_of " . $sqlBase . " AND y.id IS NOT NULL AND u.id IN ($placeholders)";
-  $stg = pdo()->prepare($sqlGrades);
-  $stg->execute(array_merge($params, $adultIds));
-  while ($r = $stg->fetch()) {
-    $aid = (int)$r['adult_id'];
-    $gradeInt = GradeCalculator::gradeForClassOf((int)$r['class_of']);
-    $label = GradeCalculator::gradeLabel($gradeInt);
-    if (!isset($gradesByAdult[$aid])) $gradesByAdult[$aid] = [];
-    if (!in_array($label, $gradesByAdult[$aid], true)) $gradesByAdult[$aid][] = $label;
-  }
-  // Sort grades K(0) .. 5 for nicer display
-  foreach ($gradesByAdult as $aid => $labels) {
-    usort($labels, function($a, $b) {
-      $toNum = function($lbl){ return ($lbl === 'K') ? 0 : (int)$lbl; };
-      return $toNum($a) <=> $toNum($b);
-    });
-    $gradesByAdult[$aid] = $labels;
-  }
-}
-
-/** Build merged contacts: Adults + Recommendations (dedupe by email, prefer Adults) */
-$contacts = [];
-
-// Seed from adults with email
-foreach ($adults as $a) {
-  $emailRaw = (string)($a['email'] ?? '');
-  $emailKey = strtolower(trim($emailRaw));
-  if ($emailKey === '' || !filter_var($emailKey, FILTER_VALIDATE_EMAIL)) continue;
-  $name = trim((string)($a['first_name'] ?? '') . ' ' . (string)($a['last_name'] ?? ''));
-  $aid = (int)($a['id'] ?? 0);
-  $grades = $gradesByAdult[$aid] ?? [];
-  if (!isset($contacts[$emailKey])) {
-    $contacts[$emailKey] = [
-      'name' => $name,
-      'email' => $emailRaw,
-      'grades' => $grades,
-      'source' => 'adult',
-    ];
-  }
-}
-
-// Fetch recommendations with email and optional search filter
-$recParams = [];
-$recSql = "SELECT r.parent_name, r.child_name, r.email FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
-if ($q !== '') {
-  $tokens = Search::tokenize($q);
-  $recSql .= Search::buildAndLikeClause(['r.parent_name','r.child_name','r.email'], $tokens, $recParams);
-}
-$stRec = pdo()->prepare($recSql);
-$stRec->execute($recParams);
-$recs = $stRec->fetchAll() ?: [];
-
-// Merge recs (skip if email exists from adults)
-foreach ($recs as $r) {
-  $emailRaw = (string)($r['email'] ?? '');
-  $emailKey = strtolower(trim($emailRaw));
-  if ($emailKey === '' || !filter_var($emailKey, FILTER_VALIDATE_EMAIL)) continue;
-  if (isset($contacts[$emailKey])) continue; // prefer adult record
-  $name = trim((string)($r['parent_name'] ?? ''));
-  if ($name === '') {
-    $nmChild = trim((string)($r['child_name'] ?? ''));
-    $name = ($nmChild !== '') ? $nmChild : $emailRaw;
-  }
-  $contacts[$emailKey] = [
-    'name' => $name,
-    'email' => $emailRaw,
-    'grades' => [],
-    'source' => 'rec',
-  ];
-}
-
-// Sort contacts by name (case-insensitive), then email
-$contactsSorted = array_values($contacts);
-usort($contactsSorted, function($a, $b){
-  $na = strtolower($a['name'] ?? '');
-  $nb = strtolower($b['name'] ?? '');
-  if ($na === $nb) {
-    return strcasecmp((string)($a['email'] ?? ''), (string)($b['email'] ?? ''));
-  }
-  return $na <=> $nb;
-});
-
-// CSV export
- // CSV export
+ // CSV export (delegated)
 if ($export) {
-  header('Content-Type: text/csv; charset=utf-8');
-  header('Content-Disposition: attachment; filename="mailing_list.csv"');
-  $out = fopen('php://output', 'w');
-  // Evite format: name,email (include a simple header)
-  fputcsv($out, ['name', 'email']);
-  foreach ($contactsSorted as $c) {
-    $name = (string)($c['name'] ?? '');
-    $email = (string)($c['email'] ?? '');
-    if ($email !== '') {
-      fputcsv($out, [$name, $email]);
-    }
-  }
-  fclose($out);
-  exit;
+  MailingListManagement::streamCsv($filters);
 }
 
 header_html('Mailing List');

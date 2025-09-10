@@ -16,25 +16,8 @@ $me = current_user();
 $canEditAll = !empty($me['is_admin']);
 $canEditLeadership = $canEditAll || ((int)($me['id'] ?? 0) === (int)$id);
 
-// Allow co-parents to upload photo only
-$canUploadPhoto = false;
-try {
-  if ($canEditAll || ((int)($me['id'] ?? 0) === (int)$id)) {
-    $canUploadPhoto = true;
-  } else {
-    $st = pdo()->prepare("
-      SELECT 1
-      FROM parent_relationships pr1
-      JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
-      WHERE pr1.adult_id = ? AND pr2.adult_id = ?
-      LIMIT 1
-    ");
-    $st->execute([(int)($me['id'] ?? 0), (int)$id]);
-    $canUploadPhoto = (bool)$st->fetchColumn();
-  }
-} catch (Throwable $e) {
-  $canUploadPhoto = false;
-}
+ // Allow co-parents to upload photo only
+$canUploadPhoto = UserManagement::canUploadAdultPhoto(UserContext::getLoggedInUserContext(), $id);
 
 if (!$canEditLeadership && !$canUploadPhoto) { http_response_code(403); exit('Forbidden'); }
 
@@ -243,15 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 }
 
 /** Load linked children for relationship management */
-$stChildren = pdo()->prepare("
-  SELECT y.*
-  FROM parent_relationships pr
-  JOIN youth y ON y.id = pr.youth_id
-  WHERE pr.adult_id = ?
-  ORDER BY y.last_name, y.first_name
-");
-$stChildren->execute([$id]);
-$linkedChildren = $stChildren->fetchAll();
+$linkedChildren = UserManagement::listChildrenForAdult($id);
 
 header_html('Edit Adult');
 ?>

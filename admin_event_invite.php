@@ -86,42 +86,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       throw new RuntimeException('Organizer email is invalid.');
     }
 
-    // Build recipients
+    // Build recipients (moved to domain methods)
     $recipients = []; // [ ['id'=>int,'email'=>str,'first_name'=>..., 'last_name'=>...], ... ]
     if ($audience === 'all_adults') {
-      $st = pdo()->query("SELECT id, first_name, last_name, email FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY last_name, first_name");
-      $recipients = $st->fetchAll();
+      $recipients = UserManagement::listAdultsWithAnyEmail();
     } elseif ($audience === 'registered_families') {
-      $st = pdo()->prepare("
-        SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
-        FROM users u
-        JOIN parent_relationships pr ON pr.adult_id = u.id
-        JOIN youth y ON y.id = pr.youth_id
-        WHERE u.email IS NOT NULL AND u.email <> '' AND y.bsa_registration_number IS NOT NULL
-        ORDER BY u.last_name, u.first_name
-      ");
-      $st->execute();
-      $recipients = $st->fetchAll();
+      $recipients = UserManagement::listAdultsWithRegisteredChildrenEmails();
     } elseif ($audience === 'by_grade') {
-      $g = GradeCalculator::parseGradeLabel($gradeLbl);
-      if ($g === null) throw new RuntimeException('Grade is required for "families by grade".');
-      $currentFifth = GradeCalculator::schoolYearEndYear();
-      $classOf = $currentFifth + (5 - $g);
-      $st = pdo()->prepare("
-        SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
-        FROM users u
-        JOIN parent_relationships pr ON pr.adult_id = u.id
-        JOIN youth y ON y.id = pr.youth_id
-        WHERE u.email IS NOT NULL AND u.email <> '' AND y.class_of = ?
-        ORDER BY u.last_name, u.first_name
-      ");
-      $st->execute([$classOf]);
-      $recipients = $st->fetchAll();
+      $classOf = UserManagement::computeClassOfFromGradeLabel($gradeLbl);
+      if ($classOf === null) throw new RuntimeException('Grade is required for "families by grade".');
+      $recipients = UserManagement::listAdultsByChildClassOfEmails((int)$classOf);
     } elseif ($audience === 'one_adult') {
       if ($oneAdultId <= 0) throw new RuntimeException('Please choose an adult.');
-      $st = pdo()->prepare("SELECT id, first_name, last_name, email FROM users WHERE id=? LIMIT 1");
-      $st->execute([$oneAdultId]);
-      $row = $st->fetch();
+      $row = UserManagement::findBasicForEmailingById($oneAdultId);
       if ($row && !empty($row['email'])) $recipients = [$row];
     } else {
       throw new RuntimeException('Invalid audience.');
@@ -310,8 +287,7 @@ header_html('Send Event Invitations');
       <label class="inline"><input type="radio" name="audience" value="one_adult" <?= $aud==='one_adult'?'checked':'' ?>> One adult</label>
       <div>
         <?php
-          $st = pdo()->query("SELECT id, first_name, last_name, email FROM users WHERE email IS NOT NULL AND email <> '' ORDER BY last_name, first_name");
-          $opts = $st->fetchAll();
+          $opts = UserManagement::listAdultsWithAnyEmail();
         ?>
         <select name="adult_id">
           <option value="0">Select adult...</option>

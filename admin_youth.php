@@ -116,17 +116,12 @@ if (empty($errors)) {
       // Create youth
       $id = YouthManagement::create($ctx, $createData);
 
-      // Ensure adult exists
-      $stA = $pdo->prepare('SELECT id FROM users WHERE id = ? LIMIT 1');
-      $stA->execute([$adultId]);
-      if (!$stA->fetchColumn()) {
+      // Ensure adult exists (via domain method)
+      if (!UserManagement::existsById($adultId)) {
         throw new RuntimeException('Selected adult not found.');
       }
-      if ($adultId2 > 0) {
-        $stA->execute([$adultId2]);
-        if (!$stA->fetchColumn()) {
-          throw new RuntimeException('Selected second adult not found.');
-        }
+      if ($adultId2 > 0 && !UserManagement::existsById($adultId2)) {
+        throw new RuntimeException('Selected second adult not found.');
       }
 
       // Link youth to adult(s)
@@ -168,17 +163,15 @@ header_html('Add Youth');
 
         $label1 = '';
         if ($selAdult > 0) {
-          $st = pdo()->prepare("SELECT last_name, first_name, email FROM users WHERE id=?");
-          $st->execute([$selAdult]);
-          if ($u = $st->fetch()) {
+          $u = UserManagement::findById($selAdult);
+          if ($u) {
             $label1 = trim((string)($u['last_name'] ?? '') . ', ' . (string)($u['first_name'] ?? '')) . (!empty($u['email']) ? ' <'.(string)$u['email'].'>' : '');
           }
         }
         $label2 = '';
         if ($selAdult2 > 0) {
-          $st = pdo()->prepare("SELECT last_name, first_name, email FROM users WHERE id=?");
-          $st->execute([$selAdult2]);
-          if ($u2 = $st->fetch()) {
+          $u2 = UserManagement::findById($selAdult2);
+          if ($u2) {
             $label2 = trim((string)($u2['last_name'] ?? '') . ', ' . (string)($u2['first_name'] ?? '')) . (!empty($u2['email']) ? ' <'.(string)$u2['email'].'>' : '');
           }
         }

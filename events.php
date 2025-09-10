@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/Files.php';
+require_once __DIR__.'/lib/UserManagement.php';
 require_login();
 
 $u = current_user();
@@ -109,11 +110,11 @@ header_html('Upcoming Events');
             // Creator hint if RSVP was created by someone else
             $byText = '';
             $creatorId = (int)($my['created_by_user_id'] ?? 0);
-            if ($creatorId && $creatorId !== (int)$u['id']) {
-              $stc = pdo()->prepare("SELECT first_name, last_name FROM users WHERE id=?");
-              $stc->execute([$creatorId]);
-              if ($cn = $stc->fetch()) {
-                $byText = ' <span class="small">(by '.h(trim((string)($cn['first_name'] ?? '').' '.(string)($cn['last_name'] ?? ''))).')</span>';
+              if ($creatorId && $creatorId !== (int)$u['id']) {
+                $nameBy = UserManagement::getFullName($creatorId);
+                if ($nameBy !== null) {
+                  $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
+                }
               }
             }
         ?>

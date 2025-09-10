@@ -21,73 +21,20 @@ if ($g !== null) {
 }
 
 
-// Query adults who have at least one registered child
-$params = [];
-$sql = "
-  SELECT 
-    u.*,
-    y.id         AS child_id,
-    y.first_name AS child_first_name,
-    y.last_name  AS child_last_name,
-    y.class_of   AS child_class_of
-  FROM users u
-  LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
-  LEFT JOIN youth y ON y.id = pr.youth_id
-  WHERE 1=1
-";
+ // Query adults and any of their children - moved to UserManagement
+$filters = [
+  'q' => ($q !== '' ? $q : null),
+  'class_of' => UserManagement::computeClassOfFromGradeLabel($gLabel),
+  'registered_only' => !$showAll,
+];
+$adultsList = UserManagement::listAdultsWithChildren($filters);
 
-if ($q !== '') {
-  $tokens = Search::tokenize($q);
-  $sql .= Search::buildAndLikeClause(
-    ['u.first_name','u.last_name','u.email','y.first_name','y.last_name'],
-    $tokens,
-    $params
-  );
-}
-if ($classOfFilter !== null) {
-  $sql .= " AND y.class_of = ?";
-  $params[] = $classOfFilter;
-}
-if (!$showAll) {
-  $sql .= " AND ((u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> ''))";
-}
-
-// Order by adult then child
-$sql .= " ORDER BY u.last_name, u.first_name, y.last_name, y.first_name";
-
-$st = pdo()->prepare($sql);
-$st->execute($params);
-$rows = $st->fetchAll();
-
-// Group rows by adult
-$adults = []; // id => ['adult' => u, 'children' => [...]]
-foreach ($rows as $r) {
-  $aid = (int)$r['id'];
-  if (!isset($adults[$aid])) {
-    // Copy adult fields
-    $adults[$aid] = [
-      'adult' => [
-        'id' => $aid,
-        'first_name' => $r['first_name'],
-        'last_name' => $r['last_name'],
-        'email' => $r['email'],
-        'email2' => $r['email2'] ?? null,
-        'phone_home' => $r['phone_home'] ?? null,
-        'phone_cell' => $r['phone_cell'] ?? null,
-      'suppress_email_directory' => (int)($r['suppress_email_directory'] ?? 0),
-      'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
-      ],
-      'children' => [],
-    ];
-  }
-  if (!empty($r['child_id'])) {
-    $childGrade = GradeCalculator::gradeForClassOf((int)$r['child_class_of']);
-    $adults[$aid]['children'][] = [
-      'id' => (int)$r['child_id'],
-      'name' => trim(($r['child_first_name'] ?? '').' '.($r['child_last_name'] ?? '')),
-      'class_of' => (int)$r['child_class_of'],
-      'grade' => $childGrade,
-    ];
+// Re-index by adult id to preserve existing rendering code
+$adults = [];
+foreach ($adultsList as $entry) {
+  $aid = (int)($entry['adult']['id'] ?? 0);
+  if ($aid > 0) {
+    $adults[$aid] = $entry;
   }
 }
 
