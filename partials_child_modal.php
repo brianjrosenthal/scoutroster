@@ -95,15 +95,24 @@ if (!function_exists('render_child_modal')) {
             <?php endif; ?>
             <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
               <label>Child
-                <select name="youth_id" required>
+                <input type="hidden" name="youth_id" id="<?= h($idPrefix) ?>_youth_id" value="">
+                <input
+                  type="text"
+                  id="<?= h($idPrefix) ?>_youth_search"
+                  list="<?= h($idPrefix) ?>_youth_datalist"
+                  placeholder="Type to search child by name"
+                  autocomplete="off"
+                  value="">
+                <datalist id="<?= h($idPrefix) ?>_youth_datalist">
                   <?php foreach ($allY as $yy): ?>
-                    <option value="<?= (int)($yy['id'] ?? 0) ?>"><?= h(trim(($yy['last_name'] ?? '').', '.($yy['first_name'] ?? ''))) ?></option>
+                    <option data-id="<?= (int)($yy['id'] ?? 0) ?>" value="<?= h(trim(($yy['last_name'] ?? '').', '.($yy['first_name'] ?? ''))) ?>"></option>
                   <?php endforeach; ?>
-                </select>
+                </datalist>
+                <button type="button" class="button" id="<?= h($idPrefix) ?>_youth_clear" style="margin-top:4px;">Clear</button>
               </label>
             </div>
             <div class="actions">
-              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formLinkId) ?>_submit">Stage Link</button>
+              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formLinkId) ?>_submit">Link Child</button>
             </div>
           </form>
         </div>
@@ -140,8 +149,10 @@ if (!function_exists('render_child_modal')) {
       function resetLinkForm() {
         var form = FORM_LINK || (MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null);
         if (!form) return;
-        var sel = form.querySelector('select[name="youth_id"]');
-        if (sel) sel.selectedIndex = 0;
+        var hid = document.getElementById(IDP + '_youth_id');
+        var inp = document.getElementById(IDP + '_youth_search');
+        if (hid) hid.value = '';
+        if (inp) inp.value = '';
       }
 
       function showErr(msg) { if (ERR){ ERR.style.display=''; ERR.textContent = msg || 'Operation failed.'; } }
@@ -187,6 +198,15 @@ if (!function_exists('render_child_modal')) {
       }
       if (TAB_NEW) TAB_NEW.addEventListener('click', function(e){ e.preventDefault(); switchTab('new'); });
       if (TAB_LINK) TAB_LINK.addEventListener('click', function(e){ e.preventDefault(); switchTab('link'); });
+      var YCLR = document.getElementById(IDP + '_youth_clear');
+      if (YCLR) {
+        YCLR.addEventListener('click', function(){
+          var hid = document.getElementById(IDP + '_youth_id');
+          var inp = document.getElementById(IDP + '_youth_search');
+          if (hid) hid.value = '';
+          if (inp) inp.value = '';
+        });
+      }
 
       <?php if ($mode === 'edit'): ?>
       // Edit mode: submit to server via AJAX and redirect back to adult_edit
@@ -206,7 +226,25 @@ if (!function_exists('render_child_modal')) {
           .catch(function(){ showErr('Network error.'); });
       }
       if (FORM_NEW){ FORM_NEW.addEventListener('submit', function(e){ e.preventDefault(); ajaxSubmit(FORM_NEW); }); }
-      if (FORM_LINK){ FORM_LINK.addEventListener('submit', function(e){ e.preventDefault(); ajaxSubmit(FORM_LINK); }); }
+      if (FORM_LINK){ FORM_LINK.addEventListener('submit', function(e){
+        e.preventDefault();
+        // Attempt to map datalist selection to hidden input before submit
+        var hid = FORM_LINK.querySelector('input[name="youth_id"]');
+        var inp = document.getElementById(IDP + '_youth_search');
+        var dl = document.getElementById(IDP + '_youth_datalist');
+        if (hid && (!hid.value || hid.value === '') && inp && dl) {
+          var val = inp.value || '';
+          var opts = dl ? dl.querySelectorAll('option') : [];
+          for (var i=0;i<opts.length;i++){
+            if ((opts[i].value || '') === val && opts[i].dataset && opts[i].dataset.id){
+              hid.value = opts[i].dataset.id;
+              break;
+            }
+          }
+        }
+        if (!hid || !hid.value) { showErr('Please select a valid child.'); return; }
+        ajaxSubmit(FORM_LINK);
+      }); }
       <?php else: ?>
       // Add mode: emit CustomEvent with staged item; host must aggregate and submit later with pending_children JSON
       function dispatchItem(item) {
@@ -257,12 +295,22 @@ if (!function_exists('render_child_modal')) {
           e.preventDefault(); clearErr();
           var form = BTN_LINK.closest && BTN_LINK.closest('form') ? BTN_LINK.closest('form') : (FORM_LINK || (MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null));
           if (!form) { console.warn('Child modal: link form not found'); return; }
-          var sel = form.querySelector('select[name="youth_id"]');
-          if (!sel || !sel.value) { showErr('Please select a child to link.'); return; }
-          var yid = parseInt(sel.value, 10) || 0;
+          var hid = form.querySelector('input[name="youth_id"]');
+          var inp = document.getElementById(IDP + '_youth_search');
+          var dl = document.getElementById(IDP + '_youth_datalist');
+          if (hid && (!hid.value || hid.value === '') && inp && dl) {
+            var val = inp.value || '';
+            var opts = dl ? dl.querySelectorAll('option') : [];
+            for (var i=0;i<opts.length;i++){
+              if ((opts[i].value || '') === val && opts[i].dataset && opts[i].dataset.id){
+                hid.value = opts[i].dataset.id;
+                break;
+              }
+            }
+          }
+          var yid = hid ? (parseInt(hid.value, 10) || 0) : 0;
           if (!yid) { showErr('Please select a valid child.'); return; }
-          var opt = sel.options[sel.selectedIndex];
-          var label = opt ? opt.textContent : ('Youth #' + yid);
+          var label = inp && inp.value ? inp.value : ('Youth #' + yid);
           var item = { type: 'link', youth_id: yid, label: label };
           dispatchItem(item);
           try {
