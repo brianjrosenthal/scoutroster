@@ -188,7 +188,11 @@ header_html('Youth Roster');
                   $contact = [];
                   if ($showPhone && !empty($rawPhone)) $contact[] = h($rawPhone);
                   if ($showEmail && !empty($rawEmail)) $contact[] = h($rawEmail);
-                  $line = h($pname);
+                  if ($isAdminView && !empty($p['adult_id'])) {
+                    $line = '<a href="/adult_edit.php?id='.(int)$p['adult_id'].'">'.h($pname).'</a>';
+                  } else {
+                    $line = h($pname);
+                  }
                   if (!empty($contact)) {
                     $line .= ' ('.implode(', ', $contact).')';
                   } else {
