@@ -94,7 +94,6 @@ try {
   $comments = [];
 }
 
-<?php
 // Precompute conditional "Create adult account" link (only if status=joined and email present with no existing user)
 $createAdultUrl = '';
 $canCreateAdult = false;
