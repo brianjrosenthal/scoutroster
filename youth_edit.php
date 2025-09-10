@@ -331,7 +331,10 @@ header_html('Edit Youth');
 </div>
 
 <div class="card" style="margin-top:16px;">
-  <h3>Parents / Guardians</h3>
+  <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    Parents / Guardians
+    <button type="button" class="button" data-open-parent-modal="yp">Add Parent</button>
+  </h3>
   <?php
     $parents = YouthManagement::listParents(UserContext::getLoggedInUserContext(), $id);
   ?>
@@ -368,30 +371,9 @@ header_html('Edit Youth');
   <?php endif; ?>
 </div>
 
-<div class="card" style="margin-top:16px;">
-  <h3>Link an Existing Adult as Parent/Guardian</h3>
-  <form method="post" action="/adult_relationships.php" class="stack">
-    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-    <input type="hidden" name="action" value="link">
-    <input type="hidden" name="youth_id" value="<?= (int)$id ?>">
-    <input type="hidden" name="return_to" value="<?=h('/youth_edit.php?id='.(int)$id)?>">
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
-      <label>Adult
-        <select name="adult_id" required>
-          <?php
-          $adults = UserManagement::listAllForSelect();
-          foreach ($adults as $a) {
-            $label = trim(($a['last_name'] ?? '').', '.($a['first_name'] ?? '') . (empty($a['email']) ? '' : ' <'.$a['email'].'>'));
-            echo '<option value="'.(int)$a['id'].'">'.$label.'</option>';
-          }
-          ?>
-        </select>
-      </label>
-    </div>
-    <div class="actions">
-      <button class="primary">Link Adult</button>
-    </div>
-  </form>
-</div>
+<?php
+  require_once __DIR__ . '/partials_parent_modal.php';
+  render_parent_modal(['mode' => 'edit', 'youth_id' => (int)$id, 'id_prefix' => 'yp']);
+?>
 
 <?php footer_html(); ?>

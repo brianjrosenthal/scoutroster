@@ -26,7 +26,7 @@ $youthId = (int)($_POST['youth_id'] ?? 0);
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
 
-if ($adultId <= 0) { 
+if ($adultId <= 0 && $action !== 'create_and_link' && $action !== 'create_adult_and_link') { 
   if ($ajax) { respond_json(false, 'Invalid adult'); }
   http_response_code(400); exit('Invalid parameters'); 
 }
@@ -35,10 +35,12 @@ if ($action !== 'create_and_link' && $youthId <= 0) {
   http_response_code(400); exit('Invalid parameters'); 
 }
 
-// Validate adult and youth exist
+ // Validate adult and youth exist
 try {
-  $a = UserManagement::findById($adultId);
-  if (!$a) { if ($ajax) { respond_json(false, 'Adult not found'); } http_response_code(404); exit('Adult not found'); }
+  if ($action !== 'create_and_link' && $action !== 'create_adult_and_link') {
+    $a = UserManagement::findById($adultId);
+    if (!$a) { if ($ajax) { respond_json(false, 'Adult not found'); } http_response_code(404); exit('Adult not found'); }
+  }
 
   if ($action !== 'create_and_link') {
     $st = pdo()->prepare('SELECT id FROM youth WHERE id=? LIMIT 1');
@@ -134,6 +136,65 @@ try {
       header('Location: '.$back); exit;
     } catch (Throwable $ex) {
       if ($pdoTx->inTransaction()) $pdoTx->rollBack();
+      if ($ajax) { respond_json(false, 'Operation failed'); }
+      http_response_code(500); exit('Operation failed');
+    }
+  } elseif ($action === 'create_adult_and_link') {
+    // Admin-only: create a new adult and link to an existing youth
+    if (!$isAdmin) { if ($ajax) { respond_json(false, 'Admins only'); } http_response_code(403); exit('Admins only'); }
+    if ($youthId <= 0) { if ($ajax) { respond_json(false, 'Invalid youth'); } http_response_code(400); exit('Invalid parameters'); }
+
+    // Validate youth exists
+    $stY = pdo()->prepare('SELECT id FROM youth WHERE id=? LIMIT 1');
+    $stY->execute([$youthId]);
+    if (!$stY->fetch()) { if ($ajax) { respond_json(false, 'Youth not found'); } http_response_code(404); exit('Youth not found'); }
+
+    // Adult fields
+    $first = trim((string)($_POST['first_name'] ?? ''));
+    $last  = trim((string)($_POST['last_name'] ?? ''));
+    $preferred_name = trim((string)($_POST['preferred_name'] ?? ''));
+    $rawEmail = trim((string)($_POST['email'] ?? ''));
+    $email = ($rawEmail === '' ? null : strtolower($rawEmail));
+    $phone_home = trim((string)($_POST['phone_home'] ?? ''));
+    $phone_cell = trim((string)($_POST['phone_cell'] ?? ''));
+
+    $errors = [];
+    if ($first === '') $errors[] = 'First name is required.';
+    if ($last === '')  $errors[] = 'Last name is required.';
+    if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $errors[] = 'Email is invalid.';
+    }
+    if ($email !== null) {
+      $chk = pdo()->prepare('SELECT 1 FROM users WHERE email = ? LIMIT 1');
+      $chk->execute([$email]);
+      if ($chk->fetchColumn()) {
+        $errors[] = 'Email already in use.';
+      }
+    }
+    if (!empty($errors)) {
+      $msg = implode(' ', $errors);
+      if ($ajax) { respond_json(false, $msg); }
+      http_response_code(400); exit($msg);
+    }
+
+    try {
+      $ctx = UserContext::getLoggedInUserContext();
+      $newAdultId = UserManagement::createAdultWithDetails($ctx, [
+        'first_name' => $first,
+        'last_name' => $last,
+        'email' => $email,
+        'is_admin' => 0,
+        'preferred_name' => ($preferred_name === '' ? null : $preferred_name),
+        'phone_home' => ($phone_home === '' ? null : $phone_home),
+        'phone_cell' => ($phone_cell === '' ? null : $phone_cell),
+      ]);
+
+      $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
+      $st->execute([$youthId, (int)$newAdultId]);
+
+      if ($ajax) { respond_json(true, null); }
+      header('Location: '.$back); exit;
+    } catch (Throwable $ex) {
       if ($ajax) { respond_json(false, 'Operation failed'); }
       http_response_code(500); exit('Operation failed');
     }
