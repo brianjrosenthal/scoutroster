@@ -128,16 +128,27 @@
 
         const onInput = () => {
           const q = input.value.trim();
+          // Any typing invalidates any previous selection until a suggestion is chosen again
+          hidden.value = '';
           seq++;
           const mySeq = seq;
           if (q.length < 2) {
             hideResults();
+            hidden.value = '';
             return;
           }
           doSearch(q, mySeq);
         };
 
         input.addEventListener('input', debounce(onInput, 350));
+        // Guard on submit: if text box is empty, ensure hidden user_id is cleared
+        if (form) {
+          form.addEventListener('submit', function() {
+            if (input.value.trim().length === 0) {
+              hidden.value = '';
+            }
+          });
+        }
 
         // Dismiss suggestions on outside click or Escape
         document.addEventListener('click', function(e) {

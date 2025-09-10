@@ -73,8 +73,8 @@ if ($action === 'delete') {
       $up = pdo()->prepare("UPDATE users SET photo_public_file_id = NULL WHERE id=?");
       $up->execute([$adultId]);
     } else {
-      $up = pdo()->prepare("UPDATE youth SET photo_public_file_id = NULL WHERE id=?");
-      $up->execute([$youthId]);
+      // Use YouthManagement domain method (handles permission + logging)
+      YouthManagement::setPhotoPublicFileId(UserContext::getLoggedInUserContext(), $youthId, null);
     }
   } catch (Throwable $e) {
     redirect_back($returnTo, ['err' => 'db_failed']);
@@ -138,8 +138,8 @@ try {
     $st = pdo()->prepare("UPDATE users SET photo_public_file_id = ? WHERE id = ?");
     $st->execute([$publicId, $adultId]);
   } else {
-    $st = pdo()->prepare("UPDATE youth SET photo_public_file_id = ? WHERE id = ?");
-    $st->execute([$publicId, $youthId]);
+    // Use YouthManagement domain method (handles permission + logging)
+    YouthManagement::setPhotoPublicFileId(UserContext::getLoggedInUserContext(), $youthId, (int)$publicId);
   }
 } catch (Throwable $e) {
   redirect_back($returnTo, ['err' => 'db_failed']);
