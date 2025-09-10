@@ -178,12 +178,16 @@ $showEditor = ($editingId > 0) || (($_GET['show'] ?? '') === 'add') || (($_POST[
 
 header_html('Manage Events');
 ?>
-<h2>Manage Events</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <h2>Manage Events</h2>
+  <?php if (!$showEditor): ?>
+    <div class="actions">
+      <a class="button primary" href="/admin_events.php?show=add">Add Event</a>
+    </div>
+  <?php endif; ?>
+</div>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
-<?php if (!$showEditor): ?>
-  <p><a class="button primary" href="/admin_events.php?show=add">Add Event</a></p>
-<?php endif; ?>
 
 <?php if ($showEditor): ?>
 <div class="card">
