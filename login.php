@@ -66,6 +66,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       header('Location: ' . ($nextPost ?: '/index.php')); exit;
     }
   } else {
+    // Log to the ActivityLog that someone tried unsuccessfully to log in with the email
+    ActivityLog::log(null, 'user.invalid_login', 
+      ['email' => $email, 'ip' => $_SERVER['REMOTE_ADDR'] ?? '']);
     $error = 'Invalid email or password.';
   }
 }
