@@ -70,6 +70,7 @@ function header_html(string $title) {
     echo $link('/admin_adults.php','Manage Adults');
     echo $link('/admin_imports.php','Import Data');
     echo $link('/admin_mailing_list.php','Mailing List');
+    echo $link('/admin_activity_log.php','Activity Log');
     // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
     $showPaymentNotifs = false;
     try {
