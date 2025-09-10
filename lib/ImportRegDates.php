@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/UserContext.php';
+require_once __DIR__ . '/YouthManagement.php';
 
 class ImportRegDates {
   // Destinations used in mapping UI
@@ -147,9 +149,8 @@ class ImportRegDates {
       $bsa = (string)($n['bsa'] ?? '');
       $expires = (string)($n['expires'] ?? '');
       try {
-        $st = self::pdo()->prepare('UPDATE youth SET bsa_registration_expires_date = ? WHERE bsa_registration_number = ?');
-        $st->execute([$expires, $bsa]);
-        $count = (int)$st->rowCount();
+        $ctx = \UserContext::getLoggedInUserContext();
+        $count = \YouthManagement::updateRegistrationExpiryByBsa($ctx, $bsa, $expires);
         if ($count > 0) {
           $updated += $count;
           $logger("Row #$rowNo: Updated BSA $bsa expires to $expires.");

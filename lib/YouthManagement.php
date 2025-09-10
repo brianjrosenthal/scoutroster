@@ -6,6 +6,7 @@ require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/GradeCalculator.php';
 require_once __DIR__ . '/Search.php';
 require_once __DIR__ . '/UserManagement.php';
+require_once __DIR__ . '/ActivityLog.php';
 
 class YouthManagement {
   private static function pdo(): PDO {
@@ -27,6 +28,20 @@ class YouthManagement {
 
   private static function boolInt($v): int {
     return !empty($v) ? 1 : 0;
+  }
+
+  // Activity logging helper – do not perform extra queries, just log what's provided.
+  private static function log(string $action, ?int $youthId, array $details = []): void {
+    try {
+      $ctx = \UserContext::getLoggedInUserContext();
+      $meta = $details;
+      if ($youthId !== null && !array_key_exists('youth_id', $meta)) {
+        $meta['youth_id'] = (int)$youthId;
+      }
+      \ActivityLog::log($ctx, (string)$action, (array)$meta);
+    } catch (\Throwable $e) {
+      // best effort only
+    }
   }
 
   private static function sanitizeGender(?string $gender): ?string {
@@ -101,6 +116,27 @@ class YouthManagement {
   }
 
   // =========================
+  // Lightweight helpers
+  // =========================
+  public static function existsById(int $youthId): bool {
+    $st = self::pdo()->prepare('SELECT 1 FROM youth WHERE id=? LIMIT 1');
+    $st->execute([$youthId]);
+    return (bool)$st->fetchColumn();
+  }
+
+  public static function findBasicById(int $youthId): ?array {
+    $st = self::pdo()->prepare('SELECT id, first_name, last_name FROM youth WHERE id=? LIMIT 1');
+    $st->execute([$youthId]);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  public static function listAllBasic(): array {
+    $st = self::pdo()->query('SELECT id, first_name, last_name FROM youth ORDER BY last_name, first_name');
+    return $st->fetchAll() ?: [];
+  }
+
+  // =========================
   // Reads / Queries
   // =========================
 
@@ -161,6 +197,78 @@ class YouthManagement {
   // Writes
   // =========================
 
+  /**
+   * Set or clear a youth's profile photo file id.
+   * Requires that the actor is admin or a linked parent.
+   */
+  public static function setPhotoPublicFileId(UserContext $ctx, int $youthId, ?int $publicFileId): bool {
+    // Permission
+    if (!self::canUploadYouthPhoto($ctx, $youthId)) {
+      throw new RuntimeException('Forbidden');
+    }
+    $st = self::pdo()->prepare('UPDATE youth SET photo_public_file_id = ? WHERE id = ?');
+    $ok = $st->execute([$publicFileId, $youthId]);
+    if ($ok) {
+      if ($publicFileId === null) {
+        self::log('youth.upload_profile_photo', $youthId, ['deleted' => true]);
+      } else {
+        self::log('youth.upload_profile_photo', $youthId, ['public_file_id' => (int)$publicFileId]);
+      }
+    }
+    return $ok;
+  }
+
+  /**
+   * Parent self-service: create a youth record and link to the parent.
+   * - Uses 'grade_label' or 'grade' in $data to compute class_of.
+   * - Sibling flag is set to 1 for this flow.
+   */
+  public static function createByParent(UserContext $ctx, array $data): int {
+    self::assertLogin($ctx);
+
+    $first = self::str((string)($data['first_name'] ?? ''));
+    $last  = self::str((string)($data['last_name'] ?? ''));
+    if ($first === '' || $last === '') {
+      throw new InvalidArgumentException('First and last name are required.');
+    }
+
+    // Accept either grade or grade_label
+    $grade = self::parseGradeFromData($data);
+    $class_of = self::computeClassOfFromGrade($grade);
+
+    $suffix = self::nn($data['suffix'] ?? null);
+    $preferred_name = self::nn($data['preferred_name'] ?? null);
+    $gender = self::sanitizeGender(self::nn($data['gender'] ?? null));
+    $birthdate = self::validateDateYmd($data['birthdate'] ?? null);
+    $school = self::nn($data['school'] ?? null);
+    $shirt_size = self::nn($data['shirt_size'] ?? null);
+
+    $street1 = self::nn($data['street1'] ?? null);
+    $street2 = self::nn($data['street2'] ?? null);
+    $city    = self::nn($data['city'] ?? null);
+    $state   = self::nn($data['state'] ?? null);
+    $zip     = self::nn($data['zip'] ?? null);
+
+    $st = self::pdo()->prepare("INSERT INTO youth
+      (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,
+       street1,street2,city,state,zip,class_of,sibling)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,1)");
+    $ok = $st->execute([
+      $first, $last, $suffix, $preferred_name, $gender, $birthdate, $school, $shirt_size,
+      $street1, $street2, $city, $state, $zip, $class_of
+    ]);
+    if (!$ok) throw new RuntimeException('Failed to create youth.');
+
+    $newId = (int)self::pdo()->lastInsertId();
+
+    // Link parent
+    self::pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)')
+      ->execute([$newId, (int)$ctx->id]);
+
+    self::log('youth.add', $newId, []);
+    return $newId;
+  }
+
   public static function create(UserContext $ctx, array $data): int {
     self::assertAdmin($ctx);
 
@@ -205,6 +313,9 @@ class YouthManagement {
     if (!$ok) throw new RuntimeException('Failed to create youth.');
     $newId = (int)self::pdo()->lastInsertId();
 
+    // Log youth creation (admin-created)
+    self::log('youth.add', $newId, []);
+
     // Optional post-insert updates for admin-only fields
     try {
       // Registration expires (admin may set on create)
@@ -212,12 +323,16 @@ class YouthManagement {
       if ($regExpires !== null) {
         $up = self::pdo()->prepare('UPDATE youth SET bsa_registration_expires_date = ? WHERE id = ?');
         $up->execute([$regExpires, $newId]);
+        // Log registration expiry update
+        self::log('youth.update_registration_expiry', $newId, ['expires' => $regExpires]);
       }
       // Paid until (only for Cubmaster/Committee Chair/Treasurer)
       $paidUntil = self::validateDateYmd($data['date_paid_until'] ?? null);
       if ($paidUntil !== null && \UserManagement::isApprover((int)$ctx->id)) {
         $up2 = self::pdo()->prepare('UPDATE youth SET date_paid_until = ? WHERE id = ?');
         $up2->execute([$paidUntil, $newId]);
+        // Log mark paid
+        self::log('youth.mark_paid', $newId, ['paid_until' => $paidUntil]);
       }
     } catch (Throwable $e) {
       // Swallow optional update errors; base create succeeded
@@ -305,13 +420,50 @@ class YouthManagement {
 
     $sql = "UPDATE youth SET " . implode(', ', $set) . " WHERE id = ?";
     $st = self::pdo()->prepare($sql);
-    return $st->execute($params);
+    $ok = $st->execute($params);
+    if ($ok) {
+      // Extract field names from "$key = ?" tokens
+      $fieldNames = [];
+      foreach ($set as $s) {
+        $pos = strpos($s, ' = ');
+        $fieldNames[] = ($pos !== false) ? substr($s, 0, $pos) : $s;
+      }
+      self::log('youth.edit', $id, ['fields' => $fieldNames]);
+      if (in_array('date_paid_until', $fieldNames, true)) {
+        self::log('youth.mark_paid', $id, ['paid_until' => $data['date_paid_until'] ?? null]);
+      }
+    }
+    return $ok;
   }
 
   public static function delete(UserContext $ctx, int $id): int {
     self::assertAdmin($ctx);
     $st = self::pdo()->prepare('DELETE FROM youth WHERE id=?');
     $st->execute([$id]);
-    return (int)$st->rowCount();
+    $count = (int)$st->rowCount();
+    if ($count > 0) {
+      self::log('youth.delete', $id, []);
+    }
+    return $count;
+  }
+
+  /**
+   * Update registration expiry by BSA number (used by imports).
+   * Admin-only. Returns number of rows updated.
+   */
+  public static function updateRegistrationExpiryByBsa(UserContext $ctx, string $bsa, string $expiresYmd): int {
+    self::assertAdmin($ctx);
+    if ($bsa === '') throw new InvalidArgumentException('BSA number is required.');
+    $expires = self::validateDateYmd($expiresYmd);
+    $st = self::pdo()->prepare('UPDATE youth SET bsa_registration_expires_date = ? WHERE bsa_registration_number = ?');
+    $st->execute([$expires, $bsa]);
+    $count = (int)$st->rowCount();
+    if ($count > 0) {
+      self::log('youth.update_registration_expiry', null, [
+        'bsa_registration_number' => $bsa,
+        'expires' => $expires,
+      ]);
+    }
+    return $count;
   }
 }

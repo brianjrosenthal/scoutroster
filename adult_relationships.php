@@ -44,9 +44,10 @@ try {
   }
 
   if ($action !== 'create_and_link') {
-    $st = pdo()->prepare('SELECT id FROM youth WHERE id=? LIMIT 1');
-    $st->execute([$youthId]);
-    if (!$st->fetch()) { if ($ajax) { respond_json(false, 'Youth not found'); } http_response_code(404); exit('Youth not found'); }
+    if (!YouthManagement::existsById($youthId)) {
+      if ($ajax) { respond_json(false, 'Youth not found'); }
+      http_response_code(404); exit('Youth not found');
+    }
   }
 } catch (Throwable $e) {
   if ($ajax) { respond_json(false, 'Lookup failed'); }
@@ -162,9 +163,10 @@ try {
     if ($youthId <= 0) { if ($ajax) { respond_json(false, 'Invalid youth'); } http_response_code(400); exit('Invalid parameters'); }
 
     // Validate youth exists
-    $stY = pdo()->prepare('SELECT id FROM youth WHERE id=? LIMIT 1');
-    $stY->execute([$youthId]);
-    if (!$stY->fetch()) { if ($ajax) { respond_json(false, 'Youth not found'); } http_response_code(404); exit('Youth not found'); }
+    if (!YouthManagement::existsById($youthId)) {
+      if ($ajax) { respond_json(false, 'Youth not found'); }
+      http_response_code(404); exit('Youth not found');
+    }
 
     // Adult fields
     $first = trim((string)($_POST['first_name'] ?? ''));

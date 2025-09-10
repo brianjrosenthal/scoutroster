@@ -43,9 +43,7 @@ try {
           // Load parent and youth names
           $me = current_user();
           // Ensure youth is real and parent-linked (PaymentNotifications::create already verified)
-          $stY = pdo()->prepare('SELECT first_name, last_name FROM youth WHERE id=?');
-          $stY->execute([$youthId]);
-          $y = $stY->fetch();
+          $y = YouthManagement::findBasicById((int)$youthId);
           $childName = trim((string)($y['first_name'] ?? '') . ' ' . (string)($y['last_name'] ?? ''));
 
           $personName = trim((string)($me['first_name'] ?? '') . ' ' . (string)($me['last_name'] ?? ''));

@@ -17,7 +17,8 @@ if (!function_exists('render_child_modal')) {
 
     // Load minimal youth list for "Link Existing"
     try {
-      $allY = pdo()->query("SELECT id, first_name, last_name FROM youth ORDER BY last_name, first_name")->fetchAll();
+      require_once __DIR__ . '/lib/YouthManagement.php';
+      $allY = YouthManagement::listAllBasic();
     } catch (Throwable $e) {
       $allY = [];
     }

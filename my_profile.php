@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/Files.php';
+require_once __DIR__.'/lib/YouthManagement.php';
 require_login();
 
 $me = current_user();
@@ -131,23 +132,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($errors)) {
       try {
-        $currentFifthClassOf = \GradeCalculator::schoolYearEndYear();
-        $class_of = $currentFifthClassOf + (5 - (int)$g);
-
-        $st = pdo()->prepare("INSERT INTO youth
-          (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,
-           street1,street2,city,state,zip,class_of,sibling)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
-        $st->execute([
-          $first, $last, $suffix, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
-          ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $class_of, 1
-        ]);
-        $yid = (int)pdo()->lastInsertId();
-
-        // Link parent relationship
-        pdo()->prepare("INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)")
-            ->execute([$yid, (int)$me['id']]);
-
+        $ctx = UserContext::getLoggedInUserContext();
+        $data = [
+          'first_name' => $first,
+          'last_name' => $last,
+          'suffix' => $suffix,
+          'preferred_name' => $preferred,
+          'grade_label' => $gradeLabel,
+          'gender' => ($gender !== '' ? $gender : null),
+          'birthdate' => $birthdate,
+          'school' => $school,
+          'shirt_size' => $shirt,
+          'street1' => ($street1 !== '' ? $street1 : null),
+          'street2' => $street2,
+          'city'    => ($city !== '' ? $city : null),
+          'state'   => ($state !== '' ? $state : null),
+          'zip'     => ($zip !== '' ? $zip : null),
+        ];
+        YouthManagement::createByParent($ctx, $data);
         $msg = 'Child added.';
       } catch (Throwable $e) {
         $err = 'Failed to add child.';
@@ -159,52 +161,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Update minimal child fields allowed for non-admin (no scouting fields)
     $yid = (int)($_POST['youth_id'] ?? 0);
     if ($yid > 0) {
-      // Ensure this youth belongs to current user
-      $st = pdo()->prepare("SELECT y.* FROM youth y JOIN parent_relationships pr ON pr.youth_id=y.id WHERE y.id=? AND pr.adult_id=? LIMIT 1");
-      $st->execute([$yid, (int)$me['id']]);
-      $y = $st->fetch();
-      if ($y) {
-        $first = trim($_POST['first_name'] ?? '');
-        $last  = trim($_POST['last_name'] ?? '');
-        $suffix = nn($_POST['suffix'] ?? '');
-        $preferred = nn($_POST['preferred_name'] ?? '');
-        $gender = $_POST['gender'] ?? null;
-        $birthdate = nn($_POST['birthdate'] ?? '');
-        $school = nn($_POST['school'] ?? '');
-        $shirt = nn($_POST['shirt_size'] ?? '');
-        $street1 = trim($_POST['street1'] ?? '');
-        $street2 = nn($_POST['street2'] ?? '');
-        $city    = trim($_POST['city'] ?? '');
-        $state   = trim($_POST['state'] ?? '');
-        $zip     = trim($_POST['zip'] ?? '');
+      $first = trim($_POST['first_name'] ?? '');
+      $last  = trim($_POST['last_name'] ?? '');
+      $suffix = nn($_POST['suffix'] ?? '');
+      $preferred = nn($_POST['preferred_name'] ?? '');
+      $gender = $_POST['gender'] ?? null;
+      $birthdate = nn($_POST['birthdate'] ?? '');
+      $school = nn($_POST['school'] ?? '');
+      $shirt = nn($_POST['shirt_size'] ?? '');
+      $street1 = trim($_POST['street1'] ?? '');
+      $street2 = nn($_POST['street2'] ?? '');
+      $city    = trim($_POST['city'] ?? '');
+      $state   = trim($_POST['state'] ?? '');
+      $zip     = trim($_POST['zip'] ?? '');
 
-        $errors = [];
-        if ($first === '' || $last === '') $errors[] = 'Child first and last name are required.';
-        $allowedGender = ['male','female','non-binary','prefer not to say'];
-        if ($gender !== null && $gender !== '' && !in_array($gender, $allowedGender, true)) $gender = null;
-        if ($birthdate !== null) {
-          $d = DateTime::createFromFormat('Y-m-d', $birthdate);
-          if (!$d || $d->format('Y-m-d') !== $birthdate) $errors[] = 'Child birthdate must be YYYY-MM-DD.';
-        }
+      $errors = [];
+      if ($first === '' || $last === '') $errors[] = 'Child first and last name are required.';
+      $allowedGender = ['male','female','non-binary','prefer not to say'];
+      if ($gender !== null && $gender !== '' && !in_array($gender, $allowedGender, true)) $gender = null;
+      if ($birthdate !== null) {
+        $d = DateTime::createFromFormat('Y-m-d', $birthdate);
+        if (!$d || $d->format('Y-m-d') !== $birthdate) $errors[] = 'Child birthdate must be YYYY-MM-DD.';
+      }
 
-        if (empty($errors)) {
-          try {
-            $st = pdo()->prepare("UPDATE youth SET
-              first_name=?, last_name=?, suffix=?, preferred_name=?, gender=?, birthdate=?, school=?, shirt_size=?,
-              street1=?, street2=?, city=?, state=?, zip=? WHERE id=?");
-            $ok = $st->execute([
-              $first, $last, $suffix, $preferred, ($gender !== '' ? $gender : null), $birthdate, $school, $shirt,
-              ($street1 !== '' ? $street1 : null), $street2, ($city !== '' ? $city : null), ($state !== '' ? $state : null), ($zip !== '' ? $zip : null), $yid
-            ]);
-            if ($ok) $msg = 'Child updated.'; else $err = 'Failed to update child.';
-          } catch (Throwable $e) {
-            $err = 'Error updating child.';
-          }
-        } else {
-          $err = implode(' ', $errors);
+      if (empty($errors)) {
+        try {
+          $ctx = UserContext::getLoggedInUserContext();
+          $ok = YouthManagement::update($ctx, $yid, [
+            'first_name' => $first,
+            'last_name'  => $last,
+            'suffix' => $suffix,
+            'preferred_name' => $preferred,
+            'gender' => ($gender !== '' ? $gender : null),
+            'birthdate' => $birthdate,
+            'school' => $school,
+            'shirt_size' => $shirt,
+            'street1' => ($street1 !== '' ? $street1 : null),
+            'street2' => $street2,
+            'city'    => ($city !== '' ? $city : null),
+            'state'   => ($state !== '' ? $state : null),
+            'zip'     => ($zip !== '' ? $zip : null),
+          ]);
+          if ($ok) $msg = 'Child updated.'; else $err = 'Failed to update child.';
+        } catch (Throwable $e) {
+          $err = 'Error updating child.';
         }
       } else {
-        $err = 'Not authorized for this child.';
+        $err = implode(' ', $errors);
       }
     }
   } elseif ($action === 'add_parent') {
@@ -214,12 +217,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $first = trim($_POST['first_name'] ?? '');
     $last  = trim($_POST['last_name'] ?? '');
 
-    // Ensure this youth belongs to current user
-    $st = pdo()->prepare("SELECT y.id FROM youth y JOIN parent_relationships pr ON pr.youth_id=y.id WHERE y.id=? AND pr.adult_id=? LIMIT 1");
-    $st->execute([$yid, (int)$me['id']]);
-    $y = $st->fetch();
-    if (!$y) { $err = 'Not authorized for this child.'; }
-    else {
+    // Ensure this youth belongs to current user (via class method)
+    try {
+      $ctx = UserContext::getLoggedInUserContext();
+      $y = YouthManagement::getForEdit($ctx, $yid);
+      if (!$y) { $err = 'Not authorized for this child.'; }
+      else {
       if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $err = 'Valid email is required for the other parent.';
       } else {
@@ -263,6 +266,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $err = 'Failed to link parent.';
         }
       }
+    } catch (Throwable $e) {
+      $err = 'Not authorized for this child.';
     }
   }
 }
@@ -271,15 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $me = UserManagement::findFullById((int)$me['id']);
 
 // Load my children
-$st = pdo()->prepare("
-  SELECT y.*
-  FROM parent_relationships pr
-  JOIN youth y ON y.id = pr.youth_id
-  WHERE pr.adult_id = ?
-  ORDER BY y.last_name, y.first_name
-");
-$st->execute([(int)$me['id']]);
-$children = $st->fetchAll();
+$children = UserManagement::listChildrenForAdult((int)$me['id']);
 
 $addChildSelectedGradeLabel = \GradeCalculator::gradeLabel(0); // Default to Kindergarten
 $showAddChild = ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add_child' && !empty($err));
@@ -484,9 +481,7 @@ header_html('My Profile');
         <div class="card" style="margin-top:8px;">
           <h4>Current Parents</h4>
           <?php
-            $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email FROM parent_relationships pr JOIN users u ON u.id=pr.adult_id WHERE pr.youth_id=? ORDER BY u.last_name,u.first_name");
-            $pps->execute([(int)$c['id']]);
-            $parents = $pps->fetchAll();
+            $parents = YouthManagement::listParents(UserContext::getLoggedInUserContext(), (int)$c['id']);
           ?>
           <?php if (empty($parents)): ?>
             <p class="small">No parents linked to this child.</p>

@@ -138,8 +138,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($it['type'] === 'link' && !empty($it['youth_id'])) {
               $yid = (int)$it['youth_id'];
               if ($yid > 0) {
-                $chkYouth->execute([$yid]);
-                if ($chkYouth->fetchColumn()) {
+                if (YouthManagement::existsById($yid)) {
                   $link->execute([$yid, (int)$id]);
                 }
               }
