@@ -479,7 +479,8 @@ header_html('Edit Adult');
             <?php $gi = GradeCalculator::gradeForClassOf((int)$c['class_of']); $gl = GradeCalculator::gradeLabel((int)$gi); ?>
             <td><?= h($gl) ?></td>
             <td class="small">
-              <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Unlink this child from this adult?');">
+              <a class="button" href="/youth_edit.php?id=<?= (int)$c['id'] ?>">Edit</a>
+              <form method="post" action="/adult_relationships.php" style="display:inline;margin-left:8px" onsubmit="return confirm('Unlink this child from this adult?');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
                 <input type="hidden" name="action" value="unlink">
                 <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
