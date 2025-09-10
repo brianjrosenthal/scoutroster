@@ -403,3 +403,21 @@ ALTER TABLE reimbursement_request_files
     FOREIGN KEY (secure_file_id) REFERENCES secure_files(id) ON DELETE SET NULL;
 
 CREATE INDEX idx_rrf_secure_file ON reimbursement_request_files(secure_file_id);
+
+-- ===== Payment notifications submitted by users =====
+CREATE TABLE payment_notifications_from_users (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  youth_id INT NOT NULL,
+  created_by INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  payment_method ENUM('Paypal','Zelle','Venmo','Check','Other') NOT NULL,
+  comment TEXT DEFAULT NULL,
+  status ENUM('new','verified','deleted') NOT NULL DEFAULT 'new',
+  CONSTRAINT fk_pnfu_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
+  CONSTRAINT fk_pnfu_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_pnfu_created_at ON payment_notifications_from_users(created_at);
+CREATE INDEX idx_pnfu_status ON payment_notifications_from_users(status);
+CREATE INDEX idx_pnfu_youth ON payment_notifications_from_users(youth_id);
+CREATE INDEX idx_pnfu_created_by ON payment_notifications_from_users(created_by);
