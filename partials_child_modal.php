@@ -46,7 +46,7 @@ if (!function_exists('render_child_modal')) {
         <div id="<?= h($errBoxId) ?>" class="error small" style="display:none;"></div>
 
         <div id="<?= h($panelNewId) ?>" class="stack">
-          <form id="<?= h($formNewId) ?>" class="stack" <?= $mode === 'edit' ? 'action="/adult_relationships.php" method="post"' : '' ?>>
+          <form id="<?= h($formNewId) ?>" class="stack" <?= $mode === 'edit' ? 'action="/adult_relationships.php" method="post"' : 'onsubmit="return false;"' ?>>
             <?php if ($mode === 'edit'): ?>
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="ajax" value="1">
@@ -79,13 +79,13 @@ if (!function_exists('render_child_modal')) {
               <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
             </div>
             <div class="actions">
-              <button class="button primary" type="submit"><?= $mode === 'edit' ? 'Add Child' : 'Stage Child' ?></button>
+              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formNewId) ?>_submit"><?= $mode === 'edit' ? 'Add Child' : 'Stage Child' ?></button>
             </div>
           </form>
         </div>
 
         <div id="<?= h($panelLinkId) ?>" class="stack" style="display:none;">
-          <form id="<?= h($formLinkId) ?>" class="stack" <?= $mode === 'edit' ? 'action="/adult_relationships.php" method="post"' : '' ?>>
+          <form id="<?= h($formLinkId) ?>" class="stack" <?= $mode === 'edit' ? 'action="/adult_relationships.php" method="post"' : 'onsubmit="return false;"' ?>>
             <?php if ($mode === 'edit'): ?>
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="ajax" value="1">
@@ -102,7 +102,7 @@ if (!function_exists('render_child_modal')) {
               </label>
             </div>
             <div class="actions">
-              <button class="button primary" type="submit"><?= $mode === 'edit' ? 'Link Child' : 'Stage Link' ?></button>
+              <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" id="<?= h($formLinkId) ?>_submit"><?= $mode === 'edit' ? 'Link Child' : 'Stage Link' ?></button>
             </div>
           </form>
         </div>
@@ -176,8 +176,9 @@ if (!function_exists('render_child_modal')) {
           window.dispatchEvent(ev);
         } catch (e) {}
       }
-      if (FORM_NEW){
-        FORM_NEW.addEventListener('submit', function(e){
+      var BTN_NEW = document.getElementById(IDP + '_formNew_submit');
+      if (BTN_NEW){
+        BTN_NEW.addEventListener('click', function(e){
           e.preventDefault(); clearErr();
           var first = (FORM_NEW.querySelector('input[name="first_name"]') || {}).value || '';
           var last  = (FORM_NEW.querySelector('input[name="last_name"]') || {}).value || '';
@@ -205,8 +206,9 @@ if (!function_exists('render_child_modal')) {
           hideModal();
         });
       }
-      if (FORM_LINK){
-        FORM_LINK.addEventListener('submit', function(e){
+      var BTN_LINK = document.getElementById(IDP + '_formLink_submit');
+      if (BTN_LINK){
+        BTN_LINK.addEventListener('click', function(e){
           e.preventDefault(); clearErr();
           var sel = FORM_LINK.querySelector('select[name="youth_id"]');
           if (!sel || !sel.value) { showErr('Please select a child to link.'); return; }
