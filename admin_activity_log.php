@@ -120,7 +120,7 @@ header_html('Activity Log');
       </select>
     </label>
     <label>Page size
-      <select name="limit">
+      <select name="limit"  style="width: auto;">
         <?php foreach ($limitOptions as $opt): $sel = ($qLimit === $opt) ? ' selected' : ''; ?>
           <option value="<?= (int)$opt ?>"<?= $sel ?>><?= (int)$opt ?></option>
         <?php endforeach; ?>
