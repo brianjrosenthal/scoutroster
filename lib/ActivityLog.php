@@ -118,4 +118,58 @@ final class ActivityLog {
 
     return $rows;
   }
+
+  /**
+   * Count total activities matching filters (for pagination).
+   * Filters: user_id, action_type, since, until
+   */
+  public static function count(array $filters = []): int {
+    $where = [];
+    $params = [];
+
+    if (isset($filters['user_id']) && $filters['user_id'] !== null && $filters['user_id'] !== '') {
+      $where[] = 'user_id = :user_id';
+      $params[':user_id'] = (int)$filters['user_id'];
+    }
+    if (isset($filters['action_type']) && trim((string)$filters['action_type']) !== '') {
+      $where[] = 'action_type = :action_type';
+      $params[':action_type'] = trim((string)$filters['action_type']);
+    }
+    if (isset($filters['since']) && trim((string)$filters['since']) !== '') {
+      $where[] = 'created_at >= :since';
+      $params[':since'] = trim((string)$filters['since']);
+    }
+    if (isset($filters['until']) && trim((string)$filters['until']) !== '') {
+      $where[] = 'created_at <= :until';
+      $params[':until'] = trim((string)$filters['until']);
+    }
+
+    $sql = 'SELECT COUNT(*) AS c FROM activity_log';
+    if (!empty($where)) {
+      $sql .= ' WHERE ' . implode(' AND ', $where);
+    }
+
+    $st = self::pdo()->prepare($sql);
+    foreach ($params as $k => $v) {
+      $st->bindValue($k, $v, is_int($v) ? \PDO::PARAM_INT : \PDO::PARAM_STR);
+    }
+    $st->execute();
+    $row = $st->fetch();
+    return (int)($row['c'] ?? 0);
+  }
+
+  /**
+   * List distinct action types for UI filters.
+   * Returns array of strings sorted ascending.
+   */
+  public static function distinctActionTypes(): array {
+    $st = self::pdo()->query('SELECT DISTINCT action_type FROM activity_log ORDER BY action_type ASC');
+    $rows = $st->fetchAll() ?: [];
+    $out = [];
+    foreach ($rows as $r) {
+      $v = trim((string)($r['action_type'] ?? ''));
+      if ($v !== '') $out[] = $v;
+    }
+    return $out;
+  }
 }
