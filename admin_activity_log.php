@@ -107,13 +107,12 @@ header_html('Activity Log');
 <div class="card">
   <form method="get" class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;align-items:end;">
     <label>User
-      <input type="text" id="userTypeahead" name="user_label" value="<?= h($prefillLabel) ?>" placeholder="Search name or email">
+      <input type="text" style="width: auto;" id="userTypeahead" name="user_label" value="<?= h($prefillLabel) ?>" placeholder="Search name or email">
       <input type="hidden" id="userId" name="user_id" value="<?= $qUserId > 0 ? (int)$qUserId : '' ?>">
-      <button type="button" class="button" id="clearUserBtn" style="margin-top:4px;">Clear</button>
       <div id="userTypeaheadResults" class="typeahead-results"></div>
     </label>
     <label>Action Type
-      <select name="action_type">
+      <select name="action_type"  style="width: auto;">
         <option value="">Any Type</option>
         <?php foreach ($actionTypes as $t): $sel = ($qActionType === $t) ? ' selected' : ''; ?>
           <option value="<?= h($t) ?>"<?= $sel ?>><?= h($t) ?></option>
