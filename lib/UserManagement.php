@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
+require_once __DIR__ . '/GradeCalculator.php';
 
 class UserManagement {
   private static function pdo(): PDO {
@@ -618,12 +619,12 @@ class UserManagement {
     if (!$ctx) { throw new RuntimeException('Login required'); }
     if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
 
-    $st = self::pdo()->prepare('SELECT id, position, created_at FROM adult_leadership_positions WHERE adult_id=? ORDER BY position');
+    $st = self::pdo()->prepare('SELECT id, position, class_of, created_at FROM adult_leadership_positions WHERE adult_id=? ORDER BY position');
     $st->execute([$adultId]);
     return $st->fetchAll();
   }
 
-  public static function addLeadershipPosition(?UserContext $ctx, int $adultId, string $position): void {
+  public static function addLeadershipPosition(?UserContext $ctx, int $adultId, string $position, ?int $grade = null): void {
     // Admins or self can add
     if (!$ctx) { throw new RuntimeException('Login required'); }
     if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
@@ -632,18 +633,34 @@ class UserManagement {
     if ($pos === '') { throw new InvalidArgumentException('Position is required.'); }
     if (mb_strlen($pos) > 255) { throw new InvalidArgumentException('Position must be 255 characters or fewer.'); }
 
-    // Check duplicate (case-insensitive match is typical with default collation)
-    $dup = self::pdo()->prepare('SELECT 1 FROM adult_leadership_positions WHERE adult_id=? AND position = ? LIMIT 1');
-    $dup->execute([$adultId, $pos]);
+    // Compute class_of for den leadership roles when grade provided, otherwise NULL
+    $classOf = null;
+    if ($pos === 'Den Leader' || $pos === 'Assistant Den Leader') {
+      if ($grade !== null) {
+        if ($grade < 0 || $grade > 5) {
+          throw new InvalidArgumentException('Grade must be between K and 5 for ' . $pos . '.');
+        }
+        $classOf = \GradeCalculator::schoolYearEndYear() + (5 - (int)$grade);
+      }
+    }
+
+    // Check duplicate considering class_of NULL-safe
+    $dup = self::pdo()->prepare(
+      'SELECT 1 FROM adult_leadership_positions
+       WHERE adult_id = ?
+         AND position = ?
+         AND ((class_of IS NULL AND ? IS NULL) OR class_of = ?)
+       LIMIT 1'
+    );
+    $dup->execute([$adultId, $pos, $classOf, $classOf]);
     if ($dup->fetchColumn()) {
       throw new InvalidArgumentException('Position already exists for this adult.');
     }
 
     // Insert
-    $ins = self::pdo()->prepare('INSERT INTO adult_leadership_positions (adult_id, position, den_id, created_at) VALUES (?, ?, NULL, NOW())');
-    $ok = $ins->execute([$adultId, $pos]);
+    $ins = self::pdo()->prepare('INSERT INTO adult_leadership_positions (adult_id, position, class_of, created_at) VALUES (?, ?, ?, NOW())');
+    $ok = $ins->execute([$adultId, $pos, $classOf]);
     if (!$ok) {
-      // If a unique index enforces this, surface a friendly message
       throw new RuntimeException('Unable to add position.');
     }
   }
