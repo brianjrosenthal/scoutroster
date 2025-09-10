@@ -482,7 +482,7 @@ header_html('My Profile');
         </form>
 
         <div class="card" style="margin-top:8px;">
-          <h4>Current Parents/Guardians</h4>
+          <h4>Current Parents</h4>
           <?php
             $pps = pdo()->prepare("SELECT u.id,u.first_name,u.last_name,u.email FROM parent_relationships pr JOIN users u ON u.id=pr.adult_id WHERE pr.youth_id=? ORDER BY u.last_name,u.first_name");
             $pps->execute([(int)$c['id']]);

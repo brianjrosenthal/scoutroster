@@ -359,7 +359,7 @@ header_html('Edit Youth');
 
 <div class="card" style="margin-top:16px;">
   <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-    Parents / Guardians
+    Parents
     <button type="button" class="button" data-open-parent-modal="yp">Add Parent</button>
   </h3>
   <?php
