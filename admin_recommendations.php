@@ -25,7 +25,7 @@ $sql = "
 if ($q !== '') {
   $tokens = Search::tokenize($q);
   $sql .= Search::buildAndLikeClause(
-    ['r.parent_name','r.child_name','r.email','r.phone','r.notes','u.first_name','u.last_name'],
+    ['r.parent_name','r.child_name','r.email','r.phone'],
     $tokens,
     $params
   );
@@ -53,7 +53,7 @@ header_html('Recommendations');
   <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Search
-        <input type="text" name="q" value="<?= h($q) ?>" placeholder="Parent, child, email, phone, notes, submitter">
+        <input type="text" name="q" value="<?= h($q) ?>" placeholder="Parent, child, email, phone">
       </label>
       <label>Reached out
         <select name="r">
