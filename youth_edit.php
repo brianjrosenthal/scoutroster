@@ -203,7 +203,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 header_html('Edit Youth');
 ?>
-<h2>Edit Youth</h2>
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+  <h2>Edit Youth: <?= h($y['first_name'] ?? '') ?> <?= h($y['last_name'] ?? '') ?></h2>
+  <?php if ($canEditPaidUntil): ?>
+    <div class="actions">
+      <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+    </div>
+  <?php endif; ?>
+</div>
 <?php
   if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
@@ -214,11 +221,6 @@ header_html('Edit Youth');
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
-<?php if ($canEditPaidUntil): ?>
-<div class="actions" style="margin:8px 0;">
-  <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
-</div>
-<?php endif; ?>
 
 <div class="card">
   <h3>Profile Photo</h3>
