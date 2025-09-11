@@ -419,7 +419,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
           <?php endif; ?>
           <?php
             $amIn = false;
