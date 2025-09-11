@@ -115,17 +115,23 @@ header_html('Upcoming Events');
               }
             }
         ?>
-          <p class="small">
-            You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
-            <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
-            <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
-            <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
-            <?= $byText ?>
-          </p>
-          <p><a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">Edit</a></p>
-        <?php else: ?>
-          <p><a class="button primary" href="/event.php?id=<?= (int)$e['id'] ?>">RSVP</a></p>
-        <?php endif; ?>
+            <p>
+              You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
+              <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
+              <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
+              <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
+              <?= $byText ?>
+            </p>
+            <p>
+              <a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View</a>
+              <a class="button" href="/event.php?id=<?= (int)$e['id'] ?>&open_rsvp=1">Edit RSVP</a>
+            </p>
+          <?php else: ?>
+            <p>
+              <a class="button" href="/event.php?id=<?= (int)$e['id'] ?>">View</a>
+              <a class="button primary" href="/event.php?id=<?= (int)$e['id'] ?>&open_rsvp=1">RSVP</a>
+            </p>
+          <?php endif; ?>
         <?php endif; ?>
       </div>
     <?php endforeach; ?>
