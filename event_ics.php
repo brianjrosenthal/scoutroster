@@ -1,14 +1,13 @@
 <?php
 require_once __DIR__ . '/partials.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 
 // ICS download for a single event
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : 0;
 if ($eventId <= 0) { http_response_code(400); echo 'Missing event_id'; exit; }
 
-// Load event
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$eventId]);
-$e = $st->fetch();
+/* Load event */
+$e = EventManagement::findById($eventId);
 if (!$e) { http_response_code(404); echo 'Event not found'; exit; }
 
 $tzId = Settings::timezoneId();

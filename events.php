@@ -2,15 +2,13 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/Files.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/EventManagement.php';
 require_login();
 
 $u = current_user();
 $isAdmin = !empty($u['is_admin']);
 
-$now = date('Y-m-d H:i:s');
-$st = pdo()->prepare("SELECT * FROM events WHERE starts_at >= ? ORDER BY starts_at");
-$st->execute([$now]);
-$events = $st->fetchAll();
+$events = EventManagement::listUpcoming(500);
 
 // Helper to render start/end per spec
 function renderEventWhen(string $startsAt, ?string $endsAt): string {

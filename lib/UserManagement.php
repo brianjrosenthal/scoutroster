@@ -879,4 +879,52 @@ class UserManagement {
     $st->execute([$adultId]);
     return $st->fetchAll();
   }
+
+  /**
+   * List co-parents (other adults) for the given set of youth IDs, excluding the provided adult.
+   * Returns rows: id, first_name, last_name, photo_public_file_id, bsa_membership_number, positions (comma-separated)
+   */
+  public static function listCoParentsForYouthIds(int $selfAdultId, array $youthIds): array {
+    $ids = array_values(array_unique(array_filter(array_map(static function($v) {
+      $n = (int)$v;
+      return $n > 0 ? $n : null;
+    }, $youthIds))));
+    if (empty($ids)) return [];
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $params = $ids;
+    $params[] = (int)$selfAdultId;
+
+    $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number,
+                   GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
+            FROM users u
+            JOIN parent_relationships pr ON pr.adult_id = u.id
+            LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
+            WHERE pr.youth_id IN ($placeholders) AND u.id <> ?
+            GROUP BY u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number
+            ORDER BY u.last_name, u.first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll();
+  }
+
+  /**
+   * Find the display name "First Last" of the first adult holding the given leadership position.
+   * Matching is case-insensitive. Returns null if none found.
+   */
+  public static function findLeaderNameByPosition(string $position): ?string {
+    $pos = trim($position);
+    if ($pos === '') return null;
+    $st = self::pdo()->prepare("SELECT u.first_name, u.last_name
+                                FROM adult_leadership_positions alp
+                                JOIN users u ON u.id = alp.adult_id
+                                WHERE LOWER(alp.position) = LOWER(?)
+                                LIMIT 1");
+    $st->execute([$pos]);
+    $r = $st->fetch();
+    if (!$r) return null;
+    $name = trim((string)($r['first_name'] ?? '') . ' ' . (string)($r['last_name'] ?? ''));
+    return $name !== '' ? $name : null;
+  }
 }

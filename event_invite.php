@@ -4,6 +4,7 @@ require_once __DIR__ . '/lib/Text.php'; // for safe description rendering
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 
 // No login required for invite landing
 
@@ -46,10 +47,8 @@ if ($validationError) {
   exit;
 }
 
-// Load event
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$eventId]);
-$event = $st->fetch();
+/* Load event */
+$event = EventManagement::findById($eventId);
 if (!$event) {
   header_html('Event Invite');
   echo '<h2>Event Invite</h2>';

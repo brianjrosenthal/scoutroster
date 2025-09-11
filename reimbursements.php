@@ -2,6 +2,7 @@
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Reimbursements.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 require_login();
 
 $ctx = UserContext::getLoggedInUserContext();
@@ -131,11 +132,8 @@ header_html('Expense Reimbursements');
             <td>
               <?php
                 if ($includeAll) {
-                  // fetch owner minimal
-                  $stU = pdo()->prepare('SELECT first_name,last_name FROM users WHERE id=?');
-                  $stU->execute([(int)$r['created_by']]);
-                  $owner = $stU->fetch();
-                  echo h(trim(($owner['first_name'] ?? '').' '.($owner['last_name'] ?? '')));
+                  $ownerName = UserManagement::getFullName((int)$r['created_by']) ?? '';
+                  echo h($ownerName);
                 } else {
                   echo 'Me';
                 }
