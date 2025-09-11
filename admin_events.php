@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $data = @file_get_contents($tmp);
                 if ($data !== false) {
                   try {
-                    $publicId = Files::insertPublicFile($data, $mime, $name, (int)($editing['id'] ?? 0));
+                    $publicId = Files::insertPublicFile($data, $mime, $name, (int)($ctx->id));
                     EventManagement::setPhotoPublicFileId($ctx, (int)$eventId, (int)$publicId);
                   } catch (Throwable $e) {
                     // swallow; leave without image if failed
