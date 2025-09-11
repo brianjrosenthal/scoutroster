@@ -286,21 +286,24 @@ header_html('Send Event Invitations');
       <label class="inline"><input type="radio" name="audience" value="one_adult" <?= $aud==='one_adult'?'checked':'' ?>> One adult</label>
       <div>
         <?php
-          $opts = UserManagement::listAdultsWithAnyEmail();
+          $prefill = '';
+          if ($adultSel > 0) {
+            $sel = UserManagement::findBasicForEmailingById((int)$adultSel);
+            if ($sel) {
+              $ln = trim((string)($sel['last_name'] ?? ''));
+              $fn = trim((string)($sel['first_name'] ?? ''));
+              $email = trim((string)($sel['email'] ?? ''));
+              $prefill = ($ln !== '' || $fn !== '') ? ($ln.', '.$fn) : ('User #'.(int)($sel['id'] ?? 0));
+              if ($email !== '') $prefill .= ' <'.$email.'>';
+            }
+          }
         ?>
-        <select name="adult_id">
-          <option value="0">Select adult...</option>
-          <?php foreach ($opts as $o): ?>
-            <?php
-              $ln = trim((string)($o['last_name'] ?? ''));
-              $fn = trim((string)($o['first_name'] ?? ''));
-              $email = trim((string)($o['email'] ?? ''));
-              $label = ($ln !== '' || $fn !== '') ? ($ln.', '.$fn) : ('User #'.(int)$o['id']);
-              $label .= ' <'.$email.'>';
-            ?>
-            <option value="<?= (int)$o['id'] ?>" <?= ($adultSel===(int)$o['id'] ? 'selected' : '') ?>><?= h($label) ?></option>
-          <?php endforeach; ?>
-        </select>
+        <div class="typeahead">
+          <input type="text" id="userTypeahead" placeholder="Type name or email" autocomplete="off" value="<?= h($prefill) ?>">
+          <input type="hidden" id="userId" name="adult_id" value="<?= (int)$adultSel ?>">
+          <div id="userTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
+          <button class="button small" type="button" id="clearUserBtn">Clear</button>
+        </div>
         <span class="small">(Only used when selecting "One adult")</span>
       </div>
     </fieldset>
