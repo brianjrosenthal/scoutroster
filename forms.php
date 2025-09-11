@@ -13,7 +13,7 @@ header_html('Forms and Links');
 
 <div class="card">
   <h3><a target="_blank" rel="noopener" href="https://filestore.scouting.org/filestore/pdf/524-406.pdf">Youth Application Form</a></h3>
-  <p Required to register for Cub Scouts.</p>
+  <p> Required to register for Cub Scouts.</p>
 </div>
 
 <div class="card">
