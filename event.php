@@ -463,15 +463,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
           ?>
           <?php if (!$amIn): ?>
-          <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+          <form method="post" action="/volunteer_actions.php" class="inline">
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
             <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
             <?php if ((int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
-              <button class="button primary">Sign up</button>
+              <button  style="margin-top:6px;" class="button primary">Sign up</button>
             <?php else: ?>
-              <button class="button" disabled>Filled</button>
+              <button  style="margin-top:6px;" class="button" disabled>Filled</button>
             <?php endif; ?>
           </form>
           <?php endif; ?>
@@ -552,15 +552,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           }
           if (!signed) {
             if (open > 0) {
-              html += '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
+              html += '<form method="post" action="/volunteer_actions.php" class="inline">'
                     +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
                     +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
                     +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
                     +   '<input type="hidden" name="action" value="signup">'
-                    +   '<button class="button primary">Sign up</button>'
+                    +   '<button style="margin-top:6px;" class="button primary">Sign up</button>'
                     + '</form>';
             } else {
-              html += '<button class="button" disabled>Filled</button>';
+              html += '<button style="margin-top:6px;" class="button" disabled>Filled</button>';
             }
           }
           html += '</div>';
