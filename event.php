@@ -493,6 +493,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
       if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
         openModal();
       <?php endif; ?>
@@ -690,6 +691,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     });
 
     if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
 <?php if (!empty($_GET['open_rsvp'])): ?>
     if (heading && answerInput) heading.textContent = (answerInput.value || 'yes').toUpperCase();
     openModal();
