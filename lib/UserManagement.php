@@ -853,8 +853,20 @@ class UserManagement {
 
   // Determine if a user may upload a photo for the target adult.
   public static function canUploadAdultPhoto(?UserContext $ctx, int $targetAdultId): bool {
-    if (!$ctx) return false;
-    if ($ctx->admin || $ctx->id === $targetAdultId) return true;
+    if (!$ctx) {
+        error_log(sprintf(
+            '%s denied: no context (ctx=null), targetAdultId=%d, uri=%s, ip=%s',
+            __METHOD__,
+            $targetAdultId,
+            $_SERVER['REQUEST_URI'] ?? '-',
+            $_SERVER['REMOTE_ADDR'] ?? '-'
+        ));
+        return false;
+    }
+
+    if ($ctx->admin || $ctx->id === $targetAdultId) {
+        return true;
+    }
 
     $st = self::pdo()->prepare("
       SELECT 1
@@ -864,8 +876,23 @@ class UserManagement {
       LIMIT 1
     ");
     $st->execute([(int)$ctx->id, (int)$targetAdultId]);
-    return (bool)$st->fetchColumn();
-  }
+    $ok = (bool)$st->fetchColumn();
+
+    if (!$ok) {
+        error_log(sprintf(
+            '%s denied: no shared youth; ctx_id=%d, admin=%s, targetAdultId=%d, uri=%s, ip=%s',
+            __METHOD__,
+            (int)$ctx->id,
+            $ctx->admin ? '1' : '0',
+            $targetAdultId,
+            $_SERVER['REQUEST_URI'] ?? '-',
+            $_SERVER['REMOTE_ADDR'] ?? '-'
+        ));
+    }
+
+    return $ok;
+}
+
 
   // List all youth linked to an adult (for relationship management UIs).
   public static function listChildrenForAdult(int $adultId): array {
