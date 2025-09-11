@@ -112,12 +112,25 @@ header_html('Home');
     $family = [];
 
     // Add logged-in user as first card
+    $myPositions = '';
+    try {
+      $posRows = UserManagement::listLeadershipPositions($ctx, (int)($me['id'] ?? 0));
+      $posTitles = [];
+      foreach ($posRows as $pr) {
+        $t = trim((string)($pr['position'] ?? ''));
+        if ($t !== '') $posTitles[] = $t;
+      }
+      $posTitles = array_values(array_unique($posTitles));
+      $myPositions = implode(', ', $posTitles);
+    } catch (Throwable $e) {
+      $myPositions = '';
+    }
     $family[] = [
       'type' => 'parent',
       'first_name' => (string)($me['first_name'] ?? ''),
       'last_name' => (string)($me['last_name'] ?? ''),
       'adult_id' => (int)($me['id'] ?? 0),
-      'positions' => '',
+      'positions' => $myPositions,
       'bsa_membership_number' => trim((string)($me['bsa_membership_number'] ?? '')),
       'photo_public_file_id' => (int)($me['photo_public_file_id'] ?? 0),
     ];
@@ -230,10 +243,10 @@ header_html('Home');
                 <div>BSA Registration ID: unregistered</div>
               <?php endif; ?>
             <?php else: ?>
-              <?php $positions = trim((string)($m['positions'] ?? '')); ?>
-              <?php if ($positions !== ''): ?><div>Positions: <?= h($positions) ?></div><?php endif; ?>
               <?php $aReg = trim((string)($m['bsa_membership_number'] ?? '')); ?>
               <div>BSA Registration ID: <?= $aReg !== '' ? h($aReg) : 'N/A' ?></div>
+              <?php $positions = trim((string)($m['positions'] ?? '')); ?>
+              <?php if ($positions !== ''): ?><div><?= h($positions) ?></div><?php endif; ?>
             <?php endif; ?>
           </div>
 
