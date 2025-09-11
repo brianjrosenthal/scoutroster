@@ -409,7 +409,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <button class="close" type="button" id="volunteerModalClose" aria-label="Close">&times;</button>
       <h3>Volunteer to help at this event?</h3>
       <?php foreach ($roles as $r): ?>
-        <div class="role" style="margin-bottom:8px;">
+        <div class="role" style="margin-bottom:14px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
             <?php if ((int)$r['open_count'] > 0): ?>
