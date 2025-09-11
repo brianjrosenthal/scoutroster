@@ -11,6 +11,7 @@ require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/RSVPManagement.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -561,25 +562,19 @@ header_html('Home');
   $volRolesOpen = [];
   if (!$suppressVolunteer) {
     try {
-      $sql = "
-        SELECT e.*
-        FROM events e
-        WHERE e.starts_at >= NOW()
-          AND e.id IN (
-            SELECT r1.event_id
-            FROM rsvps r1
-            WHERE r1.answer='yes' AND r1.created_by_user_id = ?
-            UNION
-            SELECT r2.event_id
-            FROM rsvps r2
-            JOIN rsvp_members rm ON rm.rsvp_id = r2.id AND rm.event_id = r2.event_id
-            WHERE r2.answer='yes' AND rm.participant_type='adult' AND rm.adult_id = ?
-          )
-        ORDER BY e.starts_at
-      ";
-      $stCand = pdo()->prepare($sql);
-      $stCand->execute([(int)$me['id'], (int)$me['id']]);
-      $cands = $stCand->fetchAll() ?: [];
+      $yesIds = RSVPManagement::listEventIdsWithYesRsvpForUser((int)$me['id']);
+      $cands = [];
+      $upcoming = EventManagement::listUpcoming(500);
+      if (!empty($yesIds)) {
+        $yesSet = array_flip(array_map('intval', $yesIds));
+        foreach ($upcoming as $ev) {
+          $eid = (int)($ev['id'] ?? 0);
+          if ($eid > 0 && isset($yesSet[$eid])) {
+            $cands[] = $ev;
+          }
+        }
+        usort($cands, function($a,$b){ return strcmp((string)($a['starts_at'] ?? ''), (string)($b['starts_at'] ?? '')); });
+      }
       foreach ($cands as $ev) {
         $eid = (int)$ev['id'];
         // Must have open roles
@@ -824,42 +819,24 @@ header_html('Home');
         <?php else: ?>
           <?php
             // Show current RSVP summary if user has one; otherwise show RSVP CTA
-            $st2 = pdo()->prepare("SELECT id, answer, n_guests, created_by_user_id FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-            $st2->execute([(int)$e['id'], (int)$me['id']]);
-            $my = $st2->fetch();
+            $summary = RSVPManagement::getRsvpSummaryForUserEvent((int)$e['id'], (int)$me['id']);
 
-            if (!$my) {
-              $st2 = pdo()->prepare("
-                SELECT r.id, r.answer, r.n_guests, r.created_by_user_id
-                FROM rsvps r
-                JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
-                WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
-                LIMIT 1
-              ");
-              $st2->execute([(int)$e['id'], (int)$me['id']]);
-              $my = $st2->fetch();
-            }
-
-            if ($my):
-              $rsvpId = (int)$my['id'];
-              $ad = 0; $kids = 0;
-              $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
-              $q->execute([$rsvpId]); $ad = (int)($q->fetch()['c'] ?? 0);
-              $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
-              $q->execute([$rsvpId]); $kids = (int)($q->fetch()['c'] ?? 0);
-              $guests = (int)($my['n_guests'] ?? 0);
+            if ($summary):
+              $ad = (int)($summary['adult_count'] ?? 0);
+              $kids = (int)($summary['youth_count'] ?? 0);
+              $guests = (int)($summary['n_guests'] ?? 0);
 
               $byText = '';
-              $creatorId = (int)($my['created_by_user_id'] ?? 0);
+              $creatorId = (int)($summary['created_by_user_id'] ?? 0);
               if ($creatorId && $creatorId !== (int)$me['id']) {
-              $nameBy = UserManagement::getFullName($creatorId);
-              if ($nameBy !== null) {
-                $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
-              }
+                $nameBy = UserManagement::getFullName($creatorId);
+                if ($nameBy !== null) {
+                  $byText = ' <span class="small">(by ' . h($nameBy) . ')</span>';
+                }
               }
           ?>
             <p>
-              You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
+              You RSVP’d <?= h(ucfirst((string)$summary['answer'])) ?> for
               <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
               <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
               <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.

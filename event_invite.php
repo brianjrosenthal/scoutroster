@@ -5,6 +5,7 @@ require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/RSVPManagement.php';
 
 // No login required for invite landing
 
@@ -119,10 +120,7 @@ foreach ($coParents as $cp) { $adultIdsAllowed[] = (int)$cp['id']; }
 $adultIdsAllowed = array_values(array_unique($adultIdsAllowed));
 $adultIdsAllowedSet = array_flip($adultIdsAllowed);
 
-// Load existing RSVP group created by invitee (one-per-event per creator)
-$st = pdo()->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-$st->execute([$eventId, (int)$uid]);
-$inviteeRsvp = $st->fetch();
+$inviteeRsvp = RSVPManagement::findCreatorRsvpForEvent((int)$eventId, (int)$uid);
 
 $selectedAdults = [];
 $selectedYouth = [];
@@ -132,14 +130,9 @@ $nGuests = 0;
 if ($inviteeRsvp) {
   $comments = (string)($inviteeRsvp['comments'] ?? '');
   $nGuests = (int)($inviteeRsvp['n_guests'] ?? 0);
-  $st = pdo()->prepare("SELECT participant_type, youth_id, adult_id FROM rsvp_members WHERE rsvp_id=? ORDER BY id");
-  $st->execute([(int)$inviteeRsvp['id']]);
-  foreach ($st->fetchAll() as $rm) {
-    if ($rm['participant_type'] === 'adult' && !empty($rm['adult_id'])) $selectedAdults[] = (int)$rm['adult_id'];
-    if ($rm['participant_type'] === 'youth' && !empty($rm['youth_id'])) $selectedYouth[] = (int)$rm['youth_id'];
-  }
-  $selectedAdults = array_values(array_unique($selectedAdults));
-  $selectedYouth  = array_values(array_unique($selectedYouth));
+  $ids = RSVPManagement::getMemberIdsByType((int)$inviteeRsvp['id']);
+  $selectedAdults = $ids['adult_ids'] ?? [];
+  $selectedYouth  = $ids['youth_ids'] ?? [];
 }
 
 // Handle POST save (no login, but require invite signature and CSRF)
@@ -181,19 +174,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Enforce event youth cap if set
     if (!empty($event['max_cub_scouts'])) {
       $max = (int)$event['max_cub_scouts'];
-      $st = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE event_id=? AND participant_type='youth'");
-      $st->execute([$eventId]);
-      $row = $st->fetch();
-      $currentYouth = (int)($row['c'] ?? 0);
-
-      $myCurrentYouth = 0;
-      if ($inviteeRsvp) {
-        $st = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
-        $st->execute([(int)$inviteeRsvp['id']]);
-        $r = $st->fetch();
-        $myCurrentYouth = (int)($r['c'] ?? 0);
-      }
-
+      $currentYouth = RSVPManagement::countYouthForEvent((int)$eventId);
+      $myCurrentYouth = $inviteeRsvp ? RSVPManagement::countYouthForRsvp((int)$inviteeRsvp['id']) : 0;
       $newTotalYouth = $currentYouth - $myCurrentYouth + count($youths);
       if ($newTotalYouth > $max) {
         throw new RuntimeException('This event has reached its maximum number of Cub Scouts.');
@@ -201,27 +183,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // Save RSVP on behalf of invitee
-    if ($inviteeRsvp) {
-      $st = pdo()->prepare("UPDATE rsvps SET comments=?, n_guests=?, answer=? WHERE id=?");
-      $st->execute([$comments !== '' ? $comments : null, $nGuests, $answer, (int)$inviteeRsvp['id']]);
-      $rsvpId = (int)$inviteeRsvp['id'];
-    } else {
-      $st = pdo()->prepare("INSERT INTO rsvps (event_id, created_by_user_id, comments, n_guests, answer) VALUES (?,?,?,?,?)");
-      $st->execute([$eventId, (int)$uid, $comments !== '' ? $comments : null, $nGuests, $answer]);
-      $rsvpId = (int)pdo()->lastInsertId();
-    }
-
-    // Replace members
-    pdo()->prepare("DELETE FROM rsvp_members WHERE rsvp_id=?")->execute([$rsvpId]);
-
-    $ins = pdo()->prepare("INSERT INTO rsvp_members (rsvp_id, event_id, participant_type, youth_id, adult_id) VALUES (?,?,?,?,?)");
-    foreach ($adults as $aid) {
-      $ins->execute([$rsvpId, $eventId, 'adult', null, $aid]);
-    }
-    foreach ($youths as $yid) {
-      $ins->execute([$rsvpId, $eventId, 'youth', $yid, null]);
-    }
-
+    RSVPManagement::setFamilyRSVP(null, (int)$uid, (int)$eventId, (string)$answer, (array)$adults, (array)$youths, ($comments !== '' ? $comments : null), (int)$nGuests);
     $saved = true;
   } catch (Throwable $e) {
     $error = $e->getMessage() ?: 'Failed to save RSVP.';
@@ -239,52 +201,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  * - YES totals drive primary counts
  * - MAYBE totals listed separately and appended in parentheses
  */
-// YES guests
-$st = pdo()->prepare("SELECT COALESCE(SUM(n_guests),0) AS g FROM rsvps WHERE event_id=? AND answer='yes'");
-$st->execute([$eventId]);
-$guestsTotal = (int)($st->fetch()['g'] ?? 0);
+$guestsTotal = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'yes');
 
-// YES members (names)
-$st = pdo()->prepare("
-  SELECT rm.participant_type, rm.youth_id, rm.adult_id,
-         y.first_name AS yfn, y.last_name AS yln,
-         u.first_name AS afn, u.last_name AS aln
-  FROM rsvp_members rm
-  JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer='yes'
-  LEFT JOIN youth y ON y.id = rm.youth_id
-  LEFT JOIN users u ON u.id = rm.adult_id
-  WHERE rm.event_id = ?
-  ORDER BY y.last_name, y.first_name, u.last_name, u.first_name
-");
-$st->execute([$eventId]);
-$allMembers = $st->fetchAll();
-$youthNames = [];
-$adultNames = [];
-foreach ($allMembers as $row) {
-  if ($row['participant_type'] === 'youth' && !empty($row['youth_id'])) {
-    $youthNames[] = trim(($row['yln'] ?? '').', '.($row['yfn'] ?? ''));
-  } elseif ($row['participant_type'] === 'adult' && !empty($row['adult_id'])) {
-    $adultNames[] = trim(($row['aln'] ?? '').', '.($row['afn'] ?? ''));
-  }
-}
-sort($youthNames);
-sort($adultNames);
+$adultNames = RSVPManagement::listAdultNamesByAnswer((int)$eventId, 'yes');
+$youthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'yes');
 
-// MAYBE totals (adults, youth, guests) from logged-in RSVPs
-$st = pdo()->prepare("
-  SELECT COUNT(DISTINCT CASE WHEN rm.participant_type='adult' THEN rm.adult_id END) AS a,
-         COUNT(DISTINCT CASE WHEN rm.participant_type='youth' THEN rm.youth_id END) AS y
-  FROM rsvp_members rm
-  JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer='maybe'
-  WHERE rm.event_id = ?
-");
-$st->execute([$eventId]);
-$_maybeIn = $st->fetch();
-$maybeAdultsIn = (int)($_maybeIn['a'] ?? 0);
-$maybeYouthIn  = (int)($_maybeIn['y'] ?? 0);
-$st = pdo()->prepare("SELECT COALESCE(SUM(n_guests),0) AS g FROM rsvps WHERE event_id=? AND answer='maybe'");
-$st->execute([$eventId]);
-$maybeGuestsIn = (int)($st->fetch()['g'] ?? 0);
+$_maybeCounts = RSVPManagement::countDistinctParticipantsByAnswer((int)$eventId, 'maybe');
+$maybeAdultsIn = (int)($_maybeCounts['adults'] ?? 0);
+$maybeYouthIn  = (int)($_maybeCounts['youth'] ?? 0);
+$maybeGuestsIn = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'maybe');
 
 // Public MAYBE totals
 $st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='maybe'");
@@ -299,29 +224,9 @@ $maybeYouthTotal  = $maybeYouthIn  + $pubKidsMaybe;
 $maybeGuestsTotal = $maybeGuestsIn;
 
 // MAYBE names (lists)
-$maybeAdultNames = [];
-$st = pdo()->prepare("
-  SELECT DISTINCT u.last_name AS ln, u.first_name AS fn
-  FROM rsvp_members rm
-  JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer='maybe'
-  JOIN users u ON u.id = rm.adult_id
-  WHERE rm.event_id = ? AND rm.participant_type='adult' AND rm.adult_id IS NOT NULL
-  ORDER BY u.last_name, u.first_name
-");
-$st->execute([$eventId]);
-foreach ($st->fetchAll() as $r) { $maybeAdultNames[] = trim(($r['ln'] ?? '').', '.($r['fn'] ?? '')); }
+$maybeAdultNames = RSVPManagement::listAdultNamesByAnswer((int)$eventId, 'maybe');
 
-$maybeYouthNames = [];
-$st = pdo()->prepare("
-  SELECT DISTINCT y.last_name AS ln, y.first_name AS fn
-  FROM rsvp_members rm
-  JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer='maybe'
-  JOIN youth y ON y.id = rm.youth_id
-  WHERE rm.event_id = ? AND rm.participant_type='youth' AND rm.youth_id IS NOT NULL
-  ORDER BY y.last_name, y.first_name
-");
-$st->execute([$eventId]);
-foreach ($st->fetchAll() as $r) { $maybeYouthNames[] = trim(($r['ln'] ?? '').', '.($r['fn'] ?? '')); }
+$maybeYouthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'maybe');
 
 $publicMaybe = [];
 $st = pdo()->prepare("
@@ -336,10 +241,8 @@ $publicMaybe = $st->fetchAll();
 /* Volunteer variables for invite flow */
 $roles = Volunteers::rolesWithCounts((int)$eventId);
 $openVolunteerRoles = Volunteers::openRolesExist((int)$eventId);
-$st = pdo()->prepare("SELECT answer FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-$st->execute([$eventId, (int)$uid]);
-$_invAns = $st->fetch();
-$inviteeHasYes = (bool)($_invAns && strtolower((string)($_invAns['answer'] ?? '')) === 'yes');
+$_invAns = RSVPManagement::getAnswerForCreator((int)$eventId, (int)$uid);
+$inviteeHasYes = ($_invAns === 'yes');
 $lastAnswerYes = isset($answer) ? (strtolower((string)$answer) === 'yes') : false;
 $showVolunteerModal = ($saved && $lastAnswerYes && $openVolunteerRoles);
 

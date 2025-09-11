@@ -70,3 +70,6 @@ ISSUE - there should be a way to "archive" a recommendation.
 
 ## Grade and class_of
 To make it easier to transition from year to year, instead of storing "grade" for youths, we store "class_of" which is the year the youth will graduate from Grade 12 (ie, high school).  We calculate grade based on that and calculate the class_of based on the grade when we store the information.
+
+## Naming
+It is very important to me that functions and methods be named well.  The name of a method should express its intent.  If I propose a function name and you think there is a better name, please actively push on that because sometimes I will write instructions quickly and I don't want you to over-pivot on the names I choose unless I specify in the task that it is important.
