@@ -10,6 +10,8 @@ require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/ActivityLog.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/YouthManagement.php';
+require_once __DIR__ . '/lib/Application.php';
+Application::init();
 
 function redirect_back(string $returnTo, array $params = []): void {
   // Basic allowlist: require leading slash to avoid offsite redirects
