@@ -223,6 +223,23 @@ header_html('Home');
           <?php if ($canEdit && $editUrl): ?>
           <div class="person-actions">
             <a class="small" href="<?= h($editUrl) ?>">Edit</a>
+            <?php if (($m['type'] ?? '') === 'child'): ?>
+              <?php
+                $yReg = trim((string)($m['bsa_registration_number'] ?? ''));
+                $classOf = (int)($m['class_of'] ?? 0);
+                $grade = $classOf > 0 ? GradeCalculator::gradeForClassOf($classOf) : null;
+                $paidUntilRaw = trim((string)($m['date_paid_until'] ?? ''));
+                $needsRenewalLink = false;
+                if ($yReg !== '' && empty($m['sibling']) && $grade !== null && $grade >= 0 && $grade <= 5) {
+                  $ts = $paidUntilRaw !== '' ? strtotime($paidUntilRaw . ' 23:59:59') : false;
+                  $needsRenewalLink = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
+                }
+              ?>
+              <?php if ($needsRenewalLink): ?>
+                <span class="small" aria-hidden="true"> · </span>
+                <a class="small open-paid-modal" href="#" data-youth-id="<?= (int)($m['youth_id'] ?? 0) ?>">How to renew</a>
+              <?php endif; ?>
+            <?php endif; ?>
           </div>
           <?php endif; ?>
         </div>
@@ -270,7 +287,7 @@ header_html('Home');
   }
 ?>
 
-<?php if (!empty($qualifying)): ?>
+<?php if (false): ?>
 <div class="card" style="margin-top:16px;">
   <h3>Renew Your Membership</h3>
   <p>
@@ -326,8 +343,10 @@ header_html('Home');
 <div id="renewPaidModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content" style="max-width:520px;">
     <button class="close" type="button" id="renewPaidClose" aria-label="Close">&times;</button>
-    <h3>How did you pay?</h3>
+    <h3>How to renew your cub scout membership</h3>
     <div id="renewPaidErr" class="error small" style="display:none;"></div>
+    <p>1. Pay your dues ($450, or $200 for additional siblings) via Paypal to "Scarsdale Cubs" (scarsdalecubs@gmail.com) or by delivering a check to Takford Mau (contact: takfordmau@gmail.com)</p>
+    <p>2. Mark that you paid here:</p>
     <form id="renewPaidForm" class="stack" method="post" action="/payment_notifications_actions.php">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="create">
@@ -336,17 +355,11 @@ header_html('Home');
         <select name="payment_method" id="renewPaidMethod" required>
           <option value="">-- Select --</option>
           <option value="Paypal">Paypal</option>
-          <option value="Zelle">Zelle</option>
-          <option value="Venmo">Venmo</option>
           <option value="Check">Check</option>
-          <option value="Other">Other</option>
         </select>
       </label>
-      <label>Comment (optional)
-        <textarea name="comment" id="renewPaidComment" rows="3" placeholder="Anything helpful to identify your payment (last 4 digits, date, etc.)"></textarea>
-      </label>
       <div class="actions">
-        <button class="button primary" type="submit">Submit</button>
+        <button class="button primary" type="submit">I’ve paid</button>
         <button class="button" type="button" id="renewPaidCancel">Cancel</button>
       </div>
     </form>
