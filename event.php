@@ -383,7 +383,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             </ul>
           <?php else: ?>
             <ul style="margin:6px 0 0 16px;">
-              <li class="small">No one yet.</li>
+              <li>No one yet.</li>
             </ul>
           <?php endif; ?>
 
@@ -454,7 +454,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             </ul>
           <?php else: ?>
             <ul style="margin:6px 0 0 16px;">
-              <li class="small">No one yet.</li>
+              <li>No one yet.</li>
             </ul>
           <?php endif; ?>
 
@@ -547,7 +547,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             }
             html += '</ul>';
           } else {
-            html += '<ul style="margin:6px 0 0 16px;"><li class="small">No one yet.</li></ul>';
+            html += '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
           }
           if (!signed) {
             if (open > 0) {
