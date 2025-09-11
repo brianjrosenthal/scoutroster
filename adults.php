@@ -156,7 +156,7 @@ header_html('Adults Roster');
             <?php
               $posStr = trim((string)($adult['positions'] ?? ''));
               $nameStr = trim((string)($adult['first_name'] ?? '').' '.(string)($adult['last_name'] ?? ''));
-              if ($posStr !== '') { $nameStr .= '<br>'.h($posStr); }
+              if ($posStr !== '') { $nameStr .= '('.h($posStr) .')'; }
             ?>
             <td><?= $nameStr ?></td>
             <td class="summary-lines"><?= $childrenSummary ?: '&mdash;' ?></td>

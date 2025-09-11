@@ -207,7 +207,7 @@ header_html('Youth Roster');
                   }
                   $parentStrs[] = $line;
                 }
-                echo !empty($parentStrs) ? implode('<br>', $parentStrs) : '';
+                echo !empty($parentStrs) ? implode('<br><br>', $parentStrs) : '';
               ?>
             </td>
             <?php if (!empty($u['is_admin'])): ?>
