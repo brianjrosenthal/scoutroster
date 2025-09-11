@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               }
             }
           }
-          header('Location: /admin_events.php'); exit;
+          header('Location: /admin_events.php?id=' . (int)$eventId); exit;
         } else {
           $err = ($id > 0) ? 'Failed to update event.' : 'Failed to create event.';
         }
