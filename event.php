@@ -557,6 +557,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     });
 
     if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+<?php if (!empty($_GET['open_rsvp'])): ?>
+    if (heading && answerInput) heading.textContent = (answerInput.value || 'yes').toUpperCase();
+    openModal();
+<?php endif; ?>
     if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
   })();
 </script>
