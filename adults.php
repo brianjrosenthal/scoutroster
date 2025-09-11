@@ -128,7 +128,9 @@ header_html('Adults Roster');
           // Children summary
           $childLines = [];
           foreach ($A['children'] as $c) {
-            $childLines[] = h($c['name']).' ('.($c['grade'] === 0 ? 'K' : (int)$c['grade']).')';
+            $g = (int)($c['grade'] ?? -999);
+            $gLabel = ($g < 0) ? 'Pre K' : ($g === 0 ? 'K' : (string)$g);
+            $childLines[] = h($c['name']).' ('.$gLabel.')';
           }
           $childrenSummary = implode('; ', $childLines);
 
