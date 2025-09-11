@@ -367,11 +367,24 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           <?php if (!empty($r['volunteers'])): ?>
             <ul style="margin:6px 0 0 16px;">
               <?php foreach ($r['volunteers'] as $v): ?>
-                <li><?= h($v['name']) ?></li>
+                <li>
+                  <?= h($v['name']) ?>
+                  <?php if ((int)($v['user_id'] ?? 0) === (int)$me['id']): ?>
+                    <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">
+                      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                      <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+                      <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+                      <input type="hidden" name="action" value="remove">
+                      <a href="#" class="small" onclick="this.closest('form').requestSubmit(); return false;">(remove)</a>
+                    </form>
+                  <?php endif; ?>
+                </li>
               <?php endforeach; ?>
             </ul>
           <?php else: ?>
-            <p style="margin:4px 0 0 0;">No one yet.</p>
+            <ul style="margin:6px 0 0 16px;">
+              <li class="small">No one yet.</li>
+            </ul>
           <?php endif; ?>
 
           <?php if ($hasYes): ?>
@@ -379,20 +392,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               $amIn = false;
               foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
             ?>
-            <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
-              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-              <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
-              <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-              <?php if ($amIn): ?>
-                <input type="hidden" name="action" value="remove">
-                <button class="button">Cancel</button>
-              <?php elseif ((int)$r['open_count'] > 0): ?>
-                <input type="hidden" name="action" value="signup">
-                <button class="button primary">Sign up</button>
-              <?php else: ?>
-                <button class="button" disabled>Filled</button>
-              <?php endif; ?>
-            </form>
+            <?php if (!$amIn): ?>
+              <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+                <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+                <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+                <?php if ((int)$r['open_count'] > 0): ?>
+                  <input type="hidden" name="action" value="signup">
+                  <button class="button primary">Sign up</button>
+                <?php else: ?>
+                  <button class="button" disabled>Filled</button>
+                <?php endif; ?>
+              </form>
+            <?php endif; ?>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
@@ -426,31 +438,43 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           <?php if (!empty($r['volunteers'])): ?>
             <ul style="margin:6px 0 0 16px;">
               <?php foreach ($r['volunteers'] as $v): ?>
-                <li><?= h($v['name']) ?></li>
+                <li>
+                  <?= h($v['name']) ?>
+                  <?php if ((int)($v['user_id'] ?? 0) === (int)$me['id']): ?>
+                    <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">
+                      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                      <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+                      <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+                      <input type="hidden" name="action" value="remove">
+                      <a href="#" class="small" onclick="this.closest('form').requestSubmit(); return false;">(remove)</a>
+                    </form>
+                  <?php endif; ?>
+                </li>
               <?php endforeach; ?>
             </ul>
           <?php else: ?>
-            <p style="margin:4px 0 0 0;">No one yet.</p>
+            <ul style="margin:6px 0 0 16px;">
+              <li class="small">No one yet.</li>
+            </ul>
           <?php endif; ?>
 
           <?php
             $amIn = false;
             foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
           ?>
+          <?php if (!$amIn): ?>
           <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
             <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-            <?php if ($amIn): ?>
-              <input type="hidden" name="action" value="remove">
-              <button class="button">Cancel</button>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
+            <?php if ((int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
               <button class="button primary">Sign up</button>
             <?php else: ?>
               <button class="button" disabled>Filled</button>
             <?php endif; ?>
           </form>
+          <?php endif; ?>
         </div>
       <?php endforeach; ?>
       </div>
@@ -484,50 +508,61 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
       function renderRoles(json) {
         if (!rolesWrap) return;
-        const roles = json.roles || [];
-        const uid = parseInt(json.user_id, 10);
-        let html = '';
-        for (let i=0;i<roles.length;i++) {
-          const r = roles[i] || {};
-          const volunteers = r.volunteers || [];
-          let signed = false;
-          for (let j=0;j<volunteers.length;j++) {
-            const v = volunteers[j] || {};
+        var roles = json.roles || [];
+        var uid = parseInt(json.user_id, 10);
+        var html = '';
+        for (var i=0;i<roles.length;i++) {
+          var r = roles[i] || {};
+          var volunteers = r.volunteers || [];
+          var signed = false;
+          for (var j=0;j<volunteers.length;j++) {
+            var v = volunteers[j] || {};
             if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
           }
-          const open = parseInt(r.open_count, 10) || 0;
+          var open = parseInt(r.open_count, 10) || 0;
           html += '<div class="role" style="margin-bottom:8px;">'
                 +   '<div>'
                 +     '<strong>'+esc(r.title||'')+'</strong> '
                 +     (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>')
                 +   '</div>';
           if (r.description) {
-            html += '<div style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+            html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
           }
           if (volunteers.length > 0) {
             html += '<ul style="margin:6px 0 0 16px;">';
-            for (let k=0;k<volunteers.length;k++) {
-              const vn = volunteers[k] || {};
-              html += '<li>'+esc(vn.name||'')+'</li>';
+            for (var k=0;k<volunteers.length;k++) {
+              var vn = volunteers[k] || {};
+              var isMe = parseInt(vn.user_id, 10) === uid;
+              html += '<li>'+esc(vn.name||'');
+              if (isMe) {
+                html += ' <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">'
+                      +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
+                      +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
+                      +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
+                      +   '<input type="hidden" name="action" value="remove">'
+                      +   '<a href="#" class="small" onclick="this.closest(\\'form\\').requestSubmit(); return false;">(remove)</a>'
+                      + '</form>';
+              }
+              html += '</li>';
             }
             html += '</ul>';
           } else {
-            html += '<p style="margin:4px 0 0 0;">No one yet.</p>';
+            html += '<ul style="margin:6px 0 0 16px;"><li class="small">No one yet.</li></ul>';
           }
-          html +=   '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
-                +     '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
-                +     '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
-                +     '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
-                +     '<input type="hidden" name="action" value="'+(signed ? 'remove' : 'signup')+'">';
-          if (signed) {
-            html +=     '<button class="button">Cancel</button>';
-          } else if (open > 0) {
-            html +=     '<button class="button primary">Sign up</button>';
-          } else {
-            html +=     '<button class="button" disabled>Filled</button>';
+          if (!signed) {
+            if (open > 0) {
+              html += '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
+                    +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
+                    +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
+                    +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
+                    +   '<input type="hidden" name="action" value="signup">'
+                    +   '<button class="button primary">Sign up</button>'
+                    + '</form>';
+            } else {
+              html += '<button class="button" disabled>Filled</button>';
+            }
           }
-          html +=   '</form>'
-                + '</div>';
+          html += '</div>';
         }
         rolesWrap.innerHTML = html;
       }
