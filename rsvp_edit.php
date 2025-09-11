@@ -2,43 +2,29 @@
 require_once __DIR__.'/partials.php';
 require_login();
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/UserManagement.php';
 
 $me = current_user();
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
 // Load event
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$eventId]);
-$event = $st->fetch();
+$event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 // Build selectable participants
 
 // My children
-$st = pdo()->prepare("
-  SELECT y.*
-  FROM parent_relationships pr
-  JOIN youth y ON y.id = pr.youth_id
-  WHERE pr.adult_id = ?
-  ORDER BY y.last_name, y.first_name
-");
-$st->execute([(int)$me['id']]);
-$myChildren = $st->fetchAll();
-$childIdsAllowed = array_map(fn($r)=> (int)$r['id'], $myChildren);
+$myChildren = UserManagement::listChildrenForAdult((int)$me['id']);
+$childIdsAllowed = array_map(fn($r) => (int)$r['id'], $myChildren);
 $childIdsAllowedSet = array_flip($childIdsAllowed);
 
 // Other adult parents of my children (co-parents), plus myself
-$st = pdo()->prepare("
-  SELECT DISTINCT u2.*
-  FROM parent_relationships pr1
-  JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
-  JOIN users u2 ON u2.id = pr2.adult_id
-  WHERE pr1.adult_id = ? AND pr2.adult_id <> ?
-  ORDER BY u2.last_name, u2.first_name
-");
-$st->execute([(int)$me['id'], (int)$me['id']]);
-$coParents = $st->fetchAll();
+$coParents = [];
+if (!empty($childIdsAllowed)) {
+  $coParents = UserManagement::listCoParentsForYouthIds((int)$me['id'], $childIdsAllowed);
+}
 $adultIdsAllowed = [(int)$me['id']];
 foreach ($coParents as $cp) { $adultIdsAllowed[] = (int)$cp['id']; }
 $adultIdsAllowed = array_values(array_unique($adultIdsAllowed));

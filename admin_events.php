@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/Files.php';
+require_once __DIR__.'/lib/EventManagement.php';
 require_admin();
 
 $msg = null;
@@ -25,9 +26,7 @@ function from_datetime_local_value(?string $v): ?string {
 $editingId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $editing = null;
 if ($editingId > 0) {
-  $st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-  $st->execute([$editingId]);
-  $editing = $st->fetch();
+  $editing = EventManagement::findById($editingId);
   if (!$editing) { $editingId = 0; }
 }
 
@@ -56,32 +55,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
       try {
         $eventId = $id > 0 ? $id : 0;
+        $ctx = UserContext::getLoggedInUserContext();
+        $data = [
+          'name' => $name,
+          'starts_at' => $starts_at,
+          'ends_at' => ($ends_at ?: null),
+          'location' => ($location !== '' ? $location : null),
+          'location_address' => ($location_address !== '' ? $location_address : null),
+          'description' => ($description !== '' ? $description : null),
+          'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
+          'allow_non_user_rsvp' => $allow_non_user_rsvp,
+          'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+          'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
+        ];
         if ($id > 0) {
-          $st = pdo()->prepare("UPDATE events SET name=?, starts_at=?, ends_at=?, location=?, location_address=?, description=?, max_cub_scouts=?, allow_non_user_rsvp=?, evite_rsvp_url=?, google_maps_url=? WHERE id=?");
-          $ok = $st->execute([
-            $name, $starts_at, ($ends_at ?: null),
-            ($location !== '' ? $location : null),
-            ($location_address !== '' ? $location_address : null),
-            ($description !== '' ? $description : null),
-            ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
-            $allow_non_user_rsvp,
-            ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
-            ($google_maps_url !== '' ? $google_maps_url : null),
-            $id
-          ]);
+          $ok = EventManagement::update($ctx, $id, $data);
+          $eventId = $id;
         } else {
-          $st = pdo()->prepare("INSERT INTO events (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, evite_rsvp_url, google_maps_url) VALUES (?,?,?,?,?,?,?,?,?,?)");
-          $ok = $st->execute([
-            $name, $starts_at, ($ends_at ?: null),
-            ($location !== '' ? $location : null),
-            ($location_address !== '' ? $location_address : null),
-            ($description !== '' ? $description : null),
-            ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
-            $allow_non_user_rsvp,
-            ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
-            ($google_maps_url !== '' ? $google_maps_url : null),
-          ]);
-          if ($ok) { $eventId = (int)pdo()->lastInsertId(); }
+          $eventId = EventManagement::create($ctx, $data);
+          $ok = $eventId > 0;
         }
 
         if ($ok) {
@@ -107,8 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($data !== false) {
                   try {
                     $publicId = Files::insertPublicFile($data, $mime, $name, (int)($editing['id'] ?? 0));
-                    $up = pdo()->prepare("UPDATE events SET photo_public_file_id = ? WHERE id=?");
-                    $up->execute([$publicId, (int)$eventId]);
+                    EventManagement::setPhotoPublicFileId($ctx, (int)$eventId, (int)$publicId);
                   } catch (Throwable $e) {
                     // swallow; leave without image if failed
                   }
@@ -145,8 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = (int)($_POST['id'] ?? 0);
     if ($id > 0) {
       try {
-        $st = pdo()->prepare("DELETE FROM events WHERE id=?");
-        $st->execute([$id]);
+        $ctx = UserContext::getLoggedInUserContext();
+        EventManagement::delete($ctx, $id);
         header('Location: /admin_events.php'); exit;
       } catch (Throwable $e) {
         $err = 'Failed to delete event.';
@@ -165,13 +156,9 @@ if ($view !== 'past') $view = 'upcoming';
 
 $events = [];
 if ($view === 'upcoming') {
-  $st = pdo()->prepare("SELECT * FROM events WHERE starts_at >= NOW() ORDER BY starts_at ASC");
-  $st->execute();
-  $events = $st->fetchAll();
+  $events = EventManagement::listUpcoming(500);
 } else {
-  $st = pdo()->prepare("SELECT * FROM events WHERE starts_at < NOW() ORDER BY starts_at DESC");
-  $st->execute();
-  $events = $st->fetchAll();
+  $events = EventManagement::listPast(500);
 }
 
 $showEditor = ($editingId > 0) || (($_GET['show'] ?? '') === 'add') || (($_POST['action'] ?? '') === 'save' && !empty($err));

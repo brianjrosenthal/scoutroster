@@ -265,7 +265,7 @@ class YouthManagement {
     self::pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)')
       ->execute([$newId, (int)$ctx->id]);
 
-    self::log('youth.add', $newId, []);
+    self::log('youth.add', $newId, ['first_name' => $first, 'last_name' => $last]);
     return $newId;
   }
 
@@ -314,7 +314,8 @@ class YouthManagement {
     $newId = (int)self::pdo()->lastInsertId();
 
     // Log youth creation (admin-created)
-    self::log('youth.add', $newId, []);
+    self::log('youth.add', $newId, ['first_name' => $first, 'last_name' => $last]);
+
 
     // Optional post-insert updates for admin-only fields
     try {

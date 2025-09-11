@@ -4,6 +4,7 @@ require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 
 // No login required
 
@@ -20,10 +21,8 @@ function b64url_encode(string $bin): string {
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
-// Load event
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$eventId]);
-$event = $st->fetch();
+/* Load event */
+$event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 $eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));

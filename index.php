@@ -10,6 +10,7 @@ require_once __DIR__ . '/lib/GradeCalculator.php';
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -80,30 +81,8 @@ header_html('Home');
   }
 
   // Resolve leader names
-  $cubmasterName = '';
-  $committeeChairName = '';
-  try {
-    $st = pdo()->prepare("SELECT u.first_name, u.last_name
-                          FROM adult_leadership_positions alp
-                          JOIN users u ON u.id = alp.adult_id
-                          WHERE LOWER(alp.position) = 'cubmaster'
-                          LIMIT 1");
-    $st->execute();
-    if ($r = $st->fetch()) {
-      $cubmasterName = trim((string)($r['first_name'] ?? '').' '.(string)($r['last_name'] ?? ''));
-    }
-    $st = pdo()->prepare("SELECT u.first_name, u.last_name
-                          FROM adult_leadership_positions alp
-                          JOIN users u ON u.id = alp.adult_id
-                          WHERE LOWER(alp.position) = 'committee chair'
-                          LIMIT 1");
-    $st->execute();
-    if ($r = $st->fetch()) {
-      $committeeChairName = trim((string)($r['first_name'] ?? '').' '.(string)($r['last_name'] ?? ''));
-    }
-  } catch (Throwable $e) {
-    // ignore and use fallbacks
-  }
+  $cubmasterName = UserManagement::findLeaderNameByPosition('Cubmaster') ?? '';
+  $committeeChairName = UserManagement::findLeaderNameByPosition('Committee Chair') ?? '';
   $cubmasterLabel = $cubmasterName !== '' ? $cubmasterName : 'the Cubmaster';
   $committeeChairLabel = $committeeChairName !== '' ? $committeeChairName : 'the Committee Chair';
 ?>
@@ -122,20 +101,7 @@ header_html('Home');
       $childIds = array_map(function($k){ return (int)($k['id'] ?? 0); }, $children);
       $childIds = array_values(array_filter($childIds));
       if (!empty($childIds)) {
-        $ph = implode(',', array_fill(0, count($childIds), '?'));
-        $params = $childIds;
-        $params[] = (int)($me['id'] ?? 0);
-        $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number,
-                       GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
-                FROM users u
-                JOIN parent_relationships pr ON pr.adult_id = u.id
-                LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
-                WHERE pr.youth_id IN ($ph) AND u.id <> ?
-                GROUP BY u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number
-                ORDER BY u.last_name, u.first_name";
-        $st = pdo()->prepare($sql);
-        $st->execute($params);
-        $coParents = $st->fetchAll();
+        $coParents = UserManagement::listCoParentsForYouthIds((int)($me['id'] ?? 0), $childIds);
       }
     } catch (Throwable $e) {
       $coParents = [];
@@ -784,9 +750,8 @@ header_html('Home');
   try {
     $now = date('Y-m-d H:i:s');
     $in2mo = date('Y-m-d H:i:s', strtotime('+2 months'));
-    $stUE = pdo()->prepare("SELECT * FROM events WHERE starts_at >= ? AND starts_at < ? ORDER BY starts_at LIMIT 5");
-    $stUE->execute([$now, $in2mo]);
-    $homeEvents = $stUE->fetchAll();
+    $events = EventManagement::listBetween($now, $in2mo);
+    $homeEvents = array_slice($events, 0, 5);
   } catch (Throwable $e) {
     $homeEvents = [];
   }

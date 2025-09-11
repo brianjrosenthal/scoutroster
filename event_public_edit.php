@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/partials.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 
 // No login required
 
@@ -34,11 +35,9 @@ if (!hash_equals((string)$rsvp['token_hash'], hash('sha256', $token))) {
   http_response_code(403); exit('Invalid token');
 }
 
-// Load event
+/* Load event */
 $eventId = (int)$rsvp['event_id'];
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$eventId]);
-$event = $st->fetch();
+$event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 // Disallow after event starts

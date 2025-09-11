@@ -2,6 +2,7 @@
 // Public ICS feed for events (read-only, no auth required)
 require_once __DIR__.'/settings.php';
 require_once __DIR__.'/config.php';
+require_once __DIR__.'/lib/EventManagement.php';
 
 // Helpers
 function ics_escape($s) {
@@ -29,9 +30,7 @@ function ics_line($k, $v) {
 // Load upcoming events (next 365 days)
 $now = date('Y-m-d H:i:s');
 $until = date('Y-m-d H:i:s', time() + 365*24*60*60);
-$st = pdo()->prepare("SELECT * FROM events WHERE starts_at BETWEEN ? AND ? ORDER BY starts_at ASC");
-$st->execute([$now, $until]);
-$events = $st->fetchAll();
+$events = EventManagement::listBetween($now, $until);
 
 // Host for UIDs/URLs
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';

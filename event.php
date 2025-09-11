@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -13,10 +14,8 @@ $isAdmin = !empty($me['is_admin']);
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 
-// Load event
-$st = pdo()->prepare("SELECT * FROM events WHERE id=? LIMIT 1");
-$st->execute([$id]);
-$e = $st->fetch();
+/* Load event */
+$e = EventManagement::findById($id);
 if (!$e) { http_response_code(404); exit('Event not found'); }
 $allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
 $eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
