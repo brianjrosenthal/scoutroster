@@ -393,15 +393,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
             ?>
             <?php if (!$amIn): ?>
-              <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+              <form method="post" action="/volunteer_actions.php" class="inline">
                 <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
                 <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
                 <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
                 <?php if ((int)$r['open_count'] > 0): ?>
                   <input type="hidden" name="action" value="signup">
-                  <button class="button primary">Sign up</button>
+                  <button style="margin-top:6px;" class="button primary">Sign up</button>
                 <?php else: ?>
-                  <button class="button" disabled>Filled</button>
+                  <button style="margin-top:6px;" class="button" disabled>Filled</button>
                 <?php endif; ?>
               </form>
             <?php endif; ?>
@@ -493,6 +493,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
       if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
         openModal();
       <?php endif; ?>
@@ -690,6 +691,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     });
 
     if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
 <?php if (!empty($_GET['open_rsvp'])): ?>
     if (heading && answerInput) heading.textContent = (answerInput.value || 'yes').toUpperCase();
     openModal();
