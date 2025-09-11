@@ -110,6 +110,17 @@ header_html('Home');
     // Normalize to a single array for rendering
     $family = [];
 
+    // Add logged-in user as first card
+    $family[] = [
+      'type' => 'parent',
+      'first_name' => (string)($me['first_name'] ?? ''),
+      'last_name' => (string)($me['last_name'] ?? ''),
+      'adult_id' => (int)($me['id'] ?? 0),
+      'positions' => '',
+      'bsa_membership_number' => trim((string)($me['bsa_membership_number'] ?? '')),
+      'photo_public_file_id' => (int)($me['photo_public_file_id'] ?? 0),
+    ];
+
     foreach ($children as $c) {
       $family[] = [
         'type' => 'child',
@@ -155,7 +166,10 @@ header_html('Home');
             $editUrl = '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0);
             $canEdit = true;
           } else {
-            if ($isAdmin) {
+            if ((int)($m['adult_id'] ?? 0) === (int)($me['id'] ?? 0)) {
+              $editUrl = '/my_profile.php';
+              $canEdit = true;
+            } elseif ($isAdmin) {
               $editUrl = '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
               $canEdit = true;
             }
@@ -165,9 +179,11 @@ header_html('Home');
           <div class="person-header">
             <div class="person-header-left">
               <?php
-                $href = ($m['type'] === 'child')
-                  ? '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0)
-                  : '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0);
+              $href = ($m['type'] === 'child')
+                ? '/youth_edit.php?id='.(int)($m['youth_id'] ?? 0)
+                : ((int)($m['adult_id'] ?? 0) === (int)($me['id'] ?? 0)
+                    ? '/my_profile.php'
+                    : '/adult_edit.php?id='.(int)($m['adult_id'] ?? 0));
                 $avatarUrl = Files::profilePhotoUrl($m['photo_public_file_id'] ?? null);
               ?>
               <a href="<?= h($href) ?>" class="avatar-link" title="Edit">
