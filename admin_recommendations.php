@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/Search.php';
 require_once __DIR__.'/settings.php';
+require_once __DIR__.'/lib/Recommendations.php';
 require_admin();
 
 $msg = null;
@@ -12,49 +13,7 @@ $q = trim($_GET['q'] ?? '');
 $sf = trim($_GET['s'] ?? 'new_active'); // new_active|new|active|joined|unsubscribed
 
 // Build query
-$params = [];
-$sql = "
-  SELECT r.*,
-         u.first_name AS submit_first,
-         u.last_name  AS submit_last
-  FROM recommendations r
-  JOIN users u ON u.id = r.created_by_user_id
-  WHERE 1=1
-";
-
-if ($q !== '') {
-  $tokens = Search::tokenize($q);
-  $sql .= Search::buildAndLikeClause(
-    ['r.parent_name','r.child_name','r.email','r.phone'],
-    $tokens,
-    $params
-  );
-}
-
-switch ($sf) {
-  case 'new':
-    $sql .= " AND r.status = 'new'";
-    break;
-  case 'active':
-    $sql .= " AND r.status = 'active'";
-    break;
-  case 'joined':
-    $sql .= " AND r.status = 'joined'";
-    break;
-  case 'unsubscribed':
-    $sql .= " AND r.status = 'unsubscribed'";
-    break;
-  case 'new_active':
-  default:
-    $sql .= " AND r.status IN ('new','active')";
-    break;
-}
-
-$sql .= " ORDER BY r.created_at DESC";
-
-$st = pdo()->prepare($sql);
-$st->execute($params);
-$rows = $st->fetchAll();
+$rows = Recommendations::list(['q' => $q, 'status' => $sf]);
 
 header_html('Recommendations');
 ?>

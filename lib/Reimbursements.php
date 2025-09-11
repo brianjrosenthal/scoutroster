@@ -4,9 +4,20 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/UserManagement.php';
+require_once __DIR__ . '/ActivityLog.php';
 
 final class Reimbursements {
   private static function pdo(): PDO { return pdo(); }
+
+  // Best-effort activity logging with no DB enrichment
+  private static function logAction(string $action, array $meta = []): void {
+    try {
+      $ctx = \UserContext::getLoggedInUserContext();
+      \ActivityLog::log($ctx, $action, $meta);
+    } catch (\Throwable $e) {
+      // swallow
+    }
+  }
 
   // ----- Roles / Permissions -----
 
@@ -89,6 +100,13 @@ final class Reimbursements {
     );
     $st->execute([$title, $description, $paymentDetails, $amountCanon, (int)$ctx->id]);
     $newId = (int)self::pdo()->lastInsertId();
+
+    // Activity log: reimbursement created
+    self::logAction('reimbursement.create', [
+      'request_id' => $newId,
+      'title' => $title,
+      'has_amount' => $amountCanon !== null,
+    ]);
 
     // Best-effort notification; non-fatal on errors or if no recipients
     try {
@@ -197,6 +215,11 @@ final class Reimbursements {
                                 VALUES (?, ?, NOW(), NULL, ?)");
     $st->execute([(int)$req['id'], (int)$ctx->id, $text]);
 
+    // Activity log: comment added
+    self::logAction('reimbursement.add_comment', [
+      'request_id' => (int)$req['id'],
+    ]);
+
     try {
       self::notifyNewComment((int)$req['id'], (int)$ctx->id, $text);
     } catch (\Throwable $e) {
@@ -207,6 +230,7 @@ final class Reimbursements {
   public static function changeStatus(UserContext $ctx, int $reqId, string $newStatus, string $comment): void {
     if (!$ctx) throw new RuntimeException('Login required');
     $req = self::getWithAuth($ctx, $reqId);
+    $oldStatus = (string)$req['status'];
     $newStatus = trim($newStatus);
     if (!self::validStatus($newStatus)) throw new InvalidArgumentException('Invalid status.');
     $comment = trim($comment);
@@ -229,6 +253,13 @@ final class Reimbursements {
       $upd->execute([$newStatus, $comment, (int)$ctx->id, (int)$req['id']]);
 
       $pdo->commit();
+
+      // Activity log: status change
+      self::logAction('reimbursement.status_change', [
+        'request_id' => (int)$req['id'],
+        'from' => $oldStatus,
+        'to' => $newStatus,
+      ]);
 
       try {
         self::notifyStatusChange((int)$req['id'], (int)$ctx->id, $newStatus, $comment);
@@ -332,6 +363,12 @@ final class Reimbursements {
     $pd = self::validatePaymentDetails($paymentDetails);
     $st = self::pdo()->prepare("UPDATE reimbursement_requests SET payment_details = ?, last_modified_at = NOW() WHERE id = ?");
     $st->execute([$pd, (int)$req['id']]);
+
+    // Activity log: payment details updated (do not log the text)
+    self::logAction('reimbursement.update_payment_details', [
+      'request_id' => (int)$req['id'],
+      'has_payment_details' => $pd !== null && $pd !== '',
+    ]);
   }
 
   // Amount update: only creator can edit, and only when status is 'more_info_requested'
@@ -347,6 +384,12 @@ final class Reimbursements {
     $canon = self::validateAmount($amount);
     $st = self::pdo()->prepare("UPDATE reimbursement_requests SET amount = ?, last_modified_at = NOW() WHERE id = ?");
     $st->execute([$canon, (int)$req['id']]);
+
+    // Activity log: amount updated
+    self::logAction('reimbursement.update_amount', [
+      'request_id' => (int)$req['id'],
+      'amount' => $canon,
+    ]);
   }
 
 
@@ -358,6 +401,13 @@ final class Reimbursements {
       (reimbursement_request_id, original_filename, description, created_by, created_at, secure_file_id)
       VALUES (?, ?, ?, ?, NOW(), ?)");
     $st->execute([(int)$req['id'], $originalFilename, $description, (int)$ctx->id, (int)$secureFileId]);
+
+    // Activity log: file added
+    self::logAction('reimbursement.add_file', [
+      'request_id' => (int)$req['id'],
+      'secure_file_id' => (int)$secureFileId,
+      'filename' => (string)$originalFilename,
+    ]);
 
     try {
       self::notifyNewFile((int)$req['id'], (int)$ctx->id, $originalFilename, $description);
