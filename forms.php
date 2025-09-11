@@ -7,13 +7,13 @@ header_html('Forms and Links');
 <h2>Forms and Links</h2>
 
 <div class="card">
-  <h3><a target="_blank" rel="noopener" href="https://filestore.scouting.org/filestore/HealthSafety/pdf/680-001_AB.pdf">Medical Form</a></h3>
-  <p>The standard Medical Form A&B required for basic Scouting activities such as local tours and weekend camping trips less than 72 hours in duration.</p>
+  <h3><a target="_blank" rel="noopener" href="https://filestore.scouting.org/filestore/pdf/524-406.pdf">Youth Application Form</a></h3>
+  <p> Required to register for Cub Scouts for the first time.</p>
 </div>
 
 <div class="card">
-  <h3><a target="_blank" rel="noopener" href="https://filestore.scouting.org/filestore/pdf/524-406.pdf">Youth Application Form</a></h3>
-  <p> Required to register for Cub Scouts.</p>
+  <h3><a target="_blank" rel="noopener" href="https://filestore.scouting.org/filestore/HealthSafety/pdf/680-001_AB.pdf">Medical Form</a></h3>
+  <p>The standard Medical Form A&B required for basic Scouting activities such as local tours and weekend camping trips less than 72 hours in duration.</p>
 </div>
 
 <div class="card">
