@@ -2,9 +2,11 @@
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/mailer.php';
+require_once __DIR__ . '/lib/Recommendations.php';
 require_login();
 
 $me = current_user();
+$ctx = UserContext::getLoggedInUserContext();
 $msg = null;
 $err = null;
 
@@ -27,21 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (empty($errors)) {
     try {
-      // Insert into recommendations
-      $st = pdo()->prepare("
-        INSERT INTO recommendations
-          (parent_name, child_name, email, phone, grade, notes, created_by_user_id, created_at)
-        VALUES
-          (?, ?, ?, ?, ?, ?, ?, NOW())
-      ");
-      $ok = $st->execute([
-        $parent_name,
-        $child_name,
-        ($email !== '' ? $email : null),
-        ($phone !== '' ? $phone : null),
-        $grade,
-        ($notes !== '' ? $notes : null),
-        (int)($me['id'] ?? 0),
+      // Create recommendation via domain
+      $recId = Recommendations::create($ctx, [
+        'parent_name' => $parent_name,
+        'child_name'  => $child_name,
+        'email'       => $email,
+        'phone'       => $phone,
+        'grade'       => $grade,
+        'notes'       => $notes,
       ]);
 
       // Send notification email to Cubmaster (best-effort; do not block success)

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/UserContext.php';
 
 function current_user() {
   if (!empty($_SESSION['uid'])) {
@@ -21,7 +22,14 @@ function current_user() {
     }
 
     $u = UserManagement::findFullById((int)$_SESSION['uid']);
-    return $u ?: null;
+    if ($u) {
+      // Seed per-request UserContext so downstream permission checks have a non-null context
+      if (class_exists('UserContext')) {
+        UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
+      }
+      return $u;
+    }
+    return null;
   }
   return null;
 }

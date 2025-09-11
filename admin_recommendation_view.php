@@ -2,6 +2,7 @@
 require_once __DIR__.'/partials.php';
 require_once __DIR__.'/settings.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/Recommendations.php';
 require_admin();
 
 $err = null;
@@ -10,26 +11,12 @@ $msg = null;
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 
-// Load recommendation
-function loadRecommendation(int $id): ?array {
-  $sql = "SELECT r.*,
-                 u1.first_name AS submit_first, u1.last_name AS submit_last,
-                 u2.first_name AS reached_first, u2.last_name AS reached_last
-          FROM recommendations r
-          JOIN users u1 ON u1.id = r.created_by_user_id
-          LEFT JOIN users u2 ON u2.id = r.reached_out_by_user_id
-          WHERE r.id = ?
-          LIMIT 1";
-  $st = pdo()->prepare($sql);
-  $st->execute([$id]);
-  $row = $st->fetch();
-  return $row ?: null;
-}
 
-$rec = loadRecommendation($id);
+$rec = Recommendations::getDetail($id);
 if (!$rec) { http_response_code(404); exit('Not found'); }
 
 $me = current_user();
+$ctx = UserContext::getLoggedInUserContext();
 
 function rec_format_date_only(?string $sqlDt): string {
   if (!$sqlDt) return '';
@@ -49,28 +36,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
     switch ($action) {
       case 'mark_reached_out':
-        $st = pdo()->prepare("UPDATE recommendations SET status='active', reached_out_at=NOW(), reached_out_by_user_id=? WHERE id=? AND status='new'");
-        $st->execute([(int)($me['id'] ?? 0), $id]);
+        Recommendations::markReachedOut($ctx, $id);
         $msg = 'Saved.';
-        $rec = loadRecommendation($id);
+        $rec = Recommendations::getDetail($id);
         break;
       case 'mark_joined':
-        $st = pdo()->prepare("UPDATE recommendations SET status='joined' WHERE id=? AND status='active'");
-        $st->execute([$id]);
+        Recommendations::markJoined($ctx, $id);
         $msg = 'Saved.';
-        $rec = loadRecommendation($id);
+        $rec = Recommendations::getDetail($id);
         break;
       case 'unsubscribe':
-        $st = pdo()->prepare("UPDATE recommendations SET status='unsubscribed' WHERE id=? AND status IN ('new','active')");
-        $st->execute([$id]);
+        Recommendations::unsubscribe($ctx, $id);
         $msg = 'Saved.';
-        $rec = loadRecommendation($id);
+        $rec = Recommendations::getDetail($id);
         break;
       case 'add_comment':
         $text = trim($_POST['text'] ?? '');
-        if ($text === '') throw new InvalidArgumentException('Comment cannot be empty.');
-        $st = pdo()->prepare("INSERT INTO recommendation_comments (recommendation_id, created_by_user_id, text, created_at) VALUES (?,?,?,NOW())");
-        $st->execute([$id, (int)($me['id'] ?? 0), $text]);
+        Recommendations::addComment($ctx, $id, $text);
         $msg = 'Comment added.';
         break;
     }
@@ -82,15 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Load comments
 $comments = [];
 try {
-  $st = pdo()->prepare("
-    SELECT rc.*, u.first_name, u.last_name
-    FROM recommendation_comments rc
-    JOIN users u ON u.id = rc.created_by_user_id
-    WHERE rc.recommendation_id=?
-    ORDER BY rc.created_at DESC, rc.id DESC
-  ");
-  $st->execute([$id]);
-  $comments = $st->fetchAll();
+  $comments = Recommendations::listComments($id);
 } catch (Throwable $e) {
   $comments = [];
 }
