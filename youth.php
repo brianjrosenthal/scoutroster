@@ -179,6 +179,16 @@ header_html('Youth Roster');
                 $plist = $parentsByYouth[(int)$y['id']] ?? [];
                 $parentStrs = [];
                 $isAdminView = !empty($u['is_admin']);
+                // Order parents so that those with leadership positions appear first (stable within groups)
+                if (is_array($plist) && count($plist) > 1) {
+                  $withPos = [];
+                  $withoutPos = [];
+                  foreach ($plist as $pp) {
+                    $posStrTmp = trim((string)($pp['positions'] ?? ''));
+                    if ($posStrTmp !== '') { $withPos[] = $pp; } else { $withoutPos[] = $pp; }
+                  }
+                  $plist = array_merge($withPos, $withoutPos);
+                }
                 foreach ($plist as $p) {
                   $pname = trim(($p['first_name'] ?? '').' '.($p['last_name'] ?? ''));
                   $rawPhone = !empty($p['phone_cell']) ? $p['phone_cell'] : ($p['phone_home'] ?? '');
