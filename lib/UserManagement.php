@@ -742,6 +742,9 @@ class UserManagement {
     $sql = "
       SELECT 
         u.*,
+        (SELECT GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ')
+           FROM adult_leadership_positions alp 
+           WHERE alp.adult_id = u.id) AS positions,
         y.id         AS child_id,
         y.first_name AS child_first_name,
         y.last_name  AS child_last_name,
@@ -792,6 +795,7 @@ class UserManagement {
             'email_verified_at' => $r['email_verified_at'] ?? null,
             'suppress_email_directory' => (int)($r['suppress_email_directory'] ?? 0),
             'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
+            'positions' => trim((string)($r['positions'] ?? '')),
           ],
           'children' => [],
         ];

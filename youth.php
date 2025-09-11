@@ -194,7 +194,7 @@ header_html('Youth Roster');
                     $line = h($pname);
                   }
                   if (!empty($contact)) {
-                    $line .= ' ('.implode(', ', $contact).')';
+                    $line .= '<br>'.implode(', ', $contact);
                   } else {
                     if ((!empty($rawPhone) || !empty($rawEmail)) && !$isAdminView && (!empty($p['suppress_phone_directory']) || !empty($p['suppress_email_directory']))) {
                       $line .= ' <span class="small">(Hidden by user preference)</span>';
