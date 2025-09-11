@@ -24,7 +24,6 @@ function header_html(string $title) {
     $navLeft[] = $link('/index.php','Home');
     $navLeft[] = $link('/youth.php','Youth');
     $navLeft[] = $link('/adults.php','Adults');
-    $navLeft[] = $link('/reimbursements.php','Reimbursements');
     $navLeft[] = $link('/events.php','Events');
     if (!empty($u['is_admin'])) {
       $navLeft[] = '<a href="#" id="adminToggle">Admin</a>';
@@ -39,6 +38,7 @@ function header_html(string $title) {
                 . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
                 . '<div id="avatarMenu" class="avatar-menu hidden" role="menu" aria-hidden="true">'
                 .   '<a href="/my_profile.php" role="menuitem">My Profile</a>'
+                .   '<a href="/reimbursements.php" role="menuitem">Reimbursements</a>'
                 .   '<a href="/forms.php" role="menuitem">Forms and Links</a>'
                 .   '<a href="/logout.php" role="menuitem">Logout</a>'
                 . '</div>'
