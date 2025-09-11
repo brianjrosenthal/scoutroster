@@ -111,6 +111,7 @@ try {
   <h2>Recommendation Details</h2>
   <div class="actions">
     <a class="button" href="/admin_recommendations.php">Back to list</a>
+    <a class="button" href="/admin_recommendation_edit.php?id=<?= (int)$id ?>">Edit</a>
     <?php if (($rec['status'] ?? '') === 'new'): ?>
       <form method="post" style="display:inline-block;margin-left:8px;">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
