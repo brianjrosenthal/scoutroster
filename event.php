@@ -361,7 +361,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
           <?php endif; ?>
 
           <?php if (!empty($r['volunteers'])): ?>
@@ -371,7 +371,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <?php endforeach; ?>
             </ul>
           <?php else: ?>
-            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
+            <p style="margin:4px 0 0 0;">No one yet.</p>
           <?php endif; ?>
 
           <?php if ($hasYes): ?>
@@ -420,7 +420,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div  style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
           <?php endif; ?>
 
           <?php if (!empty($r['volunteers'])): ?>
@@ -430,7 +430,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <?php endforeach; ?>
             </ul>
           <?php else: ?>
-            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
+            <p style="margin:4px 0 0 0;">No one yet.</p>
           <?php endif; ?>
 
           <?php
@@ -502,7 +502,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
                 +     (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>')
                 +   '</div>';
           if (r.description) {
-            html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+            html += '<div style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
           }
           if (volunteers.length > 0) {
             html += '<ul style="margin:6px 0 0 16px;">';
@@ -512,7 +512,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             }
             html += '</ul>';
           } else {
-            html += '<p class="small" style="margin:4px 0 0 0;">No one yet.</p>';
+            html += '<p style="margin:4px 0 0 0;">No one yet.</p>';
           }
           html +=   '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
                 +     '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
