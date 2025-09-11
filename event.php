@@ -410,9 +410,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           <div>
             <strong><?= h($r['title']) ?></strong>
             <?php if ((int)$r['open_count'] > 0): ?>
-              <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
+              <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
-              <span class="filled small">Filled</span>
+              <span class="filled">Filled</span>
             <?php endif; ?>
           </div>
           <?php
