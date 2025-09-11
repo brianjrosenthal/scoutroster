@@ -540,7 +540,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
                       +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
                       +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
                       +   '<input type="hidden" name="action" value="remove">'
-                      +   '<a href="#" class="small" onclick="this.closest(\\'form\\').requestSubmit(); return false;">(remove)</a>'
+                      +   '<a href="#" class="small" onclick="this.closest(\'form\').requestSubmit(); return false;">(remove)</a>'
                       + '</form>';
               }
               html += '</li>';
