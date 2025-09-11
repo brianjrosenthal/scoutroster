@@ -625,6 +625,9 @@ header_html('Home');
               <div>
                 <strong><?= h((string)$r['title']) ?></strong>
                 <span class="small">(<?= (int)($r['open_count'] ?? 0) ?> remaining)</span>
+                <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
+                  <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+                <?php endif; ?>
               </div>
               <button class="button">Sign Up</button>
             </div>
@@ -685,7 +688,7 @@ header_html('Home');
                 + '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
                 + '<input type="hidden" name="action" value="'+(signed ? 'remove' : 'signup')+'">'
                 + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
-                +   '<div><strong>'+esc(r.title||'')+'</strong> <span class="small">(' + open + ' remaining)</span></div>'
+                +   '<div><strong>'+esc(r.title||'')+'</strong> <span class="small">(' + open + ' remaining)</span>' + (r.description ? '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>' : '') + '</div>'
                 +   '<div>';
           if (signed) {
             html += '<span class="small" style="margin-right:8px;">You’re signed up</span><button class="button danger">Remove</button>';

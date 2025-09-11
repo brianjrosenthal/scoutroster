@@ -19,17 +19,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
     require_csrf();
 
-    // Expect arrays role_id[], title[], slots_needed[], sort_order[] (aligned by index)
+    // Expect arrays role_id[], title[], description[], slots_needed[], sort_order[] (aligned by index)
     $roleIds      = $_POST['role_id'] ?? [];
     $titles       = $_POST['title'] ?? [];
+    $descs        = $_POST['description'] ?? [];
     $slotsNeededs = $_POST['slots_needed'] ?? [];
     $sortOrders   = $_POST['sort_order'] ?? [];
 
-    $count = max(count((array)$roleIds), count((array)$titles), count((array)$slotsNeededs), count((array)$sortOrders));
+    $count = max(count((array)$roleIds), count((array)$titles), count((array)$descs), count((array)$slotsNeededs), count((array)$sortOrders));
     $roles = [];
     for ($i = 0; $i < $count; $i++) {
       $rid   = isset($roleIds[$i])      ? (int)$roleIds[$i] : 0;
       $title = isset($titles[$i])       ? trim((string)$titles[$i]) : '';
+      $desc  = isset($descs[$i])        ? trim((string)$descs[$i]) : '';
       $slots = isset($slotsNeededs[$i]) ? (int)$slotsNeededs[$i] : 0;
       $order = isset($sortOrders[$i])   ? (int)$sortOrders[$i] : $i;
 
@@ -43,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $roles[] = [
         'id' => $rid,
         'title' => $title,
+        'description' => $desc,
         'slots_needed' => $slots,
         'sort_order' => $order,
       ];
@@ -70,8 +73,9 @@ header_html('Manage Volunteer Roles');
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
 
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
+    <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px;">
       <div><strong>Title</strong></div>
+      <div><strong>Description</strong></div>
       <div><strong># Needed</strong></div>
       <div><strong>Sort</strong></div>
       <div><strong>Current</strong></div>
@@ -79,18 +83,20 @@ header_html('Manage Volunteer Roles');
 
     <div id="rolesContainer">
       <?php if (empty($roles)): ?>
-        <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:12px;align-items:center;">
+        <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;">
           <input type="hidden" name="role_id[]" value="0">
           <input type="text" name="title[]" placeholder="e.g., Setup">
+          <input type="text" name="description[]" placeholder="Optional description">
           <input type="number" name="slots_needed[]" min="0" value="1" style="max-width:120px">
           <input type="number" name="sort_order[]" min="0" value="0" style="max-width:120px">
           <div class="small">&nbsp;</div>
         </div>
       <?php else: ?>
         <?php foreach ($roles as $idx => $r): ?>
-          <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:12px;align-items:center;margin:6px 0;">
+          <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;margin:6px 0;">
             <input type="hidden" name="role_id[]" value="<?= (int)$r['id'] ?>">
             <input type="text" name="title[]" value="<?= h($r['title']) ?>">
+            <input type="text" name="description[]" value="<?= h((string)($r['description'] ?? '')) ?>">
             <input type="number" name="slots_needed[]" min="0" value="<?= (int)$r['slots_needed'] ?>" style="max-width:120px">
             <input type="number" name="sort_order[]" min="0" value="<?= (int)$r['sort_order'] ?>" style="max-width:120px">
             <div class="small"><?= (int)$r['filled_count'] ?> filled<?= $r['open_count'] > 0 ? ' / '.$r['open_count'].' open' : '' ?></div>
@@ -112,10 +118,11 @@ function addRoleRow(){
   const c = document.getElementById('rolesContainer');
   const row = document.createElement('div');
   row.className = 'grid';
-  row.style.cssText = 'grid-template-columns:repeat(4,1fr);gap:12px;align-items:center;margin:6px 0;';
+  row.style.cssText = 'grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;margin:6px 0;';
   row.innerHTML = `
     <input type="hidden" name="role_id[]" value="0">
     <input type="text" name="title[]" placeholder="e.g., Clean-up">
+    <input type="text" name="description[]" placeholder="Optional description">
     <input type="number" name="slots_needed[]" min="0" value="1" style="max-width:120px">
     <input type="number" name="sort_order[]" min="0" value="0" style="max-width:120px">
     <div class="small">&nbsp;</div>

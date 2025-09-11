@@ -10,7 +10,7 @@ class Volunteers {
     if ($eventId <= 0) return [];
 
     $st = pdo()->prepare("
-      SELECT vr.id, vr.title, vr.slots_needed, vr.sort_order,
+      SELECT vr.id, vr.title, vr.description, vr.slots_needed, vr.sort_order,
              COALESCE(COUNT(vs.id),0) AS filled_count
       FROM volunteer_roles vr
       LEFT JOIN volunteer_signups vs ON vs.role_id = vr.id
@@ -49,6 +49,7 @@ class Volunteers {
       $out[] = [
         'id' => $rid,
         'title' => (string)$r['title'],
+        'description' => (string)($r['description'] ?? ''),
         'slots_needed' => $slots,
         'filled_count' => $filled,
         'open_count' => $open,
@@ -168,15 +169,17 @@ class Volunteers {
         $title = trim((string)($r['title'] ?? ''));
         $slots = (int)max(0, (int)($r['slots_needed'] ?? 0));
         $order = (int)max(0, (int)($r['sort_order'] ?? 0));
+        $desc = trim((string)($r['description'] ?? ''));
+        $desc = ($desc === '') ? null : $desc;
         if ($title === '') continue;
 
         if ($id > 0) {
-          $up = $db->prepare("UPDATE volunteer_roles SET title=?, slots_needed=?, sort_order=? WHERE id=? AND event_id=?");
-          $up->execute([$title, $slots, $order, $id, $eventId]);
+          $up = $db->prepare("UPDATE volunteer_roles SET title=?, description=?, slots_needed=?, sort_order=? WHERE id=? AND event_id=?");
+          $up->execute([$title, $desc, $slots, $order, $id, $eventId]);
           $keepIds[] = $id;
         } else {
-          $ins = $db->prepare("INSERT INTO volunteer_roles (event_id, title, slots_needed, sort_order) VALUES (?,?,?,?)");
-          $ins->execute([$eventId, $title, $slots, $order]);
+          $ins = $db->prepare("INSERT INTO volunteer_roles (event_id, title, description, slots_needed, sort_order) VALUES (?,?,?,?,?)");
+          $ins->execute([$eventId, $title, $desc, $slots, $order]);
           $keepIds[] = (int)$db->lastInsertId();
         }
       }
