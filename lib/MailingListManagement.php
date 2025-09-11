@@ -181,12 +181,19 @@ class MailingListManagement {
       }
     }
 
-    // Recommendations (apply 'q' filter only)
+    // Recommendations (apply 'q' filter and grade if provided)
     $recParams = [];
     $recSql = "SELECT r.parent_name, r.child_name, r.email FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
     if (!empty($f['q'])) {
       $tokens = \Search::tokenize($f['q']);
       $recSql .= \Search::buildAndLikeClause(['r.parent_name','r.child_name','r.email'], $tokens, $recParams);
+    }
+    // If a grade filter is active (via class_of), map it to a grade label (K..5) and filter recommendations
+    if ($f['class_of'] !== null) {
+      $gInt = \GradeCalculator::gradeForClassOf((int)$f['class_of']);
+      $gLbl = \GradeCalculator::gradeLabel((int)$gInt);
+      $recSql .= " AND r.grade = ?";
+      $recParams[] = $gLbl;
     }
     $stRec = self::pdo()->prepare($recSql);
     $stRec->execute($recParams);
