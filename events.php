@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/Files.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/EventManagement.php';
+require_once __DIR__.'/lib/RSVPManagement.php';
 require_login();
 
 $u = current_user();
@@ -80,34 +81,16 @@ header_html('Upcoming Events');
         <?php else: ?>
         <?php
           // Show current RSVP summary if user has one (membership-based); otherwise show RSVP CTA
-          $st2 = pdo()->prepare("SELECT id, answer, n_guests, created_by_user_id FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-          $st2->execute([(int)$e['id'], (int)$u['id']]);
-          $my = $st2->fetch();
+          $summary = RSVPManagement::getRsvpSummaryForUserEvent((int)$e['id'], (int)$u['id']);
 
-          if (!$my) {
-            $st2 = pdo()->prepare("
-              SELECT r.id, r.answer, r.n_guests, r.created_by_user_id
-              FROM rsvps r
-              JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
-              WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
-              LIMIT 1
-            ");
-            $st2->execute([(int)$e['id'], (int)$u['id']]);
-            $my = $st2->fetch();
-          }
-
-          if ($my):
-            $rsvpId = (int)$my['id'];
-            $ad = 0; $kids = 0;
-            $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='adult'");
-            $q->execute([$rsvpId]); $ad = (int)($q->fetch()['c'] ?? 0);
-            $q = pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE rsvp_id=? AND participant_type='youth'");
-            $q->execute([$rsvpId]); $kids = (int)($q->fetch()['c'] ?? 0);
-            $guests = (int)($my['n_guests'] ?? 0);
+          if ($summary):
+            $ad = (int)($summary['adult_count'] ?? 0);
+            $kids = (int)($summary['youth_count'] ?? 0);
+            $guests = (int)($summary['n_guests'] ?? 0);
 
             // Creator hint if RSVP was created by someone else
             $byText = '';
-            $creatorId = (int)($my['created_by_user_id'] ?? 0);
+            $creatorId = (int)($summary['created_by_user_id'] ?? 0);
             if ($creatorId && $creatorId !== (int)$u['id']) {
               $nameBy = UserManagement::getFullName($creatorId);
               if ($nameBy !== null) {
@@ -116,7 +99,7 @@ header_html('Upcoming Events');
             }
         ?>
             <p>
-              You RSVP’d <?= h(ucfirst((string)$my['answer'])) ?> for
+              You RSVP’d <?= h(ucfirst((string)$summary['answer'])) ?> for
               <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
               <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
               <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.
