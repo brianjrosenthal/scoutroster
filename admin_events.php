@@ -43,7 +43,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $location  = trim($_POST['location'] ?? '');
     $location_address = trim($_POST['location_address'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $max_cub_scouts = trim($_POST['max_cub_scouts'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
     $evite_rsvp_url = trim($_POST['evite_rsvp_url'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
@@ -63,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'location' => ($location !== '' ? $location : null),
           'location_address' => ($location_address !== '' ? $location_address : null),
           'description' => ($description !== '' ? $description : null),
-          'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
           'allow_non_user_rsvp' => $allow_non_user_rsvp,
           'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
           'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
@@ -126,7 +124,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'location' => $location,
         'location_address' => $location_address,
         'description' => $description,
-        'max_cub_scouts' => ($max_cub_scouts !== '' ? (int)$max_cub_scouts : null),
         'allow_non_user_rsvp' => $allow_non_user_rsvp,
         'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
         'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
@@ -191,9 +188,6 @@ header_html('Manage Events');
       </label>
       <label>Ends at
         <input type="datetime-local" name="ends_at" value="<?=h(to_datetime_local_value($editing['ends_at'] ?? null))?>">
-      </label>
-      <label>Max Cub Scouts
-        <input type="number" name="max_cub_scouts" min="0" value="<?=h($editing['max_cub_scouts'] ?? '')?>">
       </label>
     </div>
     <label>
