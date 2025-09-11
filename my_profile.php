@@ -266,6 +266,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $err = 'Failed to link parent.';
         }
       }
+    }
     } catch (Throwable $e) {
       $err = 'Not authorized for this child.';
     }
