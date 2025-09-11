@@ -45,7 +45,7 @@ header_html('Upcoming Events');
 <h2>Upcoming Events</h2>
 
 <?php if ($isAdmin): ?>
-  <p><a class="button" href="/admin_events.php">Add Event</a></p>
+  <p><a class="button" href="/admin_events.php?show=add">Add Event</a></p>
 <?php endif; ?>
 
 <?php if (empty($events)): ?>
