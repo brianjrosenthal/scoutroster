@@ -153,7 +153,12 @@ header_html('Adults Roster');
 
           ?>
           <tr>
-            <td><?=h($adult['first_name'].' '.$adult['last_name'])?></td>
+            <?php
+              $posStr = trim((string)($adult['positions'] ?? ''));
+              $nameStr = trim((string)($adult['first_name'] ?? '').' '.(string)($adult['last_name'] ?? ''));
+              if ($posStr !== '') { $nameStr .= '<br>'.$posStr; }
+            ?>
+            <td><?= h($nameStr) ?></td>
             <td class="summary-lines"><?= $childrenSummary ?: '&mdash;' ?></td>
             <td><?= !empty($emails) ? implode('<br>', $emails) : ($hasEmail ? '<span class="small">Hidden by user preference</span>' : '&mdash;') ?></td>
             <td><?= !empty($phones) ? implode('<br>', $phones) : ($hasPhone ? '<span class="small">Hidden by user preference</span>' : '&mdash;') ?></td>
