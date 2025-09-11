@@ -408,6 +408,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     <div class="modal-content">
       <button class="close" type="button" id="volunteerModalClose" aria-label="Close">&times;</button>
       <h3>Volunteer to help at this event?</h3>
+      <div id="volRoles" class="stack">
       <?php foreach ($roles as $r): ?>
         <div class="role" style="margin-bottom:14px;">
           <div>
@@ -419,8 +420,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
           <?php endif; ?>
+
+          <?php if (!empty($r['volunteers'])): ?>
+            <ul style="margin:6px 0 0 16px;">
+              <?php foreach ($r['volunteers'] as $v): ?>
+                <li><?= h($v['name']) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php else: ?>
+            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
+          <?php endif; ?>
+
           <?php
             $amIn = false;
             foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
@@ -441,9 +453,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           </form>
         </div>
       <?php endforeach; ?>
+      </div>
 
       <div class="actions" style="margin-top:10px;">
-        <button class="button" id="volunteerMaybeLater">Maybe later</button>
+        <button class="button" id="volunteerMaybeLater">Return to Event</button>
       </div>
     </div>
   </div>
@@ -459,6 +472,91 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <?php if ($showVolunteerModal): ?>
         openModal();
       <?php endif; ?>
+
+      // AJAX handling for volunteer actions to keep modal open and refresh roles
+      const rolesWrap = document.getElementById('volRoles');
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function(c){
+          return {'&':'&','<':'<','>':'>','"':'"', "'":'&#39;'}[c];
+        });
+      }
+
+      function renderRoles(json) {
+        if (!rolesWrap) return;
+        const roles = json.roles || [];
+        const uid = parseInt(json.user_id, 10);
+        let html = '';
+        for (let i=0;i<roles.length;i++) {
+          const r = roles[i] || {};
+          const volunteers = r.volunteers || [];
+          let signed = false;
+          for (let j=0;j<volunteers.length;j++) {
+            const v = volunteers[j] || {};
+            if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
+          }
+          const open = parseInt(r.open_count, 10) || 0;
+          html += '<div class="role" style="margin-bottom:8px;">'
+                +   '<div>'
+                +     '<strong>'+esc(r.title||'')+'</strong> '
+                +     (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>')
+                +   '</div>';
+          if (r.description) {
+            html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+          }
+          if (volunteers.length > 0) {
+            html += '<ul style="margin:6px 0 0 16px;">';
+            for (let k=0;k<volunteers.length;k++) {
+              const vn = volunteers[k] || {};
+              html += '<li>'+esc(vn.name||'')+'</li>';
+            }
+            html += '</ul>';
+          } else {
+            html += '<p class="small" style="margin:4px 0 0 0;">No one yet.</p>';
+          }
+          html +=   '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
+                +     '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
+                +     '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
+                +     '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
+                +     '<input type="hidden" name="action" value="'+(signed ? 'remove' : 'signup')+'">';
+          if (signed) {
+            html +=     '<button class="button">Cancel</button>';
+          } else if (open > 0) {
+            html +=     '<button class="button primary">Sign up</button>';
+          } else {
+            html +=     '<button class="button" disabled>Filled</button>';
+          }
+          html +=   '</form>'
+                + '</div>';
+        }
+        rolesWrap.innerHTML = html;
+      }
+
+      function showError(msg) {
+        if (!rolesWrap) return;
+        const p = document.createElement('p');
+        p.className = 'error small';
+        p.textContent = msg || 'Action failed.';
+        rolesWrap.insertBefore(p, rolesWrap.firstChild);
+      }
+
+      if (modal) {
+        modal.addEventListener('submit', function(e){
+          const form = e.target.closest('form');
+          if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+          e.preventDefault();
+          const fd = new FormData(form);
+          fd.set('ajax','1');
+          fetch('/volunteer_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+            .then(function(res){ return res.json(); })
+            .then(function(json){
+              if (json && json.ok) { renderRoles(json); }
+              else { showError((json && json.error) ? json.error : 'Action failed.'); }
+            })
+            .catch(function(){ showError('Network error.'); });
+        });
+      }
+
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
     })();
   </script>
