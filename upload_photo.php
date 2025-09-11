@@ -56,13 +56,13 @@ if ($type === 'adult') {
   if ($adultId <= 0) redirect_back($returnTo, ['err' => 'missing_adult_id']);
   if (!UserManagement::canUploadAdultPhoto(UserContext::getLoggedInUserContext(), $adultId)) {
     http_response_code(403);
-    exit('Forbidden');
+    exit('Forbidden: cannot upload photo for this adult');
   }
 } else {
   if ($youthId <= 0) redirect_back($returnTo, ['err' => 'missing_youth_id']);
   if (!YouthManagement::canUploadYouthPhoto(UserContext::getLoggedInUserContext(), $youthId)) {
     http_response_code(403);
-    exit('Forbidden');
+    exit('Forbidden: cannot upload photo for this youth');
   }
 }
 
