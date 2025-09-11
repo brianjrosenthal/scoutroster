@@ -360,6 +360,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <span class="filled small">Filled</span>
             <?php endif; ?>
           </div>
+          <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
+            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+          <?php endif; ?>
 
           <?php if (!empty($r['volunteers'])): ?>
             <ul style="margin:6px 0 0 16px;">
@@ -415,6 +418,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <span class="filled">Filled</span>
             <?php endif; ?>
           </div>
+          <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
+            <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+          <?php endif; ?>
           <?php
             $amIn = false;
             foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
