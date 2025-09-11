@@ -193,6 +193,11 @@ header_html('Youth Roster');
                   } else {
                     $line = h($pname);
                   }
+                  // Insert leadership positions (line break), before phone/email
+                  $posStr = trim((string)($p['positions'] ?? ''));
+                  if ($posStr !== '') {
+                    $line .= '<br>' . h($posStr);
+                  }
                   if (!empty($contact)) {
                     $line .= '<br>'.implode(', ', $contact);
                   } else {

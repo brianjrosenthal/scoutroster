@@ -344,10 +344,13 @@ class UserManagement {
                    u.phone_home,
                    u.email,
                    u.suppress_email_directory,
-                   u.suppress_phone_directory
+                   u.suppress_phone_directory,
+                   GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
             FROM parent_relationships pr
             JOIN users u ON u.id = pr.adult_id
+            LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
             WHERE pr.youth_id IN ($placeholders)
+            GROUP BY pr.youth_id, u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.email, u.suppress_email_directory, u.suppress_phone_directory
             ORDER BY pr.youth_id, u.last_name, u.first_name";
 
     $st = self::pdo()->prepare($sql);
