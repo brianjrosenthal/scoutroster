@@ -183,7 +183,7 @@ class MailingListManagement {
 
     // Recommendations (apply 'q' filter and grade if provided)
     $recParams = [];
-    $recSql = "SELECT r.parent_name, r.child_name, r.email FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
+    $recSql = "SELECT r.parent_name, r.child_name, r.email, r.grade FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
     if (!empty($f['q'])) {
       $tokens = \Search::tokenize($f['q']);
       $recSql .= \Search::buildAndLikeClause(['r.parent_name','r.child_name','r.email'], $tokens, $recParams);
@@ -209,10 +209,11 @@ class MailingListManagement {
         $nmChild = trim((string)($r['child_name'] ?? ''));
         $name = ($nmChild !== '') ? $nmChild : $emailRaw;
       }
+      $gradeLabel = trim((string)($r['grade'] ?? ''));
       $contacts[$emailKey] = [
         'name' => $name,
         'email' => $emailRaw,
-        'grades' => [],
+        'grades' => ($gradeLabel !== '' ? [$gradeLabel] : []),
         'source' => 'rec',
       ];
     }
