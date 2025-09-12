@@ -61,6 +61,8 @@ final class Reimbursements {
     } elseif ($s === 'more_info_requested') {
       if ($creator) $next[] = 'resubmitted';
       if ($approver) {
+        // Allow approvers to mark resubmitted on behalf of submitter if needed
+        $next[] = 'resubmitted';
         $next[] = 'approved';
         $next[] = 'rejected';
         $next[] = 'paid';
@@ -88,17 +90,32 @@ final class Reimbursements {
 
   // ----- CRUD / Actions -----
 
-  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null): int {
+  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null, ?int $createdByOverride = null): int {
     if (!$ctx) throw new RuntimeException('Login required');
     $title = trim($title);
     if ($title === '') throw new InvalidArgumentException('Title is required.');
     $paymentDetails = self::validatePaymentDetails($paymentDetails);
     $amountCanon = self::validateAmount($amount);
+
+    // Determine created_by and entered_by
+    $createdBy = (int)$ctx->id;
+    $enteredBy = (int)$ctx->id;
+    if ($createdByOverride !== null && (int)$createdByOverride > 0) {
+      if (!self::isApprover($ctx)) {
+        throw new RuntimeException('Only approvers can submit on behalf of another user.');
+      }
+      if (!\UserManagement::existsById((int)$createdByOverride)) {
+        throw new InvalidArgumentException('Selected user not found.');
+      }
+      $createdBy = (int)$createdByOverride;
+      $enteredBy = (int)$ctx->id;
+    }
+
     $st = self::pdo()->prepare(
-      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, status, created_at, last_modified_at)
-       VALUES (?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
+      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, entered_by, status, created_at, last_modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
     );
-    $st->execute([$title, $description, $paymentDetails, $amountCanon, (int)$ctx->id]);
+    $st->execute([$title, $description, $paymentDetails, $amountCanon, $createdBy, $enteredBy]);
     $newId = (int)self::pdo()->lastInsertId();
 
     // Activity log: reimbursement created
@@ -106,6 +123,8 @@ final class Reimbursements {
       'request_id' => $newId,
       'title' => $title,
       'has_amount' => $amountCanon !== null,
+      'created_by' => $createdBy,
+      'entered_by' => $enteredBy,
     ]);
 
     // Best-effort notification; non-fatal on errors or if no recipients
