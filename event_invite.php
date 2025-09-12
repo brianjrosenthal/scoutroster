@@ -495,7 +495,9 @@ header_html('Event Invite');
         <div class="role" style="margin-bottom:10px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining small">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled small">Filled</span>
@@ -526,7 +528,7 @@ header_html('Event Invite');
               <?php if ($amIn): ?>
                 <input type="hidden" name="action" value="remove">
                 <button class="button">Cancel</button>
-              <?php elseif ((int)$r['open_count'] > 0): ?>
+              <?php elseif (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
                 <input type="hidden" name="action" value="signup">
                 <button class="button primary">Sign up</button>
               <?php else: ?>
@@ -550,7 +552,9 @@ header_html('Event Invite');
         <div class="role" style="margin-bottom:8px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled">Filled</span>
@@ -569,7 +573,7 @@ header_html('Event Invite');
             <?php if ($amIn): ?>
               <input type="hidden" name="action" value="remove">
               <button class="button">Cancel</button>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
+            <?php elseif (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
               <button class="button primary">Sign up</button>
             <?php else: ?>

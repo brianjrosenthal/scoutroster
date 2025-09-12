@@ -275,7 +275,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         <div class="role" style="margin-bottom:10px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining small">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled small">Filled</span>
@@ -318,7 +320,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
                 <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
                 <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
                 <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-                <?php if ((int)$r['open_count'] > 0): ?>
+                <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
                   <input type="hidden" name="action" value="signup">
                   <button style="margin-top:6px;" class="button primary">Sign up</button>
                 <?php else: ?>
@@ -346,7 +348,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         <div class="role" style="margin-bottom:14px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled">Filled</span>
@@ -388,7 +392,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
             <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
               <button  style="margin-top:6px;" class="button primary">Sign up</button>
             <?php else: ?>
@@ -442,10 +446,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
           }
           var open = parseInt(r.open_count, 10) || 0;
+          var unlimited = !!r.is_unlimited;
           html += '<div class="role" style="margin-bottom:8px;">'
                 +   '<div>'
                 +     '<strong>'+esc(r.title||'')+'</strong> '
-                +     (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>')
+                +     (unlimited ? '<span class="remaining">(no limit)</span>' : (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>'))
                 +   '</div>';
           if (r.description) {
             html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
@@ -472,7 +477,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             html += '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
           }
           if (!signed) {
-            if (open > 0) {
+            if (unlimited || open > 0) {
               html += '<form method="post" action="/volunteer_actions.php" class="inline">'
                     +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
                     +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'

@@ -600,7 +600,7 @@ header_html('Home');
         $roles = Volunteers::rolesWithCounts($eid);
         $open = [];
         foreach ($roles as $r) {
-          if ((int)($r['open_count'] ?? 0) > 0) $open[] = $r;
+          if (!empty($r['is_unlimited']) || (int)($r['open_count'] ?? 0) > 0) $open[] = $r;
         }
         if (empty($open)) continue;
 
@@ -619,7 +619,7 @@ header_html('Home');
   <?php
     $roleSummaries = [];
     foreach ($volRolesOpen as $r) {
-      $roleSummaries[] = h((string)$r['title']) . ' (' . (int)$r['open_count'] . ')';
+      $roleSummaries[] = h((string)$r['title']) . ' (' . (!empty($r['is_unlimited']) ? 'no limit' : (int)$r['open_count']) . ')';
     }
     $roleSummaryText = implode(', ', $roleSummaries);
   ?>
@@ -648,7 +648,7 @@ header_html('Home');
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
               <div>
                 <strong><?= h((string)$r['title']) ?></strong>
-                <span class="small">(<?= (int)($r['open_count'] ?? 0) ?> remaining)</span>
+                <span class="small">(<?= !empty($r['is_unlimited']) ? 'no limit' : ((int)($r['open_count'] ?? 0) . ' remaining') ?>)</span>
                 <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
                   <div class="small" style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
                 <?php endif; ?>
@@ -706,17 +706,18 @@ header_html('Home');
             if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
           }
           var open = parseInt(r.open_count, 10) || 0;
+          var unlimited = !!r.is_unlimited;
           html += '<form method="post" action="/volunteer_actions.php" class="stack" style="border:1px solid #e8e8ef;border-radius:8px;padding:8px;">'
                 + '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
                 + '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
                 + '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
                 + '<input type="hidden" name="action" value="'+(signed ? 'remove' : 'signup')+'">'
                 + '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">'
-                +   '<div><strong>'+esc(r.title||'')+'</strong> <span class="small">(' + open + ' remaining)</span>' + (r.description ? '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>' : '') + '</div>'
+                +   '<div><strong>'+esc(r.title||'')+'</strong> <span class="small">(' + (unlimited ? 'no limit' : (open + ' remaining')) + ')</span>' + (r.description ? '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>' : '') + '</div>'
                 +   '<div>';
           if (signed) {
             html += '<span class="small" style="margin-right:8px;">You’re signed up</span><button class="button danger">Remove</button>';
-          } else if (open > 0) {
+          } else if (unlimited || open > 0) {
             html += '<button class="button">Sign Up</button>';
           } else {
             html += '<span class="small">Full</span>';
