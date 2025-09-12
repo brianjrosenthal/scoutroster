@@ -134,6 +134,21 @@ header_html('Reimbursement Details');
       <?php $amt = $req['amount'] ?? null; ?>
       <?= ($amt !== null && $amt !== '') ? h(number_format((float)$amt, 2)) : '—' ?>
     </div>
+    <div>
+      <strong>Created by:</strong>
+      <?php
+        require_once __DIR__ . '/lib/UserManagement.php';
+        $creatorName = \UserManagement::getFullName((int)($req['created_by'] ?? 0)) ?? '';
+        echo $creatorName !== '' ? h($creatorName) : '—';
+      ?>
+    </div>
+    <div>
+      <strong>Entered by:</strong>
+      <?php
+        $enteredName = \UserManagement::getFullName((int)($req['entered_by'] ?? 0)) ?? '';
+        echo $enteredName !== '' ? h($enteredName) : '—';
+      ?>
+    </div>
   </div>
   <?php if (!empty($req['comment_from_last_status_change'])): ?>
     <p class="small"><strong>Last status comment:</strong> <?= nl2br(h($req['comment_from_last_status_change'])) ?></p>

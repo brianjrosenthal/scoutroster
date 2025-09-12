@@ -4,6 +4,7 @@ require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/ActivityLog.php';
+require_once __DIR__.'/lib/ParentRelationships.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit('Method Not Allowed'); }
@@ -63,42 +64,30 @@ if (is_string($returnTo) && strlen($returnTo) > 0) {
   }
 }
 
-// Authorization: admins OR parents of the youth may manage relationships
+ // Authorization: admins OR parents of the youth may manage relationships
 if (!$isAdmin && $action !== 'create_and_link') {
-  $st = pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
-  $st->execute([$youthId, (int)$me['id']]);
-  if (!$st->fetchColumn()) { 
+  if (!ParentRelationships::isAdultLinkedToYouth((int)$me['id'], $youthId)) {
     if ($ajax) { respond_json(false, 'Not authorized'); }
-    http_response_code(403); exit('Not authorized'); 
+    http_response_code(403); exit('Not authorized');
   }
 }
 
 try {
   if ($action === 'link') {
-    $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
-    $st->execute([$youthId, $adultId]);
-    if ((int)$st->rowCount() > 0) {
-      ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.child_link_add', [
-        'parent_id' => (int)$adultId,
-        'youth_id' => (int)$youthId,
-      ]);
-    }
+    $ctx = UserContext::getLoggedInUserContext();
+    ParentRelationships::link($ctx, $youthId, $adultId, true);
     if ($ajax) { respond_json(true, null); }
     header('Location: '.$back); exit;
   } elseif ($action === 'unlink') {
-    // Enforce at least one parent remains
-    $cnt = pdo()->prepare('SELECT COUNT(*) FROM parent_relationships WHERE youth_id=?');
-    $cnt->execute([$youthId]);
-    $n = (int)$cnt->fetchColumn();
-    if ($n <= 1) { http_response_code(400); exit('Cannot remove the last parent'); }
-
-    $st = pdo()->prepare('DELETE FROM parent_relationships WHERE youth_id=? AND adult_id=?');
-    $st->execute([$youthId, $adultId]);
-    if ((int)$st->rowCount() > 0) {
-      ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.child_link_remove', [
-        'parent_id' => (int)$adultId,
-        'youth_id' => (int)$youthId,
-      ]);
+    $ctx = UserContext::getLoggedInUserContext();
+    try {
+      ParentRelationships::unlink($ctx, $youthId, $adultId, true);
+    } catch (RuntimeException $ex) {
+      if ($ex->getMessage() === 'Cannot remove the last parent') {
+        if ($ajax) { respond_json(false, 'Cannot remove the last parent'); }
+        http_response_code(400); exit('Cannot remove the last parent');
+      }
+      throw $ex;
     }
     if ($ajax) { respond_json(true, null); }
     header('Location: '.$back); exit;
@@ -142,14 +131,9 @@ try {
       $newYid = YouthManagement::create($ctx, $data);
 
       // Link to adult
-      $st = $pdoTx->prepare('INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
-      $st->execute([$newYid, $adultId]);
+      ParentRelationships::link($ctx, (int)$newYid, (int)$adultId, false);
 
       $pdoTx->commit();
-      ActivityLog::log($ctx, 'user.child_link_add', [
-        'parent_id' => (int)$adultId,
-        'youth_id' => (int)$newYid,
-      ]);
       if ($ajax) { respond_json(true, null); }
       header('Location: '.$back); exit;
     } catch (Throwable $ex) {
@@ -206,15 +190,7 @@ try {
         'phone_cell' => ($phone_cell === '' ? null : $phone_cell),
       ]);
 
-      $st = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
-      $st->execute([$youthId, (int)$newAdultId]);
-
-      if ((int)$st->rowCount() > 0) {
-        ActivityLog::log($ctx, 'user.child_link_add', [
-          'parent_id' => (int)$newAdultId,
-          'youth_id' => (int)$youthId,
-        ]);
-      }
+      ParentRelationships::link($ctx, (int)$youthId, (int)$newAdultId, true);
       if ($ajax) { respond_json(true, null); }
       header('Location: '.$back); exit;
     } catch (Throwable $ex) {

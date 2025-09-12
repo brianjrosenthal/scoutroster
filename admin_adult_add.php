@@ -117,7 +117,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $items = json_decode($pendingJson, true);
         if (is_array($items)) {
           $link = pdo()->prepare('INSERT IGNORE INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
-          $chkYouth = pdo()->prepare('SELECT 1 FROM youth WHERE id=? LIMIT 1');
           foreach ($items as $it) {
             if (!is_array($it) || empty($it['type'])) continue;
             if ($it['type'] === 'new' && !empty($it['child']) && is_array($it['child'])) {

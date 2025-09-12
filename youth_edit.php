@@ -4,6 +4,7 @@ require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/Files.php';
+require_once __DIR__.'/lib/ParentRelationships.php';
 require_login();
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -20,12 +21,10 @@ if (!$y) { http_response_code(404); exit('Not found'); }
 // Compute current grade from class_of
 $currentGrade = GradeCalculator::gradeForClassOf((int)$y['class_of']);
 
-// Permissions/visibility for Registration & Dues fields
+ // Permissions/visibility for Registration & Dues fields
 $isParentOfThis = false;
 try {
-  $stChk = pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
-  $stChk->execute([(int)$id, (int)($me['id'] ?? 0)]);
-  $isParentOfThis = (bool)$stChk->fetchColumn();
+  $isParentOfThis = ParentRelationships::isAdultLinkedToYouth((int)($me['id'] ?? 0), (int)$id);
 } catch (Throwable $e) {
   $isParentOfThis = false;
 }

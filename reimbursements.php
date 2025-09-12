@@ -17,6 +17,8 @@ $oldTitle = '';
 $oldDescription = '';
 $oldPaymentDetails = '';
 $oldAmount = '';
+$oldCreatedById = '';
+$oldCreatedByLabel = '';
 
 // Handle create (title/description + optional file)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
@@ -33,7 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $oldPaymentDetails = (string)($_POST['payment_details'] ?? '');
     $oldAmount = (string)($_POST['amount'] ?? '');
 
-    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount);
+    // Approver on-behalf (optional)
+    $createdById = ($isApprover ? (int)($_POST['created_by_user_id'] ?? 0) : 0);
+    if ($createdById > 0) {
+      $oldCreatedById = (string)$createdById;
+      $oldCreatedByLabel = UserManagement::getFullName((int)$createdById) ?? '';
+    }
+
+    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount, $createdById ?: null);
 
     // Optional file (store securely in DB)
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
@@ -155,6 +164,25 @@ header_html('Expense Reimbursements');
   <form method="post" enctype="multipart/form-data" class="stack">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="create">
+    <?php if ($isApprover): ?>
+      <label>Submit on behalf of (optional)
+        <input type="hidden" name="created_by_user_id" id="created_by_user_id" value="<?= h($oldCreatedById) ?>">
+        <input
+          type="text"
+          id="created_by_search"
+          placeholder="Type to search adults by name or email"
+          autocomplete="off"
+          role="combobox"
+          aria-expanded="false"
+          aria-owns="created_by_results_list"
+          aria-autocomplete="list"
+          value="<?= h($oldCreatedByLabel) ?>">
+        <div id="created_by_results" class="typeahead-results" role="listbox" style="position:relative;">
+          <div id="created_by_results_list" class="list" style="position:absolute; z-index:1000; background:#fff; border:1px solid #ccc; max-height:200px; overflow:auto; width:100%; display:none;"></div>
+        </div>
+      </label>
+    <?php endif; ?>
+
     <label>Title
       <input type="text" name="title" value="<?= h($oldTitle) ?>" required maxlength="255">
     </label>
@@ -177,6 +205,93 @@ header_html('Expense Reimbursements');
     </div>
     <p class="small">Allowed file types: pdf, jpg, jpeg, png, heic, webp. Max size 15 MB.</p>
   </form>
+
+  <?php if ($isApprover): ?>
+  <script>
+    (function(){
+      function debounce(fn, wait) {
+        let t = null;
+        return function() {
+          const ctx = this, args = arguments;
+          clearTimeout(t);
+          t = setTimeout(function(){ fn.apply(ctx, args); }, wait);
+        };
+      }
+      const input = document.getElementById('created_by_search');
+      const hidden = document.getElementById('created_by_user_id');
+      const listWrap = document.getElementById('created_by_results');
+      const list = document.getElementById('created_by_results_list');
+      let items = [];
+      let open = false;
+
+      function close() {
+        if (!list) return;
+        list.style.display = 'none';
+        if (input) input.setAttribute('aria-expanded', 'false');
+        open = false;
+      }
+      function openList() {
+        if (!list || items.length === 0) { close(); return; }
+        list.style.display = '';
+        if (input) input.setAttribute('aria-expanded', 'true');
+        open = true;
+      }
+      function render() {
+        if (!list) return;
+        list.innerHTML = '';
+        const frag = document.createDocumentFragment();
+        items.forEach(function(it){
+          const div = document.createElement('div');
+          div.setAttribute('role', 'option');
+          div.style.padding = '6px 8px';
+          div.style.cursor = 'pointer';
+          div.textContent = it.label;
+          div.addEventListener('mousedown', function(e){ e.preventDefault(); });
+          div.addEventListener('click', function(){
+            if (hidden) hidden.value = it.id;
+            if (input) input.value = it.label;
+            close();
+          });
+          frag.appendChild(div);
+        });
+        list.appendChild(frag);
+        openList();
+      }
+
+      const doSearch = debounce(function(){
+        const q = (input && input.value ? input.value.trim() : '');
+        if (q.length < 1) { items = []; render(); return; }
+        fetch('/admin_adult_search.php?q=' + encodeURIComponent(q), { credentials: 'same-origin' })
+          .then(function(r){ return r.json(); })
+          .then(function(json){
+            if (!json || !json.ok) { items = []; render(); return; }
+            const arr = json.items || [];
+            items = arr.map(function(it){
+              const label = (it.last_name ? it.last_name : '') + ', ' + (it.first_name ? it.first_name : '') + (it.email ? (' <' + it.email + '>') : '');
+              return { id: it.id, label: label.trim() };
+            });
+            render();
+          })
+          .catch(function(){ items = []; render(); });
+      }, 200);
+
+      if (input) {
+        input.addEventListener('input', function(){
+          if (hidden && input && input.value.trim() === '') { hidden.value = ''; }
+          doSearch();
+        });
+        input.addEventListener('keydown', function(e){
+          if (!open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+            openList();
+          } else if (e.key === 'Escape') {
+            close();
+          }
+        });
+        input.addEventListener('blur', function(){ setTimeout(close, 120); });
+      }
+    })();
+  </script>
+  <?php endif; ?>
 </div>
 
 <?php footer_html(); ?>

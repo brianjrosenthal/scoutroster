@@ -159,6 +159,9 @@ class UserManagement {
       $pdo->prepare('DELETE FROM reimbursement_request_comments WHERE created_by = ?')->execute([$id]);
       $pdo->prepare('DELETE FROM reimbursement_request_files WHERE created_by = ?')->execute([$id]);
 
+      // 3.5) For requests where this user only entered on behalf of others, clear FK by setting entered_by to created_by
+      $pdo->prepare('UPDATE reimbursement_requests SET entered_by = created_by WHERE entered_by = ?')->execute([$id]);
+
       // 4) Reimbursement requests created by this user (files/comments will cascade via FK on request_id)
       $pdo->prepare('DELETE FROM reimbursement_requests WHERE created_by = ?')->execute([$id]);
 
