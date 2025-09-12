@@ -4,6 +4,7 @@ require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
+require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -69,23 +70,17 @@ $youthNames = RSVPManagement::listYouthNamesByAnswer((int)$id, 'yes');
 $adultEntries = RSVPManagement::listAdultEntriesByAnswer((int)$id, 'yes');
 
 // Public RSVPs (logged-out) - list YES only
-$st = pdo()->prepare("SELECT first_name, last_name, total_adults, total_kids, comment FROM rsvps_logged_out WHERE event_id=? AND answer='yes' ORDER BY last_name, first_name, id");
-$st->execute([$id]);
-$publicRsvps = $st->fetchAll();
+$publicRsvps = RsvpsLoggedOutManagement::listByAnswer((int)$id, 'yes');
 
 // Public YES totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='yes'");
-$st->execute([$id]);
-$_pubYesTotals = $st->fetch();
-$pubAdultsYes = (int)($_pubYesTotals['a'] ?? 0);
-$pubKidsYes = (int)($_pubYesTotals['k'] ?? 0);
+$_pubYesTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'yes');
+$pubAdultsYes = (int)($_pubYesTotals['adults'] ?? 0);
+$pubKidsYes = (int)($_pubYesTotals['kids'] ?? 0);
 
 // Public MAYBE totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='maybe'");
-$st->execute([$id]);
-$_pubMaybeTotals = $st->fetch();
-$pubAdultsMaybe = (int)($_pubMaybeTotals['a'] ?? 0);
-$pubKidsMaybe = (int)($_pubMaybeTotals['k'] ?? 0);
+$_pubMaybeTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'maybe');
+$pubAdultsMaybe = (int)($_pubMaybeTotals['adults'] ?? 0);
+$pubKidsMaybe = (int)($_pubMaybeTotals['kids'] ?? 0);
 
 $rsvpCommentsByAdult = RSVPManagement::getCommentsByCreatorForEvent((int)$id);
 sort($youthNames);
@@ -275,7 +270,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         <div class="role" style="margin-bottom:10px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining small">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled small">Filled</span>
@@ -318,7 +315,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
                 <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
                 <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
                 <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-                <?php if ((int)$r['open_count'] > 0): ?>
+                <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
                   <input type="hidden" name="action" value="signup">
                   <button style="margin-top:6px;" class="button primary">Sign up</button>
                 <?php else: ?>
@@ -346,7 +343,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         <div class="role" style="margin-bottom:14px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled">Filled</span>
@@ -388,7 +387,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
             <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
               <button  style="margin-top:6px;" class="button primary">Sign up</button>
             <?php else: ?>
@@ -442,10 +441,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
           }
           var open = parseInt(r.open_count, 10) || 0;
+          var unlimited = !!r.is_unlimited;
           html += '<div class="role" style="margin-bottom:8px;">'
                 +   '<div>'
                 +     '<strong>'+esc(r.title||'')+'</strong> '
-                +     (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>')
+                +     (unlimited ? '<span class="remaining">(no limit)</span>' : (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>'))
                 +   '</div>';
           if (r.description) {
             html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
@@ -472,7 +472,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             html += '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
           }
           if (!signed) {
-            if (open > 0) {
+            if (unlimited || open > 0) {
               html += '<form method="post" action="/volunteer_actions.php" class="inline">'
                     +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
                     +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'

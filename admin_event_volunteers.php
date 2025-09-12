@@ -99,7 +99,7 @@ header_html('Manage Volunteer Roles');
             <input type="text" name="description[]" value="<?= h((string)($r['description'] ?? '')) ?>">
             <input type="number" name="slots_needed[]" min="0" value="<?= (int)$r['slots_needed'] ?>" style="max-width:120px">
             <input type="number" name="sort_order[]" min="0" value="<?= (int)$r['sort_order'] ?>" style="max-width:120px">
-            <div class="small"><?= (int)$r['filled_count'] ?> filled<?= $r['open_count'] > 0 ? ' / '.$r['open_count'].' open' : '' ?></div>
+            <div class="small"><?= (int)$r['filled_count'] ?> filled<?= !empty($r['is_unlimited']) ? ' / no limit' : ((int)$r['open_count'] > 0 ? ' / '.(int)$r['open_count'].' open' : '') ?></div>
           </div>
         <?php endforeach; ?>
       <?php endif; ?>

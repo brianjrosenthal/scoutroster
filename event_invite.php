@@ -6,6 +6,7 @@ require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
+require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 
 // No login required for invite landing
 
@@ -212,11 +213,9 @@ $maybeYouthIn  = (int)($_maybeCounts['youth'] ?? 0);
 $maybeGuestsIn = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'maybe');
 
 // Public MAYBE totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='maybe'");
-$st->execute([$eventId]);
-$_pubMaybeTotals = $st->fetch();
-$pubAdultsMaybe = (int)($_pubMaybeTotals['a'] ?? 0);
-$pubKidsMaybe = (int)($_pubMaybeTotals['k'] ?? 0);
+$_pubMaybeTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$eventId, 'maybe');
+$pubAdultsMaybe = (int)($_pubMaybeTotals['adults'] ?? 0);
+$pubKidsMaybe = (int)($_pubMaybeTotals['kids'] ?? 0);
 
 // Combine MAYBE totals
 $maybeAdultsTotal = $maybeAdultsIn + $pubAdultsMaybe;
@@ -229,14 +228,7 @@ $maybeAdultNames = RSVPManagement::listAdultNamesByAnswer((int)$eventId, 'maybe'
 $maybeYouthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'maybe');
 
 $publicMaybe = [];
-$st = pdo()->prepare("
-  SELECT first_name, last_name, total_adults, total_kids, comment
-  FROM rsvps_logged_out
-  WHERE event_id=? AND answer='maybe'
-  ORDER BY last_name, first_name, id
-");
-$st->execute([$eventId]);
-$publicMaybe = $st->fetchAll();
+$publicMaybe = RsvpsLoggedOutManagement::listByAnswer((int)$eventId, 'maybe');
 
 /* Volunteer variables for invite flow */
 $roles = Volunteers::rolesWithCounts((int)$eventId);
@@ -495,7 +487,9 @@ header_html('Event Invite');
         <div class="role" style="margin-bottom:10px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining small">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled small">Filled</span>
@@ -526,7 +520,7 @@ header_html('Event Invite');
               <?php if ($amIn): ?>
                 <input type="hidden" name="action" value="remove">
                 <button class="button">Cancel</button>
-              <?php elseif ((int)$r['open_count'] > 0): ?>
+              <?php elseif (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
                 <input type="hidden" name="action" value="signup">
                 <button class="button primary">Sign up</button>
               <?php else: ?>
@@ -550,7 +544,9 @@ header_html('Event Invite');
         <div class="role" style="margin-bottom:8px;">
           <div>
             <strong><?= h($r['title']) ?></strong>
-            <?php if ((int)$r['open_count'] > 0): ?>
+            <?php if (!empty($r['is_unlimited'])): ?>
+              <span class="remaining">(no limit)</span>
+            <?php elseif ((int)$r['open_count'] > 0): ?>
               <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
             <?php else: ?>
               <span class="filled">Filled</span>
@@ -569,7 +565,7 @@ header_html('Event Invite');
             <?php if ($amIn): ?>
               <input type="hidden" name="action" value="remove">
               <button class="button">Cancel</button>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
+            <?php elseif (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
               <input type="hidden" name="action" value="signup">
               <button class="button primary">Sign up</button>
             <?php else: ?>

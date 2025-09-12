@@ -5,6 +5,7 @@ require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 
 // No login required
 
@@ -77,20 +78,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
     }
 
     // Insert RSVP and generate edit token/signature
-    $plainToken = bin2hex(random_bytes(32));
-    $tokenHash = hash('sha256', $plainToken);
-
-    $ins = pdo()->prepare("
-      INSERT INTO rsvps_logged_out (event_id, first_name, last_name, email, phone, total_adults, total_kids, answer, comment, token_hash)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
-    ");
-    $ins->execute([
-      (int)$eventId, $firstName, $lastName, $email !== '' ? $email : null,
-      $phone !== '' ? $phone : null, (int)$totalAdults, (int)$totalKids,
-      $answer,
-      $comment !== '' ? $comment : null, $tokenHash
-    ]);
-    $rsvpId = (int)pdo()->lastInsertId();
+    $res = RsvpsLoggedOutManagement::create(
+      (int)$eventId,
+      (string)$firstName,
+      (string)$lastName,
+      (string)$email,
+      ($phone !== '' ? (string)$phone : null),
+      (int)$totalAdults,
+      (int)$totalKids,
+      (string)$answer,
+      ($comment !== '' ? (string)$comment : null),
+      null
+    );
+    $rsvpId = (int)($res['id'] ?? 0);
+    $plainToken = (string)($res['plain_token'] ?? '');
 
     // Build event details and edit link
     $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
@@ -134,11 +135,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
 }
 
 // For display: public RSVP totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=?");
-$st->execute([$eventId]);
-$rowTotals = $st->fetch();
-$pubAdults = (int)($rowTotals['a'] ?? 0);
-$pubKids   = (int)($rowTotals['k'] ?? 0);
+$_pubTotals = RsvpsLoggedOutManagement::totalsAllAnswers((int)$eventId);
+$pubAdults = (int)($_pubTotals['adults'] ?? 0);
+$pubKids   = (int)($_pubTotals['kids'] ?? 0);
 
 $openVolunteerRolesPublic = Volunteers::openRolesExist((int)$eventId);
 

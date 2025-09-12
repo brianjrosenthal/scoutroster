@@ -53,6 +53,7 @@ class Volunteers {
         'slots_needed' => $slots,
         'filled_count' => $filled,
         'open_count' => $open,
+        'is_unlimited' => ($slots === 0),
         'sort_order' => (int)$r['sort_order'],
         'volunteers' => $byRole[$rid] ?? [],
       ];
@@ -68,7 +69,7 @@ class Volunteers {
       LEFT JOIN volunteer_signups vs ON vs.role_id = vr.id
       WHERE vr.event_id = ?
       GROUP BY vr.id, vr.slots_needed
-      HAVING COUNT(vs.id) < vr.slots_needed
+      HAVING vr.slots_needed = 0 OR COUNT(vs.id) < vr.slots_needed
       LIMIT 1
     ");
     $st->execute([(int)$eventId]);
