@@ -12,6 +12,7 @@ require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
+require_once __DIR__ . '/lib/ParentRelationships.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -48,15 +49,7 @@ header_html('Home');
   $me = current_user();
   $showRegisterSection = false;
   try {
-    $st = pdo()->prepare("
-      SELECT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.photo_public_file_id, y.sibling, y.date_paid_until
-      FROM parent_relationships pr
-      JOIN youth y ON y.id = pr.youth_id
-      WHERE pr.adult_id = ?
-      ORDER BY y.last_name, y.first_name
-    ");
-    $st->execute([(int)$me['id']]);
-    $kids = $st->fetchAll();
+    $kids = ParentRelationships::listChildrenForAdult((int)$me['id']);
 
     $hasAnyRegistered = false;
     $hasUnregisteredKto5 = false;

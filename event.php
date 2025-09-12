@@ -5,6 +5,7 @@ require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
+require_once __DIR__ . '/lib/ParentRelationships.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -42,26 +43,9 @@ if ($myRsvp) {
  * - Children of current user
  * - Co-parents (other adults linked to same children) + self
  */
-$st = pdo()->prepare("
-  SELECT y.*
-  FROM parent_relationships pr
-  JOIN youth y ON y.id = pr.youth_id
-  WHERE pr.adult_id = ?
-  ORDER BY y.last_name, y.first_name
-");
-$st->execute([(int)$me['id']]);
-$myChildren = $st->fetchAll();
+$myChildren = ParentRelationships::listChildrenForAdult((int)$me['id']);
 
-$st = pdo()->prepare("
-  SELECT DISTINCT u2.*
-  FROM parent_relationships pr1
-  JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
-  JOIN users u2 ON u2.id = pr2.adult_id
-  WHERE pr1.adult_id = ? AND pr2.adult_id <> ?
-  ORDER BY u2.last_name, u2.first_name
-");
-$st->execute([(int)$me['id'], (int)$me['id']]);
-$coParents = $st->fetchAll();
+$coParents = ParentRelationships::listCoParentsForAdult((int)$me['id']);
 
 /**
  * Load overall RSVP lists (YES only)

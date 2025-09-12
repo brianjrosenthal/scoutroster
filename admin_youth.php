@@ -3,6 +3,7 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__.'/lib/GradeCalculator.php';
 require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/UserManagement.php';
+require_once __DIR__.'/lib/ParentRelationships.php';
 require_admin();
 
 $msg = null;
@@ -125,10 +126,9 @@ if (empty($errors)) {
       }
 
       // Link youth to adult(s)
-      $stRel = $pdo->prepare('INSERT INTO parent_relationships (youth_id, adult_id) VALUES (?, ?)');
-      $stRel->execute([$id, $adultId]);
+      ParentRelationships::link($ctx, (int)$id, (int)$adultId, false);
       if ($adultId2 > 0) {
-        $stRel->execute([$id, $adultId2]);
+        ParentRelationships::link($ctx, (int)$id, (int)$adultId2, false);
       }
 
       $pdo->commit();

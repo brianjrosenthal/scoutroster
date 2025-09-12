@@ -7,6 +7,7 @@ require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
+require_once __DIR__ . '/lib/ParentRelationships.php';
 
 // No login required for invite landing
 
@@ -92,30 +93,13 @@ if (!$invitee) {
 
 // Build selectable participants for the invitee
 
-// Invitee's children
-$st = pdo()->prepare("
-  SELECT y.*
-  FROM parent_relationships pr
-  JOIN youth y ON y.id = pr.youth_id
-  WHERE pr.adult_id = ?
-  ORDER BY y.last_name, y.first_name
-");
-$st->execute([(int)$uid]);
-$children = $st->fetchAll();
+ // Invitee's children
+$children = ParentRelationships::listChildrenForAdult((int)$uid);
 $childIdsAllowed = array_map(fn($r)=> (int)$r['id'], $children);
 $childIdsAllowedSet = array_flip($childIdsAllowed);
 
-// Other adult parents of the invitee's children (co-parents), plus the invitee
-$st = pdo()->prepare("
-  SELECT DISTINCT u2.*
-  FROM parent_relationships pr1
-  JOIN parent_relationships pr2 ON pr1.youth_id = pr2.youth_id
-  JOIN users u2 ON u2.id = pr2.adult_id
-  WHERE pr1.adult_id = ? AND pr2.adult_id <> ?
-  ORDER BY u2.last_name, u2.first_name
-");
-$st->execute([(int)$uid, (int)$uid]);
-$coParents = $st->fetchAll();
+ // Other adult parents of the invitee's children (co-parents), plus the invitee
+$coParents = ParentRelationships::listCoParentsForAdult((int)$uid);
 $adultIdsAllowed = [(int)$uid];
 foreach ($coParents as $cp) { $adultIdsAllowed[] = (int)$cp['id']; }
 $adultIdsAllowed = array_values(array_unique($adultIdsAllowed));
