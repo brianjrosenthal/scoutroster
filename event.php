@@ -4,6 +4,7 @@ require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
+require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 require_login();
 
 require_once __DIR__ . '/lib/Text.php';
@@ -69,23 +70,17 @@ $youthNames = RSVPManagement::listYouthNamesByAnswer((int)$id, 'yes');
 $adultEntries = RSVPManagement::listAdultEntriesByAnswer((int)$id, 'yes');
 
 // Public RSVPs (logged-out) - list YES only
-$st = pdo()->prepare("SELECT first_name, last_name, total_adults, total_kids, comment FROM rsvps_logged_out WHERE event_id=? AND answer='yes' ORDER BY last_name, first_name, id");
-$st->execute([$id]);
-$publicRsvps = $st->fetchAll();
+$publicRsvps = RsvpsLoggedOutManagement::listByAnswer((int)$id, 'yes');
 
 // Public YES totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='yes'");
-$st->execute([$id]);
-$_pubYesTotals = $st->fetch();
-$pubAdultsYes = (int)($_pubYesTotals['a'] ?? 0);
-$pubKidsYes = (int)($_pubYesTotals['k'] ?? 0);
+$_pubYesTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'yes');
+$pubAdultsYes = (int)($_pubYesTotals['adults'] ?? 0);
+$pubKidsYes = (int)($_pubYesTotals['kids'] ?? 0);
 
 // Public MAYBE totals
-$st = pdo()->prepare("SELECT COALESCE(SUM(total_adults),0) AS a, COALESCE(SUM(total_kids),0) AS k FROM rsvps_logged_out WHERE event_id=? AND answer='maybe'");
-$st->execute([$id]);
-$_pubMaybeTotals = $st->fetch();
-$pubAdultsMaybe = (int)($_pubMaybeTotals['a'] ?? 0);
-$pubKidsMaybe = (int)($_pubMaybeTotals['k'] ?? 0);
+$_pubMaybeTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'maybe');
+$pubAdultsMaybe = (int)($_pubMaybeTotals['adults'] ?? 0);
+$pubKidsMaybe = (int)($_pubMaybeTotals['kids'] ?? 0);
 
 $rsvpCommentsByAdult = RSVPManagement::getCommentsByCreatorForEvent((int)$id);
 sort($youthNames);

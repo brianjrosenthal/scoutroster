@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 
 // No login required
 
@@ -24,10 +25,8 @@ if ($id <= 0 || $token === '' || $sig === '') { http_response_code(400); exit('I
 $expectedSig = b64url_encode(hash_hmac('sha256', $id . ':' . $token, INVITE_HMAC_KEY, true));
 if (!hash_equals($expectedSig, $sig)) { http_response_code(403); exit('Invalid link'); }
 
-// Load RSVP
-$st = pdo()->prepare("SELECT * FROM rsvps_logged_out WHERE id=? LIMIT 1");
-$st->execute([$id]);
-$rsvp = $st->fetch();
+ // Load RSVP
+$rsvp = RsvpsLoggedOutManagement::findById((int)$id);
 if (!$rsvp) { http_response_code(404); exit('RSVP not found'); }
 
 // Verify token hash
@@ -63,8 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'delete') {
-      $del = pdo()->prepare("DELETE FROM rsvps_logged_out WHERE id=?");
-      $del->execute([$id]);
+      RsvpsLoggedOutManagement::delete((int)$id, null);
       header_html('RSVP Deleted');
       echo '<h2>RSVP Deleted</h2>';
       echo '<div class="card"><p class="flash">Your RSVP has been deleted.</p></div>';
@@ -83,13 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $answer = (string)($rsvp['answer'] ?? 'yes');
     }
 
-    $upd = pdo()->prepare("UPDATE rsvps_logged_out SET total_adults=?, total_kids=?, answer=?, comment=? WHERE id=?");
-    $upd->execute([$totalAdults, $totalKids, $answer, ($comment !== '' ? $comment : null), $id]);
+    RsvpsLoggedOutManagement::update(
+      (int)$id,
+      (int)$totalAdults,
+      (int)$totalKids,
+      (string)$answer,
+      ($comment !== '' ? $comment : null),
+      null
+    );
 
     // Reload current values
-    $st = pdo()->prepare("SELECT * FROM rsvps_logged_out WHERE id=? LIMIT 1");
-    $st->execute([$id]);
-    $rsvp = $st->fetch();
+    $rsvp = RsvpsLoggedOutManagement::findById((int)$id);
     $success = 'Your RSVP has been updated.';
   } catch (Throwable $e) {
     $error = $e->getMessage() ?: 'Failed to update RSVP.';
