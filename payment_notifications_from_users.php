@@ -16,7 +16,7 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 }
 
 $q = trim($_GET['q'] ?? '');
-$status = trim($_GET['status'] ?? 'new_or_unprocessed'); // new_or_unprocessed|new|verified|deleted
+$status = trim($_GET['status'] ?? 'new'); // new|verified|deleted
 $page = max(1, (int)($_GET['p'] ?? 1));
 $limit = 20;
 $offset = ($page - 1) * $limit;
@@ -43,7 +43,6 @@ header_html('Payment Notifications');
       </label>
       <label>Status
         <select name="status">
-          <option value="new_or_unprocessed" <?= $status==='new_or_unprocessed'?'selected':'' ?>>New or Verified (Not Processed)</option>
           <option value="new" <?= $status==='new'?'selected':'' ?>>New</option>
           <option value="verified" <?= $status==='verified'?'selected':'' ?>>Verified</option>
           <option value="deleted" <?= $status==='deleted'?'selected':'' ?>>Deleted</option>
@@ -74,7 +73,6 @@ header_html('Payment Notifications');
       foreach ($rows as $cr) {
         $cst = (string)($cr['status'] ?? 'new');
         if ($cst === 'new') { $hasAnyActions = true; break; }
-        if ((int)($cr['new_application'] ?? 0) === 1 && (int)($cr['application_processed'] ?? 0) === 0 && $cst !== 'deleted') { $hasAnyActions = true; break; }
       }
     ?>
     <table class="list">
@@ -100,32 +98,18 @@ header_html('Payment Notifications');
           $createdAt = (string)($r['created_at'] ?? '');
           $comment = (string)($r['comment'] ?? '');
           $title = $comment !== '' ? ' title="'.hq($comment).'"' : '';
-          $statusLabel = ucfirst($st);
-          if ((int)($r['new_application'] ?? 0) === 1) {
-            $statusLabel .= ', ' . (((int)($r['application_processed'] ?? 0) === 1) ? 'processed' : 'unprocessed');
-          }
         ?>
         <tr<?= $title ?>>
-          <td><a href="/youth_edit.php?id=<?= (int)$youthId ?>"><?= hq($yName) ?></a><?php if ((int)($r['new_application'] ?? 0) === 1): ?> <span class="small" style="color:#c00;">(New)</span><?php endif; ?></td>
+          <td><a href="/youth_edit.php?id=<?= (int)$youthId ?>"><?= hq($yName) ?></a></td>
           <td><?= hq($byName) ?></td>
           <td><?= hq($method) ?></td>
-          <td><?= hq($statusLabel) ?></td>
+          <td><?= hq(ucfirst($st)) ?></td>
           <td class="small"><?= hq(Settings::formatDateTime($createdAt)) ?></td>
           <?php if ($hasAnyActions): ?>
           <td class="small">
-            <?php
-              $rowHasButtons = ($st === 'new') || (((int)($r['new_application'] ?? 0) === 1) && ((int)($r['application_processed'] ?? 0) === 0) && $st !== 'deleted');
-            ?>
-            <?php if ($rowHasButtons): ?>
-              <?php if ($st === 'new'): ?>
-                <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
-                <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
-                <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
-                  <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
-                <?php endif; ?>
-              <?php elseif ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0 && $st !== 'deleted'): ?>
-                <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
-              <?php endif; ?>
+            <?php if ($st === 'new'): ?>
+              <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
+              <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
             <?php endif; ?>
           </td>
           <?php endif; ?>
@@ -274,34 +258,6 @@ header_html('Payment Notifications');
     });
   }
 
-  // Processed
-  var procBtns = document.querySelectorAll('.processed-btn');
-  function procConfirm(id){
-    if (!id) return;
-    if (!confirm('Mark this application as processed?')) return;
-    var fd = new FormData();
-    fd.append('csrf', '<?= h(csrf_token()) ?>');
-    fd.append('action', 'processed');
-    fd.append('id', id);
-    fetch('/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
-      .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
-      .then(function(json){
-        if (json && json.ok) {
-          var usp = new URLSearchParams(window.location.search);
-          window.location = window.location.pathname + '?' + usp.toString();
-        } else {
-          alert((json && json.error) ? json.error : 'Operation failed.');
-        }
-      })
-      .catch(function(){ alert('Network error.'); });
-  }
-  for (var k=0;k<procBtns.length;k++){
-    procBtns[k].addEventListener('click', function(e){
-      e.preventDefault();
-      var id = this.getAttribute('data-id');
-      procConfirm(id);
-    });
-  }
 })();
 </script>
 

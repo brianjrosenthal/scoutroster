@@ -14,6 +14,7 @@ require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/ParentRelationships.php';
 require_once __DIR__ . '/lib/PaymentNotifications.php';
+require_once __DIR__ . '/lib/PendingRegistrations.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -222,7 +223,7 @@ header_html('Home');
                 // Processing/eligibility indicators
                 $processingRenewal = ($yReg !== '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), false) : false;
                 $eligibleRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5 && !($hasAnyRegistered ?? false));
-                $processingRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), true) : false;
+                $processingRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PendingRegistrations::hasNewForYouth((int)($m['youth_id'] ?? 0)) : false;
               ?>
               <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
               <?php if ($yReg !== ''): ?>
@@ -953,13 +954,21 @@ header_html('Home');
         <div><a href="https://www.scarsdalepack440.com/uniforms" target="_blank" rel="noopener">https://www.scarsdalepack440.com/uniforms</a></div>
       </li>
     </ol>
-    <form id="registerForm" class="stack" method="post" action="/payment_notifications_actions.php">
+    <form id="registerForm" class="stack" method="post" action="/pending_registrations_actions.php" enctype="multipart/form-data">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="create">
-      <input type="hidden" name="new_application" value="1">
       <input type="hidden" name="youth_id" id="registerYouthId" value="">
+      <label>Application (PDF or image)
+        <input type="file" name="application" accept="application/pdf,image/*">
+      </label>
+      <label class="inline">
+        <input type="checkbox" name="already_sent" value="1"> I have already sent the application another way
+      </label>
+      <label>Optional comment
+        <input type="text" name="comment" placeholder="Any notes for leadership">
+      </label>
       <div class="actions">
-        <button class="button primary" type="submit">Please process my registration</button>
+        <button class="button primary" type="submit">Please process my application</button>
         <button class="button" type="button" id="registerCancel">Cancel</button>
       </div>
     </form>
@@ -1007,7 +1016,7 @@ header_html('Home');
       e.preventDefault();
       clearErr();
       var fd = new FormData(form);
-      fetch(form.getAttribute('action') || '/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+      fetch(form.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
         .then(function(json){
           if (json && json.ok) {
