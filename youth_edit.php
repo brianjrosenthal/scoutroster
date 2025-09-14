@@ -360,7 +360,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
         <div>
           <div class="small">Paid Until</div>
-          <div><?= h($y['date_paid_until'] ?? '—') ?></div>
+          <div>
+            <?= h($y['date_paid_until'] ?? '—') ?>
+            <?php if ($canEditPaidUntil && !empty($y['date_paid_until'])): ?>
+              <a href="#" class="small" id="edit_paid_link" data-current="<?= h($y['date_paid_until']) ?>" style="margin-left:6px;">Edit</a>
+            <?php endif; ?>
+          </div>
         </div>
       </div>
       <p class="small">Note: “Paid Until” indicates pack dues status and may not align with BSA registration expiration.</p>
@@ -461,6 +466,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   function close(){ if(modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
 
   if (openBtn) openBtn.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  var editLink = document.getElementById('edit_paid_link');
+  if (editLink) {
+    editLink.addEventListener('click', function(e){
+      e.preventDefault();
+      var cur = this.getAttribute('data-current') || '';
+      var dateInp = document.getElementById('paid_date');
+      if (dateInp && cur) { dateInp.value = cur; }
+      open();
+    });
+  }
   if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
   if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });
   if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
