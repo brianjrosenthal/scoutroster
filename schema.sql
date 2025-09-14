@@ -394,8 +394,6 @@ CREATE TABLE payment_notifications_from_users (
   payment_method ENUM('Paypal','Zelle','Venmo','Check','Other') NOT NULL,
   comment TEXT DEFAULT NULL,
   status ENUM('new','verified','deleted') NOT NULL DEFAULT 'new',
-  new_application TINYINT(1) NOT NULL DEFAULT 0,
-  application_processed TINYINT(1) NOT NULL DEFAULT 0,
   CONSTRAINT fk_pnfu_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
   CONSTRAINT fk_pnfu_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
@@ -404,6 +402,27 @@ CREATE INDEX idx_pnfu_created_at ON payment_notifications_from_users(created_at)
 CREATE INDEX idx_pnfu_status ON payment_notifications_from_users(status);
 CREATE INDEX idx_pnfu_youth ON payment_notifications_from_users(youth_id);
 CREATE INDEX idx_pnfu_created_by ON payment_notifications_from_users(created_by);
+
+-- ===== Pending registrations =====
+CREATE TABLE pending_registrations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  youth_id INT NOT NULL,
+  created_by INT NOT NULL,
+  secure_file_id INT DEFAULT NULL,
+  comment TEXT DEFAULT NULL,
+  status ENUM('new','processed','deleted') NOT NULL DEFAULT 'new',
+  payment_status ENUM('not_paid','paid') NOT NULL DEFAULT 'not_paid',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_prg_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
+  CONSTRAINT fk_prg_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_prg_secure_file FOREIGN KEY (secure_file_id) REFERENCES secure_files(id) ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_prg_youth ON pending_registrations(youth_id);
+CREATE INDEX idx_prg_status ON pending_registrations(status);
+CREATE INDEX idx_prg_payment ON pending_registrations(payment_status);
+CREATE INDEX idx_prg_created_by ON pending_registrations(created_by);
 
 -- ===== Activity Log =====
 CREATE TABLE activity_log (
