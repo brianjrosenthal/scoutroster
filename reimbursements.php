@@ -190,26 +190,14 @@ header_html('Expense Reimbursements');
       </label>
     <?php endif; ?>
 
-    <label>Title
-      <input type="text" name="title" value="<?= h($oldTitle) ?>" required maxlength="255">
-    </label>
-    <label>Description (optional)
-      <textarea name="description" rows="4"><?= h($oldDescription) ?></textarea>
-    </label>
-    <label>Payment Details (optional, no bank account numbers please)
-      <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"><?= h($oldPaymentDetails) ?></textarea>
-      <span class="small">No bank account information please.</span>
-    </label>
-    <label>Amount (optional)
-      <input type="number" name="amount" value="<?= h($oldAmount) ?>" step="0.01" min="0" placeholder="0.00">
-      <span class="small">Enter the total amount to be reimbursed.</span>
-    </label>
     <label>Event (optional)
       <select name="event_id">
         <option value="">— None —</option>
         <?php
-          $upcoming = \EventManagement::listUpcoming(100);
-          foreach ($upcoming as $ev) {
+          $since = date('Y-m-d H:i:s', strtotime('-6 months'));
+          $until = date('Y-m-d H:i:s', strtotime('+6 months'));
+          $events = \EventManagement::listBetween($since, $until);
+          foreach ($events as $ev) {
             $id = (int)$ev['id'];
             $dt = $ev['starts_at'] ?? '';
             $label = ($dt ? date('Y-m-d H:i', strtotime($dt)) . ' — ' : '') . ($ev['name'] ?? '');
@@ -220,6 +208,19 @@ header_html('Expense Reimbursements');
       </select>
       <span class="small">Link this reimbursement to an event.</span>
     </label>
+
+    <label>Title
+      <input type="text" name="title" value="<?= h($oldTitle) ?>" required maxlength="255">
+    </label>
+    <label>Description (optional)
+      <textarea name="description" rows="4"><?= h($oldDescription) ?></textarea>
+    </label>
+
+    <label>Amount (optional)
+      <input type="number" name="amount" value="<?= h($oldAmount) ?>" step="0.01" min="0" placeholder="0.00">
+      <span class="small">Enter the total amount to be reimbursed.</span>
+    </label>
+
     <label>Payment Method (optional)
       <select name="payment_method">
         <option value="">— Select —</option>
@@ -232,6 +233,12 @@ header_html('Expense Reimbursements');
         ?>
       </select>
     </label>
+
+    <label>Payment Details (optional, no bank account numbers please)
+      <textarea name="payment_details" rows="3" maxlength="500" placeholder="e.g., by check; via Zelle (email or phone); via PayPal (email)"><?= h($oldPaymentDetails) ?></textarea>
+      <span class="small">No bank account information please.</span>
+    </label>
+
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
     </label>
