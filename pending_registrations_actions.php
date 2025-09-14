@@ -104,9 +104,35 @@ try {
     if (!\UserManagement::isApprover((int)$ctx->id)) respond_json(false, 'Forbidden');
     $id = (int)($_POST['id'] ?? 0);
     if ($id <= 0) respond_json(false, 'Invalid id');
+
     try {
-      PendingRegistrations::markPaid($ctx, $id, $action === 'mark_paid');
-      respond_json(true);
+      if ($action === 'mark_paid') {
+        // Require a paid-until date and update youth record as part of marking paid
+        $paidUntil = trim((string)($_POST['date_paid_until'] ?? ''));
+        if ($paidUntil === '') respond_json(false, 'Date is required');
+
+        // Validate Y-m-d
+        $dt = DateTime::createFromFormat('Y-m-d', $paidUntil);
+        if (!$dt || $dt->format('Y-m-d') !== $paidUntil) respond_json(false, 'Invalid date format');
+
+        // Load pending registration to get youth_id
+        $row = PendingRegistrations::findById($id);
+        if (!$row) respond_json(false, 'Not found');
+
+        $youthId = (int)($row['youth_id'] ?? 0);
+        if ($youthId <= 0) respond_json(false, 'Invalid youth');
+
+        // Update youth paid until (approver-only validated above)
+        YouthManagement::update($ctx, $youthId, ['date_paid_until' => $paidUntil]);
+
+        // Mark pending registration as paid
+        PendingRegistrations::markPaid($ctx, $id, true);
+        respond_json(true);
+      } else {
+        // Unmark paid: only toggle payment_status back to not_paid
+        PendingRegistrations::markPaid($ctx, $id, false);
+        respond_json(true);
+      }
     } catch (Throwable $e) {
       respond_json(false, 'Unable to update payment status.');
     }

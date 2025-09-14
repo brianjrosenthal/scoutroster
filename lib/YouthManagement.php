@@ -164,7 +164,11 @@ class YouthManagement {
     }
 
     if (!$includeUnregistered) {
-      $sql .= " AND ((y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '') OR y.sibling = 1)";
+      $sql .= " AND ("
+            . " (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
+            . " OR y.sibling = 1"
+            . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"
+            . ")";
     }
 
     $sql .= " ORDER BY y.last_name, y.first_name";
