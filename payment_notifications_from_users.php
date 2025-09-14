@@ -69,6 +69,14 @@ header_html('Payment Notifications');
   <?php if ($total <= 0): ?>
     <p class="small">No payment notifications found.</p>
   <?php else: ?>
+    <?php
+      $hasAnyActions = false;
+      foreach ($rows as $cr) {
+        $cst = (string)($cr['status'] ?? 'new');
+        if ($cst === 'new') { $hasAnyActions = true; break; }
+        if ((int)($cr['new_application'] ?? 0) === 1 && (int)($cr['application_processed'] ?? 0) === 0 && $cst !== 'deleted') { $hasAnyActions = true; break; }
+      }
+    ?>
     <table class="list">
       <thead>
         <tr>
@@ -77,7 +85,7 @@ header_html('Payment Notifications');
           <th>Payment Method</th>
           <th>Status</th>
           <th>Created</th>
-          <th></th>
+          <?php if ($hasAnyActions): ?><th></th><?php endif; ?>
         </tr>
       </thead>
       <tbody>
@@ -92,29 +100,35 @@ header_html('Payment Notifications');
           $createdAt = (string)($r['created_at'] ?? '');
           $comment = (string)($r['comment'] ?? '');
           $title = $comment !== '' ? ' title="'.hq($comment).'"' : '';
+          $statusLabel = ucfirst($st);
+          if ((int)($r['new_application'] ?? 0) === 1) {
+            $statusLabel .= ', ' . (((int)($r['application_processed'] ?? 0) === 1) ? 'processed' : 'unprocessed');
+          }
         ?>
         <tr<?= $title ?>>
           <td><a href="/youth_edit.php?id=<?= (int)$youthId ?>"><?= hq($yName) ?></a><?php if ((int)($r['new_application'] ?? 0) === 1): ?> <span class="small" style="color:#c00;">(New)</span><?php endif; ?></td>
           <td><?= hq($byName) ?></td>
           <td><?= hq($method) ?></td>
-          <td><?= hq(ucfirst($st)) ?></td>
+          <td><?= hq($statusLabel) ?></td>
           <td class="small"><?= hq(Settings::formatDateTime($createdAt)) ?></td>
+          <?php if ($hasAnyActions): ?>
           <td class="small">
-            <?php if ($st === 'new'): ?>
-              <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
-              <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
-              <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
-                <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
-              <?php endif; ?>
-            <?php elseif ($st === 'deleted'): ?>
-              <span class="small">Deleted</span>
-            <?php else: ?>
-              <span class="small">Verified</span>
-              <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
+            <?php
+              $rowHasButtons = ($st === 'new') || (((int)($r['new_application'] ?? 0) === 1) && ((int)($r['application_processed'] ?? 0) === 0) && $st !== 'deleted');
+            ?>
+            <?php if ($rowHasButtons): ?>
+              <?php if ($st === 'new'): ?>
+                <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
+                <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
+                <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
+                  <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
+                <?php endif; ?>
+              <?php elseif ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0 && $st !== 'deleted'): ?>
                 <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
               <?php endif; ?>
             <?php endif; ?>
           </td>
+          <?php endif; ?>
         </tr>
       <?php endforeach; ?>
       </tbody>
