@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/UserManagement.php';
 require_once __DIR__ . '/ActivityLog.php';
+require_once __DIR__ . '/EventManagement.php';
 
 final class Reimbursements {
   private static function pdo(): PDO { return pdo(); }
@@ -90,12 +91,23 @@ final class Reimbursements {
 
   // ----- CRUD / Actions -----
 
-  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null, ?int $createdByOverride = null): int {
+  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null, ?int $createdByOverride = null, ?int $eventId = null, ?string $paymentMethod = null): int {
     if (!$ctx) throw new RuntimeException('Login required');
     $title = trim($title);
     if ($title === '') throw new InvalidArgumentException('Title is required.');
     $paymentDetails = self::validatePaymentDetails($paymentDetails);
     $amountCanon = self::validateAmount($amount);
+
+    // Validate event id if provided
+    $eventIdVal = null;
+    if ($eventId !== null) {
+      $ev = \EventManagement::findBasicById((int)$eventId);
+      if (!$ev) throw new InvalidArgumentException('Selected event not found.');
+      $eventIdVal = (int)$eventId;
+    }
+
+    // Validate payment method if provided
+    $pm = self::validatePaymentMethod($paymentMethod);
 
     // Determine created_by and entered_by
     $createdBy = (int)$ctx->id;
@@ -112,10 +124,10 @@ final class Reimbursements {
     }
 
     $st = self::pdo()->prepare(
-      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, entered_by, status, created_at, last_modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
+      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, payment_method, created_by, entered_by, event_id, status, created_at, last_modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
     );
-    $st->execute([$title, $description, $paymentDetails, $amountCanon, $createdBy, $enteredBy]);
+    $st->execute([$title, $description, $paymentDetails, $amountCanon, $pm, $createdBy, $enteredBy, $eventIdVal]);
     $newId = (int)self::pdo()->lastInsertId();
 
     // Activity log: reimbursement created
@@ -312,6 +324,17 @@ final class Reimbursements {
   }
 
 
+  private static function validatePaymentMethod(?string $pm): ?string {
+    if ($pm === null) return null;
+    $pm = trim($pm);
+    if ($pm === '') return null;
+    $allowed = ['Zelle','Check','Donation Letter Only'];
+    if (!in_array($pm, $allowed, true)) {
+      throw new InvalidArgumentException('Invalid payment method.');
+    }
+    return $pm;
+  }
+
   /**
    * Detect possible account numbers in a string while skipping likely phone numbers.
    * Returns an array of the original matched substrings that look like account numbers.
@@ -439,6 +462,114 @@ final class Reimbursements {
 
   public static function canUploadFiles(?UserContext $ctx, array $req): bool {
     return self::canView($ctx, $req); // spec: "All users should be able to add supporting files" -> any viewer
+  }
+
+  // Allow creator or approver to set/clear associated event
+  public static function updateEventId(UserContext $ctx, int $reqId, ?int $eventId): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId);
+    $isOwner = ((int)$req['created_by'] === (int)$ctx->id);
+    $isApprover = self::isApprover($ctx);
+    if (!$isOwner && !$isApprover) {
+      throw new RuntimeException('Only the creator or an approver can change the associated event.');
+    }
+
+    $eventIdVal = null;
+    if ($eventId !== null) {
+      $ev = \EventManagement::findBasicById((int)$eventId);
+      if (!$ev) throw new InvalidArgumentException('Selected event not found.');
+      $eventIdVal = (int)$eventId;
+    }
+
+    $st = self::pdo()->prepare("UPDATE reimbursement_requests SET event_id = ?, last_modified_at = NOW() WHERE id = ?");
+    $st->execute([$eventIdVal, (int)$req['id']]);
+
+    self::logAction('reimbursement.update_event', [
+      'request_id' => (int)$req['id'],
+      'event_id' => $eventIdVal,
+    ]);
+  }
+
+  // Expose leadership title for approvers (Cubmaster > Treasurer > Committee Chair)
+  public static function getLeadershipTitleForUser(int $userId): string {
+    $st = self::pdo()->prepare(
+      "SELECT position FROM adult_leadership_positions WHERE adult_id = ? AND position IN ('Cubmaster','Treasurer','Committee Chair')"
+    );
+    $st->execute([(int)$userId]);
+    $priority = ['Cubmaster' => 3, 'Treasurer' => 2, 'Committee Chair' => 1];
+    $best = null;
+    $bestScore = -1;
+    while ($r = $st->fetch()) {
+      $pos = (string)($r['position'] ?? '');
+      $score = $priority[$pos] ?? 0;
+      if ($score > $bestScore) { $best = $pos; $bestScore = $score; }
+    }
+    return $best ?: 'Leader';
+  }
+
+  // Allow creator or approver to set/clear payment method
+  public static function updatePaymentMethod(UserContext $ctx, int $reqId, ?string $paymentMethod): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId);
+    $isOwner = ((int)$req['created_by'] === (int)$ctx->id);
+    $isApprover = self::isApprover($ctx);
+    if (!$isOwner && !$isApprover) {
+      throw new RuntimeException('Only the creator or an approver can change the payment method.');
+    }
+    $pm = self::validatePaymentMethod($paymentMethod);
+    $st = self::pdo()->prepare("UPDATE reimbursement_requests SET payment_method = ?, last_modified_at = NOW() WHERE id = ?");
+    $st->execute([$pm, (int)$req['id']]);
+
+    self::logAction('reimbursement.update_payment_method', [
+      'request_id' => (int)$req['id'],
+      'payment_method' => $pm,
+    ]);
+  }
+
+  // Approver-only: send donation letter email to the submitter when payment_method is "Donation Letter Only"
+  public static function sendDonationLetter(UserContext $ctx, int $reqId, string $body): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    if (!self::isApprover($ctx)) {
+      throw new RuntimeException('Approvers only');
+    }
+    $req = self::getWithAuth($ctx, $reqId);
+    $method = (string)($req['payment_method'] ?? '');
+    if ($method !== 'Donation Letter Only') {
+      throw new RuntimeException('Donation letter is allowed only when payment method is "Donation Letter Only".');
+    }
+
+    // Load submitter (must have email)
+    $stU = self::pdo()->prepare("SELECT id, email, first_name, last_name FROM users WHERE id=? LIMIT 1");
+    $stU->execute([(int)$req['created_by']]);
+    $u = $stU->fetch();
+    $toEmail = trim((string)($u['email'] ?? ''));
+    $toName = trim((string)($u['first_name'] ?? '') . ' ' . (string)($u['last_name'] ?? ''));
+    if ($toEmail === '') {
+      throw new RuntimeException('Submitter does not have an email on file.');
+    }
+
+    // Compose and send email
+    require_once __DIR__ . '/../settings.php';
+    require_once __DIR__ . '/../mailer.php';
+    $subject = 'Pack 440 Donation Receipt';
+    $safeBody = nl2br(htmlspecialchars((string)$body, ENT_QUOTES, 'UTF-8'));
+
+    try {
+      @send_email($toEmail, $subject, $safeBody, $toName !== '' ? $toName : $toEmail);
+    } catch (\Throwable $e) {
+      throw new RuntimeException('Failed to send email.');
+    }
+
+    // Record an audit comment
+    $ins = self::pdo()->prepare("INSERT INTO reimbursement_request_comments (reimbursement_request_id, created_by, created_at, status_changed_to, comment_text)
+                                 VALUES (?, ?, NOW(), NULL, ?)");
+    $ins->execute([(int)$req['id'], (int)$ctx->id, 'Donation letter sent.']);
+
+    // Activity log
+    self::logAction('reimbursement.send_donation_letter', [
+      'request_id' => (int)$req['id'],
+      'to' => $toEmail,
+    ]);
   }
 
   // ============ Notifications / Recipients ============

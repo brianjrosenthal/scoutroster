@@ -240,8 +240,10 @@ CREATE TABLE reimbursement_requests (
   description TEXT DEFAULT NULL,
   payment_details VARCHAR(500) DEFAULT NULL,
   amount DECIMAL(10,2) DEFAULT NULL,
+  payment_method ENUM('Zelle','Check','Donation Letter Only') DEFAULT NULL,
   created_by INT NOT NULL,
   entered_by INT NOT NULL,
+  event_id INT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   status ENUM('submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid') NOT NULL,
@@ -250,12 +252,14 @@ CREATE TABLE reimbursement_requests (
   last_status_set_at DATETIME DEFAULT NULL,
   CONSTRAINT fk_rr_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
   CONSTRAINT fk_rr_entered_by FOREIGN KEY (entered_by) REFERENCES users(id) ON DELETE RESTRICT,
-  CONSTRAINT fk_rr_last_set_by FOREIGN KEY (last_status_set_by) REFERENCES users(id) ON DELETE RESTRICT
+  CONSTRAINT fk_rr_last_set_by FOREIGN KEY (last_status_set_by) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_rr_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_rr_created_by ON reimbursement_requests(created_by);
 CREATE INDEX idx_rr_status ON reimbursement_requests(status);
 CREATE INDEX idx_rr_entered_by ON reimbursement_requests(entered_by);
+CREATE INDEX idx_rr_event ON reimbursement_requests(event_id);
 
 CREATE TABLE reimbursement_request_files (
   id INT AUTO_INCREMENT PRIMARY KEY,
