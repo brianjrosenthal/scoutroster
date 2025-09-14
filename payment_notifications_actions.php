@@ -33,7 +33,9 @@ try {
     if ($youthId <= 0) respond_json(false, 'Invalid youth');
 
     try {
-      $id = PaymentNotifications::create($ctx, $youthId, $method, $comment !== '' ? $comment : null);
+      $newApp = (isset($_POST['new_application']) && (string)$_POST['new_application'] === '1');
+      if ($newApp && $method === '') { $method = 'Other'; }
+      $id = PaymentNotifications::create($ctx, $youthId, $method, $comment !== '' ? $comment : null, $newApp);
 
       // Send email to leadership (Cubmaster, Committee Chair, Treasurer) similar to existing flow
       try {
@@ -58,14 +60,24 @@ try {
           $safeMethod = htmlspecialchars($method,    ENT_QUOTES, 'UTF-8');
           $safeComment = $comment !== '' ? nl2br(htmlspecialchars($comment, ENT_QUOTES, 'UTF-8')) : '';
 
-          $subject = 'Cub Scouts: ' . ($personName ?: 'A parent') . ' paid dues for ' . $childName;
+          if ($newApp) {
+            $subject = 'Cub Scouts: ' . ($personName ?: 'A parent') . ' requested registration processing for ' . $childName;
 
-          $html = '<p>This is an automated notification that <strong>'.$safePerson.'</strong> marked that the dues have been paid for <strong>'.$safeChild.'</strong>.</p>'
-                . '<p><strong>Payment Method:</strong> '.$safeMethod.'</p>';
-          if ($safeComment !== '') {
-            $html .= '<p><strong>Comment:</strong><br>'.$safeComment.'</p>';
+            $html = '<p>This is an automated notification that <strong>'.$safePerson.'</strong> requested registration processing for <strong>'.$safeChild.'</strong>.</p>';
+            if ($safeComment !== '') {
+              $html .= '<p><strong>Comment:</strong><br>'.$safeComment.'</p>';
+            }
+            $html .= '<p><a href="'.$safeUrl.'">Click here to edit the youth profile</a>.</p>';
+          } else {
+            $subject = 'Cub Scouts: ' . ($personName ?: 'A parent') . ' paid dues for ' . $childName;
+
+            $html = '<p>This is an automated notification that <strong>'.$safePerson.'</strong> marked that the dues have been paid for <strong>'.$safeChild.'</strong>.</p>'
+                  . '<p><strong>Payment Method:</strong> '.$safeMethod.'</p>';
+            if ($safeComment !== '') {
+              $html .= '<p><strong>Comment:</strong><br>'.$safeComment.'</p>';
+            }
+            $html .= '<p><a href="'.$safeUrl.'">Click here to edit the youth profile</a> and mark the dues as paid until next calendar year.</p>';
           }
-          $html .= '<p><a href="'.$safeUrl.'">Click here to edit the youth profile</a> and mark the dues as paid until next calendar year.</p>';
 
           foreach ($recips as $r) {
             $to = (string)($r['email'] ?? '');
@@ -112,6 +124,19 @@ try {
       respond_json(true);
     } catch (Throwable $e) {
       respond_json(false, 'Unable to delete.');
+    }
+  } elseif ($action === 'processed') {
+    // Approver marks an application processed (independent of verification)
+    if (!\UserManagement::isApprover((int)$ctx->id)) respond_json(false, 'Forbidden');
+
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id <= 0) respond_json(false, 'Invalid id');
+
+    try {
+      PaymentNotifications::processed($ctx, $id);
+      respond_json(true);
+    } catch (Throwable $e) {
+      respond_json(false, 'Unable to mark processed.');
     }
   } else {
     respond_json(false, 'Unknown action');

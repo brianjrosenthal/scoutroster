@@ -474,7 +474,7 @@ final class Reimbursements {
   // Notify treasurer/cubmaster on new request
   private static function notifyNewRequest(int $reqId): void {
     // Load request and creator
-    $st = self::pdo()->prepare("SELECT r.id, r.title, r.description, r.created_by FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
+    $st = self::pdo()->prepare("SELECT r.id, r.title, r.description, r.amount, r.created_by FROM reimbursement_requests r WHERE r.id=? LIMIT 1");
     $st->execute([$reqId]);
     $r = $st->fetch();
     if (!$r) return;
@@ -504,8 +504,17 @@ final class Reimbursements {
     $safeUrl   = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
     $safeCreator = htmlspecialchars($creatorName, ENT_QUOTES, 'UTF-8');
 
+    // Amount display (always include a line; show "—" if not provided)
+    $rawAmount = $r['amount'] ?? null;
+    $displayAmount = '—';
+    if ($rawAmount !== null && $rawAmount !== '') {
+      $displayAmount = '$' . number_format((float)$rawAmount, 2);
+    }
+    $safeAmount = htmlspecialchars($displayAmount, ENT_QUOTES, 'UTF-8');
+
     $html = '<p>A new reimbursement request has been submitted by <strong>'.$safeCreator.'</strong>.</p>'
           . '<p><strong>Title:</strong> '.$safeTitle.'</p>'
+          . '<p><strong>Amount:</strong> '.$safeAmount.'</p>'
           . '<p><strong>Description:</strong><br>'.$safeDesc.'</p>'
           . '<p><a href="'.$safeUrl.'">View this request</a></p>';
 

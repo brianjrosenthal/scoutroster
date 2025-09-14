@@ -394,6 +394,8 @@ CREATE TABLE payment_notifications_from_users (
   payment_method ENUM('Paypal','Zelle','Venmo','Check','Other') NOT NULL,
   comment TEXT DEFAULT NULL,
   status ENUM('new','verified','deleted') NOT NULL DEFAULT 'new',
+  new_application TINYINT(1) NOT NULL DEFAULT 0,
+  application_processed TINYINT(1) NOT NULL DEFAULT 0,
   CONSTRAINT fk_pnfu_youth FOREIGN KEY (youth_id) REFERENCES youth(id) ON DELETE CASCADE,
   CONSTRAINT fk_pnfu_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
 ) ENGINE=InnoDB;
