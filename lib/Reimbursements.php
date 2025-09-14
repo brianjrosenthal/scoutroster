@@ -5,6 +5,7 @@ require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/UserManagement.php';
 require_once __DIR__ . '/ActivityLog.php';
+require_once __DIR__ . '/EventManagement.php';
 
 final class Reimbursements {
   private static function pdo(): PDO { return pdo(); }
@@ -90,12 +91,20 @@ final class Reimbursements {
 
   // ----- CRUD / Actions -----
 
-  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null, ?int $createdByOverride = null): int {
+  public static function create(UserContext $ctx, string $title, ?string $description = null, ?string $paymentDetails = null, ?string $amount = null, ?int $createdByOverride = null, ?int $eventId = null): int {
     if (!$ctx) throw new RuntimeException('Login required');
     $title = trim($title);
     if ($title === '') throw new InvalidArgumentException('Title is required.');
     $paymentDetails = self::validatePaymentDetails($paymentDetails);
     $amountCanon = self::validateAmount($amount);
+
+    // Validate event id if provided
+    $eventIdVal = null;
+    if ($eventId !== null) {
+      $ev = \EventManagement::findBasicById((int)$eventId);
+      if (!$ev) throw new InvalidArgumentException('Selected event not found.');
+      $eventIdVal = (int)$eventId;
+    }
 
     // Determine created_by and entered_by
     $createdBy = (int)$ctx->id;
@@ -112,10 +121,10 @@ final class Reimbursements {
     }
 
     $st = self::pdo()->prepare(
-      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, entered_by, status, created_at, last_modified_at)
-       VALUES (?, ?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
+      "INSERT INTO reimbursement_requests (title, description, payment_details, amount, created_by, entered_by, event_id, status, created_at, last_modified_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted', NOW(), NOW())"
     );
-    $st->execute([$title, $description, $paymentDetails, $amountCanon, $createdBy, $enteredBy]);
+    $st->execute([$title, $description, $paymentDetails, $amountCanon, $createdBy, $enteredBy, $eventIdVal]);
     $newId = (int)self::pdo()->lastInsertId();
 
     // Activity log: reimbursement created
@@ -439,6 +448,32 @@ final class Reimbursements {
 
   public static function canUploadFiles(?UserContext $ctx, array $req): bool {
     return self::canView($ctx, $req); // spec: "All users should be able to add supporting files" -> any viewer
+  }
+
+  // Allow creator or approver to set/clear associated event
+  public static function updateEventId(UserContext $ctx, int $reqId, ?int $eventId): void {
+    if (!$ctx) throw new RuntimeException('Login required');
+    $req = self::getWithAuth($ctx, $reqId);
+    $isOwner = ((int)$req['created_by'] === (int)$ctx->id);
+    $isApprover = self::isApprover($ctx);
+    if (!$isOwner && !$isApprover) {
+      throw new RuntimeException('Only the creator or an approver can change the associated event.');
+    }
+
+    $eventIdVal = null;
+    if ($eventId !== null) {
+      $ev = \EventManagement::findBasicById((int)$eventId);
+      if (!$ev) throw new InvalidArgumentException('Selected event not found.');
+      $eventIdVal = (int)$eventId;
+    }
+
+    $st = self::pdo()->prepare("UPDATE reimbursement_requests SET event_id = ?, last_modified_at = NOW() WHERE id = ?");
+    $st->execute([$eventIdVal, (int)$req['id']]);
+
+    self::logAction('reimbursement.update_event', [
+      'request_id' => (int)$req['id'],
+      'event_id' => $eventIdVal,
+    ]);
   }
 
   // ============ Notifications / Recipients ============

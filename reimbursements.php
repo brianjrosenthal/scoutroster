@@ -3,6 +3,7 @@ require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Reimbursements.php';
 require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/lib/EventManagement.php';
 require_login();
 
 $ctx = UserContext::getLoggedInUserContext();
@@ -19,6 +20,7 @@ $oldPaymentDetails = '';
 $oldAmount = '';
 $oldCreatedById = '';
 $oldCreatedByLabel = '';
+$oldEventId = '';
 
 // Handle create (title/description + optional file)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
@@ -34,6 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $oldDescription = (string)($_POST['description'] ?? '');
     $oldPaymentDetails = (string)($_POST['payment_details'] ?? '');
     $oldAmount = (string)($_POST['amount'] ?? '');
+    $eventId = (int)($_POST['event_id'] ?? 0);
+    $oldEventId = $eventId > 0 ? (string)$eventId : '';
 
     // Approver on-behalf (optional)
     $createdById = ($isApprover ? (int)($_POST['created_by_user_id'] ?? 0) : 0);
@@ -42,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
       $oldCreatedByLabel = UserManagement::getFullName((int)$createdById) ?? '';
     }
 
-    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount, $createdById ?: null);
+    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount, $createdById ?: null, $eventId > 0 ? $eventId : null);
 
     // Optional file (store securely in DB)
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
@@ -196,6 +200,22 @@ header_html('Expense Reimbursements');
     <label>Amount (optional)
       <input type="number" name="amount" value="<?= h($oldAmount) ?>" step="0.01" min="0" placeholder="0.00">
       <span class="small">Enter the total amount to be reimbursed.</span>
+    </label>
+    <label>Event (optional)
+      <select name="event_id">
+        <option value="">— None —</option>
+        <?php
+          $upcoming = \EventManagement::listUpcoming(100);
+          foreach ($upcoming as $ev) {
+            $id = (int)$ev['id'];
+            $dt = $ev['starts_at'] ?? '';
+            $label = ($dt ? date('Y-m-d H:i', strtotime($dt)) . ' — ' : '') . ($ev['name'] ?? '');
+            $sel = ($oldEventId !== '' && (int)$oldEventId === $id) ? ' selected' : '';
+            echo '<option value="'.h((string)$id).'"'.$sel.'>'.h($label).'</option>';
+          }
+        ?>
+      </select>
+      <span class="small">Link this reimbursement to an event.</span>
     </label>
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
