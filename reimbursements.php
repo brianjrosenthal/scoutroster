@@ -21,6 +21,7 @@ $oldAmount = '';
 $oldCreatedById = '';
 $oldCreatedByLabel = '';
 $oldEventId = '';
+$oldPaymentMethod = '';
 
 // Handle create (title/description + optional file)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'create') {
@@ -38,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
     $oldAmount = (string)($_POST['amount'] ?? '');
     $eventId = (int)($_POST['event_id'] ?? 0);
     $oldEventId = $eventId > 0 ? (string)$eventId : '';
+    $paymentMethod = trim((string)($_POST['payment_method'] ?? ''));
+    $oldPaymentMethod = $paymentMethod;
 
     // Approver on-behalf (optional)
     $createdById = ($isApprover ? (int)($_POST['created_by_user_id'] ?? 0) : 0);
@@ -46,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
       $oldCreatedByLabel = UserManagement::getFullName((int)$createdById) ?? '';
     }
 
-    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount, $createdById ?: null, $eventId > 0 ? $eventId : null);
+    $newId = Reimbursements::create($ctx, $title, $description, $paymentDetails, $amount, $createdById ?: null, $eventId > 0 ? $eventId : null, $paymentMethod !== '' ? $paymentMethod : null);
 
     // Optional file (store securely in DB)
     if (!empty($_FILES['file']) && is_array($_FILES['file']) && empty($_FILES['file']['error'])) {
@@ -216,6 +219,18 @@ header_html('Expense Reimbursements');
         ?>
       </select>
       <span class="small">Link this reimbursement to an event.</span>
+    </label>
+    <label>Payment Method (optional)
+      <select name="payment_method">
+        <option value="">— Select —</option>
+        <?php
+          $pmOpts = ['Zelle','Check','Donation Letter Only'];
+          foreach ($pmOpts as $opt) {
+            $sel = ($oldPaymentMethod !== '' && $oldPaymentMethod === $opt) ? ' selected' : '';
+            echo '<option value="'.h($opt).'"'.$sel.'>'.h($opt).'</option>';
+          }
+        ?>
+      </select>
     </label>
     <label>Attach a file (optional)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">

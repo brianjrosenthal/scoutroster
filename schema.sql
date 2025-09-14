@@ -240,6 +240,7 @@ CREATE TABLE reimbursement_requests (
   description TEXT DEFAULT NULL,
   payment_details VARCHAR(500) DEFAULT NULL,
   amount DECIMAL(10,2) DEFAULT NULL,
+  payment_method ENUM('Zelle','Check','Donation Letter Only') DEFAULT NULL,
   created_by INT NOT NULL,
   entered_by INT NOT NULL,
   event_id INT DEFAULT NULL,

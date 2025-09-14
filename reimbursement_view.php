@@ -104,6 +104,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $msg = 'Event updated.';
       // Refresh req after change
       $req = Reimbursements::getWithAuth($ctx, $id);
+    } elseif ($action === 'update_payment_method') {
+      $pm = (string)($_POST['payment_method'] ?? '');
+      Reimbursements::updatePaymentMethod($ctx, $id, $pm !== '' ? $pm : null);
+      $msg = 'Payment method updated.';
+      $req = Reimbursements::getWithAuth($ctx, $id);
+    } elseif ($action === 'send_donation_letter') {
+      $body = (string)($_POST['donation_letter_body'] ?? '');
+      Reimbursements::sendDonationLetter($ctx, $id, $body);
+      $msg = 'Donation letter sent.';
+      $req = Reimbursements::getWithAuth($ctx, $id);
     }
   } catch (Throwable $e) {
     $err = $e->getMessage() ?: 'Operation failed.';
@@ -175,6 +185,10 @@ header_html('Reimbursement Details');
         }
       ?>
     </div>
+    <div>
+      <strong>Payment Method:</strong>
+      <?= h((string)($req['payment_method'] ?? '')) ?: '—' ?>
+    </div>
   </div>
   <?php if (!empty($req['comment_from_last_status_change'])): ?>
     <p class="small"><strong>Last status comment:</strong> <?= nl2br(h($req['comment_from_last_status_change'])) ?></p>
@@ -223,6 +237,106 @@ header_html('Reimbursement Details');
     <div class="actions"><button class="button">Save</button></div>
     <p class="small">Choose an event to associate with this reimbursement, or clear to set none.</p>
   </form>
+</div>
+<?php endif; ?>
+
+<?php if ($isOwner || $isApprover): ?>
+<div class="card" style="margin-top:16px;">
+  <h3>Payment Method</h3>
+  <form method="post" class="stack" style="max-width:420px;">
+    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= (int)$id ?>">
+    <input type="hidden" name="action" value="update_payment_method">
+    <label>Payment Method (optional)
+      <select name="payment_method">
+        <option value="">— Select —</option>
+        <?php
+          $pmOpts = ['Zelle','Check','Donation Letter Only'];
+          $curPm = (string)($req['payment_method'] ?? '');
+          foreach ($pmOpts as $opt) {
+            $sel = ($curPm !== '' && $curPm === $opt) ? ' selected' : '';
+            echo '<option value="'.h($opt).'"'.$sel.'>'.h($opt).'</option>';
+          }
+        ?>
+      </select>
+    </label>
+    <div class="actions"><button class="button">Save</button></div>
+  </form>
+
+  <?php if ($isApprover && (string)($req['payment_method'] ?? '') === 'Donation Letter Only'): ?>
+    <?php
+      // Build default donation letter
+      require_once __DIR__ . '/lib/UserManagement.php';
+      $submitter = \UserManagement::findBasicForEmailingById((int)($req['created_by'] ?? 0)) ?? [];
+      $first = trim((string)($submitter['first_name'] ?? ''));
+      $last  = trim((string)($submitter['last_name'] ?? ''));
+      $desc = trim((string)($req['description'] ?? ''));
+      if ($desc === '') { $desc = 'supplies'; }
+      $eventLine = '';
+      $eidDef = (int)($req['event_id'] ?? 0);
+      if ($eidDef > 0) {
+        $evDef = \EventManagement::findBasicById($eidDef);
+        if ($evDef) {
+          $ename = (string)($evDef['name'] ?? '');
+          $dt = $evDef['starts_at'] ?? null;
+          $edate = $dt ? date('Y-m-d', strtotime($dt)) : '';
+          if ($ename !== '' || $edate !== '') {
+            $eventLine = ' for ' . ($ename !== '' ? $ename : '') . ($edate !== '' ? ' on ' . $edate : '');
+          }
+        }
+      }
+      $approverName = \UserManagement::getFullName((int)($me['id'] ?? 0)) ?? '';
+      $title = \Reimbursements::getLeadershipTitleForUser((int)($me['id'] ?? 0));
+      $defaultBody =
+"Dear {$first} {$last} -
+
+Thank you for your in-kind donation of \"{$desc}\" to Pack 440 Cub Scouts{$eventLine}.  No goods or services were exchanged for this donation.
+
+Best,
+{$approverName}
+Pack 440 {$title}
+EIN 13-2750608 (Greater Hudson Valley Council)
+";
+    ?>
+    <div class="actions" style="margin-top:8px;">
+      <button type="button" class="button" id="openDonationModal">Send Donation Letter</button>
+    </div>
+    <div id="donationModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000;">
+      <div style="background:#fff; max-width:600px; margin:60px auto; padding:16px; border-radius:4px;">
+        <h4>Donation Letter</h4>
+        <form method="post" class="stack">
+          <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="id" value="<?= (int)$id ?>">
+          <input type="hidden" name="action" value="send_donation_letter">
+          <label>Message
+            <textarea name="donation_letter_body" rows="12"><?= h($defaultBody) ?></textarea>
+          </label>
+          <div class="actions">
+            <button class="primary">Send</button>
+            <button type="button" id="closeDonationModal" class="button">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+      (function(){
+        var btn = document.getElementById('openDonationModal');
+        var modal = document.getElementById('donationModal');
+        var closeBtn = document.getElementById('closeDonationModal');
+        if (btn && modal) {
+          btn.addEventListener('click', function(){ modal.style.display = 'block'; });
+        }
+        if (closeBtn && modal) {
+          closeBtn.addEventListener('click', function(){ modal.style.display = 'none'; });
+        }
+        if (modal) {
+          modal.addEventListener('click', function(e){
+            if (e.target === modal) { modal.style.display = 'none'; }
+          });
+        }
+      })();
+    </script>
+  <?php endif; ?>
 </div>
 <?php endif; ?>
 
