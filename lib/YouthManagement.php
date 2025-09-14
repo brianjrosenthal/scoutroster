@@ -499,6 +499,8 @@ class YouthManagement {
 
     if ($status === 'needs') {
       $sql .= " AND (date_paid_until IS NULL OR date_paid_until < CURDATE())";
+    } elseif ($status === 'needs_no_siblings') {
+      $sql .= " AND (date_paid_until IS NULL OR date_paid_until < CURDATE()) AND sibling = 0";
     } elseif ($status === 'renewed') {
       $sql .= " AND (date_paid_until IS NOT NULL AND date_paid_until >= CURDATE())";
     }

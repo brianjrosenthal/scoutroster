@@ -16,8 +16,8 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 function hq($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
 // Inputs
-$status = trim((string)($_GET['status'] ?? 'needs')); // needs|renewed|all
-if (!in_array($status, ['needs','renewed','all'], true)) { $status = 'needs'; }
+$status = trim((string)($_GET['status'] ?? 'needs')); // needs|needs_no_siblings|renewed|all
+if (!in_array($status, ['needs','needs_no_siblings','renewed','all'], true)) { $status = 'needs'; }
 
 $gLabel = trim((string)($_GET['g'] ?? '')); // Grade filter: K,0..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
@@ -86,6 +86,7 @@ header_html('Registration Renewals');
       <label>Status
         <select name="status">
           <option value="needs" <?= $status === 'needs' ? 'selected' : '' ?>>Needs Renewal</option>
+          <option value="needs_no_siblings" <?= $status === 'needs_no_siblings' ? 'selected' : '' ?>>Needs renewal (do not include unregistered siblings)</option>
           <option value="renewed" <?= $status === 'renewed' ? 'selected' : '' ?>>Renewed</option>
           <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>All</option>
         </select>
