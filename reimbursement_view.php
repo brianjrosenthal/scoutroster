@@ -287,10 +287,13 @@ header_html('Reimbursement Details');
       }
       $approverName = \UserManagement::getFullName((int)($me['id'] ?? 0)) ?? '';
       $title = \Reimbursements::getLeadershipTitleForUser((int)($me['id'] ?? 0));
+      $amountVal = $req['amount'] ?? null;
+      $amountDisplay = ($amountVal !== null && $amountVal !== '') ? number_format((float)$amountVal, 2) : '0.00';
+      $letterDate = date('Y-m-d');
       $defaultBody =
 "Dear {$first} {$last} -
 
-Thank you for your in-kind donation of \"{$desc}\" to Pack 440 Cub Scouts{$eventLine}.  No goods or services were exchanged for this donation.
+Thank you for your contribution of \${$amountDisplay} made on {$letterDate}. Instead of requesting reimbursement for {$desc} purchased on behalf of Pack 440{$eventLine}, you elected to treat this amount as a charitable contribution.  No goods or services were provided in exchange for this contribution.
 
 Best,
 {$approverName}
