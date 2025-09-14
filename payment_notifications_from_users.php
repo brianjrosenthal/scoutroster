@@ -69,10 +69,13 @@ header_html('Payment Notifications');
     <p class="small">No payment notifications found.</p>
   <?php else: ?>
     <?php
-      $hasAnyActions = false;
-      foreach ($rows as $cr) {
-        $cst = (string)($cr['status'] ?? 'new');
-        if ($cst === 'new') { $hasAnyActions = true; break; }
+      // Show actions column if there are any 'new' items OR when viewing the 'verified' tab (allow delete there).
+      $hasAnyActions = ($status === 'verified');
+      if (!$hasAnyActions) {
+        foreach ($rows as $cr) {
+          $cst = (string)($cr['status'] ?? 'new');
+          if ($cst === 'new') { $hasAnyActions = true; break; }
+        }
       }
     ?>
     <table class="list">
@@ -109,6 +112,8 @@ header_html('Payment Notifications');
           <td class="small">
             <?php if ($st === 'new'): ?>
               <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
+              <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
+            <?php elseif ($status === 'verified' && $st === 'verified'): ?>
               <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
             <?php endif; ?>
           </td>
