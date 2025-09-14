@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../config.php';
 require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/UserManagement.php';
+require_once __DIR__ . '/ActivityLog.php';
 
 class PendingRegistrations {
   private static function pdo(): PDO { return pdo(); }
@@ -37,7 +38,21 @@ class PendingRegistrations {
     ");
     $ok = $st->execute([(int)$youthId, (int)$ctx->id, $secureFileId ?: null, $cmt]);
     if (!$ok) { throw new RuntimeException('Failed to save pending registration'); }
-    return (int)self::pdo()->lastInsertId();
+    $id = (int)self::pdo()->lastInsertId();
+
+    // Activity log: parent submitted a pending registration
+    try {
+      \ActivityLog::log($ctx, 'pr.create', [
+        'pending_registration_id' => $id,
+        'youth_id' => (int)$youthId,
+        'has_file' => $secureFileId ? true : false,
+        'has_comment' => $cmt !== null,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
+
+    return $id;
   }
 
   // filters: ['status' => 'needing_action'|'completed'|'deleted']
@@ -97,18 +112,46 @@ class PendingRegistrations {
     self::assertApprover($ctx);
     $st = self::pdo()->prepare("UPDATE pending_registrations SET payment_status = ?, updated_at = NOW() WHERE id = ?");
     $st->execute([$paid ? 'paid' : 'not_paid', (int)$id]);
+
+    // Activity log: approver toggled payment status
+    try {
+      \ActivityLog::log($ctx, 'pr.mark_paid', [
+        'pending_registration_id' => (int)$id,
+        'paid' => (bool)$paid,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
   }
 
   public static function markProcessed(UserContext $ctx, int $id): void {
     self::assertApprover($ctx);
     $st = self::pdo()->prepare("UPDATE pending_registrations SET status = 'processed', updated_at = NOW() WHERE id = ?");
     $st->execute([(int)$id]);
+
+    // Activity log: approver marked processed
+    try {
+      \ActivityLog::log($ctx, 'pr.mark_processed', [
+        'pending_registration_id' => (int)$id,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
   }
 
   public static function delete(UserContext $ctx, int $id): void {
     self::assertApprover($ctx);
     $st = self::pdo()->prepare("UPDATE pending_registrations SET status = 'deleted', updated_at = NOW() WHERE id = ?");
     $st->execute([(int)$id]);
+
+    // Activity log: approver deleted pending registration
+    try {
+      \ActivityLog::log($ctx, 'pr.delete', [
+        'pending_registration_id' => (int)$id,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
   }
 
   public static function findById(int $id): ?array {
