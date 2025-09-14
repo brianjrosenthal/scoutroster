@@ -198,11 +198,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $currentGrade = $g ?? $currentGrade;
 }
 
-header_html('Edit Youth');
+  // Determine if dues need to be collected (no paid_until, expired, or expiring within next month)
+  $paidUntilRaw = trim((string)($y['date_paid_until'] ?? ''));
+  $needsPay = true;
+  try {
+    if ($paidUntilRaw !== '') {
+      $today = new DateTime('today');
+      $exp = new DateTime($paidUntilRaw . ' 23:59:59');
+      $threshold = (clone $today)->modify('+1 month');
+      // If expiration is on or after threshold, dues are not needed
+      if ($exp >= $threshold) {
+        $needsPay = false;
+      }
+    }
+  } catch (Throwable $e) {
+    $needsPay = true;
+  }
+
+  header_html('Edit Youth');
 ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Edit Youth: <?= h($y['first_name'] ?? '') ?> <?= h($y['last_name'] ?? '') ?></h2>
-  <?php if ($canEditPaidUntil): ?>
+  <?php if ($canEditPaidUntil && $needsPay): ?>
     <div class="actions">
       <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
     </div>
