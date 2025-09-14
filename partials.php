@@ -89,6 +89,24 @@ function header_html(string $title) {
     if ($showPaymentNotifs) {
       echo $link('/payment_notifications_from_users.php','Payment notifs');
     }
+    // Pending Registrations visible to approvers (Cubmaster, Committee Chair, Treasurer)
+    $showPendingRegs = false;
+    try {
+      $stPos2 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+      $stPos2->execute([(int)($u['id'] ?? 0)]);
+      $rowsPos2 = $stPos2->fetchAll();
+      if (is_array($rowsPos2)) {
+        foreach ($rowsPos2 as $pr2) {
+          $p2 = trim((string)($pr2['p'] ?? ''));
+          if ($p2 === 'cubmaster' || $p2 === 'committee chair' || $p2 === 'treasurer') { $showPendingRegs = true; break; }
+        }
+      }
+    } catch (Throwable $e) {
+      $showPendingRegs = false;
+    }
+    if ($showPendingRegs) {
+      echo $link('/pending_registrations.php','Pending Registrations');
+    }
     echo $link('/admin_recommendations.php','Recommendations');
     echo $link('/admin_settings.php','Settings');
     echo '</div>';

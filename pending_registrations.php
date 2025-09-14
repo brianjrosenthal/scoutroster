@@ -120,6 +120,13 @@ header_html('Pending Registrations');
             <?php endif; ?>
           </td>
         </tr>
+        <?php if (trim((string)($r['comment'] ?? '')) !== ''): ?>
+          <tr>
+            <td colspan="7" class="small" style="white-space:pre-wrap; color:#555;">
+              <strong>Parent Comment:</strong> <?= hq((string)$r['comment']) ?>
+            </td>
+          </tr>
+        <?php endif; ?>
       <?php endforeach; ?>
       </tbody>
     </table>
