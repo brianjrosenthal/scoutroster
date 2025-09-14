@@ -93,7 +93,7 @@ header_html('Payment Notifications');
           $title = $comment !== '' ? ' title="'.hq($comment).'"' : '';
         ?>
         <tr<?= $title ?>>
-          <td><a href="/youth_edit.php?id=<?= (int)$youthId ?>"><?= hq($yName) ?></a></td>
+          <td><a href="/youth_edit.php?id=<?= (int)$youthId ?>"><?= hq($yName) ?></a><?php if ((int)($r['new_application'] ?? 0) === 1): ?> <span class="small" style="color:#c00;">(New)</span><?php endif; ?></td>
           <td><?= hq($byName) ?></td>
           <td><?= hq($method) ?></td>
           <td><?= hq(ucfirst($st)) ?></td>
@@ -102,10 +102,16 @@ header_html('Payment Notifications');
             <?php if ($st === 'new'): ?>
               <button class="button verify-btn" data-id="<?= (int)$pnId ?>" data-youth-id="<?= (int)$youthId ?>">Verify</button>
               <button class="button danger delete-btn" data-id="<?= (int)$pnId ?>">Delete</button>
+              <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
+                <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
+              <?php endif; ?>
             <?php elseif ($st === 'deleted'): ?>
               <span class="small">Deleted</span>
             <?php else: ?>
               <span class="small">Verified</span>
+              <?php if ((int)($r['new_application'] ?? 0) === 1 && (int)($r['application_processed'] ?? 0) === 0): ?>
+                <button class="button processed-btn" data-id="<?= (int)$pnId ?>">Processed</button>
+              <?php endif; ?>
             <?php endif; ?>
           </td>
         </tr>
@@ -250,6 +256,35 @@ header_html('Payment Notifications');
       e.preventDefault();
       var id = this.getAttribute('data-id');
       delConfirm(id);
+    });
+  }
+
+  // Processed
+  var procBtns = document.querySelectorAll('.processed-btn');
+  function procConfirm(id){
+    if (!id) return;
+    if (!confirm('Mark this application as processed?')) return;
+    var fd = new FormData();
+    fd.append('csrf', '<?= h(csrf_token()) ?>');
+    fd.append('action', 'processed');
+    fd.append('id', id);
+    fetch('/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+      .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+      .then(function(json){
+        if (json && json.ok) {
+          var usp = new URLSearchParams(window.location.search);
+          window.location = window.location.pathname + '?' + usp.toString();
+        } else {
+          alert((json && json.error) ? json.error : 'Operation failed.');
+        }
+      })
+      .catch(function(){ alert('Network error.'); });
+  }
+  for (var k=0;k<procBtns.length;k++){
+    procBtns[k].addEventListener('click', function(e){
+      e.preventDefault();
+      var id = this.getAttribute('data-id');
+      procConfirm(id);
     });
   }
 })();

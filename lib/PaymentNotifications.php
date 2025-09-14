@@ -26,7 +26,7 @@ class PaymentNotifications {
     if (!$st->fetchColumn()) { throw new RuntimeException('Forbidden'); }
   }
 
-  public static function create(UserContext $ctx, int $youthId, string $method, ?string $comment = null): int {
+  public static function create(UserContext $ctx, int $youthId, string $method, ?string $comment = null, bool $newApplication = false): int {
     self::assertParentOfYouth($ctx, $youthId);
     $valid = ['Paypal','Zelle','Venmo','Check','Other'];
     if (!in_array($method, $valid, true)) {
@@ -36,10 +36,10 @@ class PaymentNotifications {
     if ($cmt === '') $cmt = null;
 
     $st = self::pdo()->prepare("
-      INSERT INTO payment_notifications_from_users (youth_id, created_by, payment_method, comment, status, created_at)
-      VALUES (?, ?, ?, ?, 'new', NOW())
+      INSERT INTO payment_notifications_from_users (youth_id, created_by, payment_method, comment, status, new_application, application_processed, created_at)
+      VALUES (?, ?, ?, ?, 'new', ?, 0, NOW())
     ");
-    $ok = $st->execute([$youthId, (int)$ctx->id, $method, $cmt]);
+    $ok = $st->execute([$youthId, (int)$ctx->id, $method, $cmt, $newApplication ? 1 : 0]);
     if (!$ok) throw new RuntimeException('Failed to save notification.');
     return (int)self::pdo()->lastInsertId();
   }
@@ -131,11 +131,35 @@ class PaymentNotifications {
     $st->execute([$id]);
   }
 
+  // Mark application as processed (independent of verification)
+  public static function processed(UserContext $ctx, int $id): void {
+    self::assertApprover($ctx);
+    $row = self::findById($id);
+    if (!$row) throw new RuntimeException('Not found');
+    $st = self::pdo()->prepare("UPDATE payment_notifications_from_users SET application_processed = 1 WHERE id=?");
+    $st->execute([$id]);
+  }
+
   public static function findById(int $id): ?array {
     $st = self::pdo()->prepare("SELECT * FROM payment_notifications_from_users WHERE id=? LIMIT 1");
     $st->execute([$id]);
     $r = $st->fetch();
     return $r ?: null;
+  }
+
+  // Check if there is any recent (< days) not-deleted notification for this youth,
+  // filtered by new_application flag.
+  public static function hasRecentForYouth(int $youthId, bool $newApplication, int $days = 30): bool {
+    $sql = "SELECT 1
+            FROM payment_notifications_from_users
+            WHERE youth_id = ?
+              AND status <> 'deleted'
+              AND new_application = ?
+              AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            LIMIT 1";
+    $st = self::pdo()->prepare($sql);
+    $st->execute([(int)$youthId, $newApplication ? 1 : 0, (int)$days]);
+    return (bool)$st->fetchColumn();
   }
 
   // Helper to fetch leadership recipients (Cubmaster/Committee Chair/Treasurer with emails)

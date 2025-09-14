@@ -13,6 +13,7 @@ require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/ParentRelationships.php';
+require_once __DIR__ . '/lib/PaymentNotifications.php';
 $ctx = UserContext::getLoggedInUserContext();
 $isApprover = Reimbursements::isApprover($ctx);
 $pending = [];
@@ -218,6 +219,10 @@ header_html('Home');
                   $ts = $paidUntilRaw !== '' ? strtotime($paidUntilRaw . ' 23:59:59') : false;
                   $needsRenewal = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
                 }
+                // Processing/eligibility indicators
+                $processingRenewal = ($yReg !== '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), false) : false;
+                $eligibleRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5 && !($hasAnyRegistered ?? false));
+                $processingRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), true) : false;
               ?>
               <?php if ($gradeLabel !== null): ?><div>Grade <?= h($gradeLabel) ?></div><?php endif; ?>
               <?php if ($yReg !== ''): ?>
@@ -225,7 +230,9 @@ header_html('Home');
                 <?php
                   $paidUntilFmt = ($paidUntilRaw !== '' ? date('n/j/Y', strtotime($paidUntilRaw)) : '');
                 ?>
-                <?php if ($needsRenewal): ?>
+                <?php if (!empty($processingRenewal)): ?>
+                  <div>Renewal Processing</div>
+                <?php elseif ($needsRenewal): ?>
                   <div style="color:#c00;">Needs Renewal</div>
                 <?php elseif ($paidUntilFmt !== ''): ?>
                   <div>Paid until <?= h($paidUntilFmt) ?></div>
@@ -234,6 +241,11 @@ header_html('Home');
                 <div>Sibling</div>
               <?php else: ?>
                 <div>BSA Registration ID: unregistered</div>
+                <?php if (!empty($processingRegistration)): ?>
+                  <div>Registration Processing</div>
+                <?php elseif (!empty($eligibleRegistration)): ?>
+                  <div style="color:#c00;">Needs Registration</div>
+                <?php endif; ?>
               <?php endif; ?>
             <?php else: ?>
               <?php $aReg = trim((string)($m['bsa_membership_number'] ?? '')); ?>
@@ -258,7 +270,11 @@ header_html('Home');
                   $needsRenewalLink = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
                 }
               ?>
-              <?php if ($needsRenewalLink): ?>
+              <?php if (!empty($eligibleRegistration) && empty($processingRegistration)): ?>
+                <span class="small" aria-hidden="true"> · </span>
+                <a class="small open-register-modal" href="#" data-youth-id="<?= (int)($m['youth_id'] ?? 0) ?>">Register</a>
+              <?php endif; ?>
+              <?php if ($needsRenewalLink && empty($processingRenewal)): ?>
                 <span class="small" aria-hidden="true"> · </span>
                 <a class="small open-paid-modal" href="#" data-youth-id="<?= (int)($m['youth_id'] ?? 0) ?>">How to renew</a>
               <?php endif; ?>
@@ -916,5 +932,95 @@ header_html('Home');
   </div>
 </div>
 <?php endif; ?>
+
+<!-- Register Modal -->
+<div id="registerModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:520px;">
+    <button class="close" type="button" id="registerClose" aria-label="Close">&times;</button>
+    <h3>How to register your child for Cub Scouts</h3>
+    <div id="registerErr" class="error small" style="display:none;"></div>
+    <ol>
+      <li>
+        Fill out this “Youth Application Form” and send it to <?= h($cubmasterLabel) ?> or <?= h($committeeChairLabel) ?>.
+        <div><a href="https://filestore.scouting.org/filestore/pdf/524-406.pdf" target="_blank" rel="noopener">https://filestore.scouting.org/filestore/pdf/524-406.pdf</a></div>
+      </li>
+      <li>
+        Pay the dues through any payment option here:
+        <div><a href="https://www.scarsdalepack440.com/join" target="_blank" rel="noopener">https://www.scarsdalepack440.com/join</a></div>
+      </li>
+      <li>
+        Buy a uniform. Instructions here:
+        <div><a href="https://www.scarsdalepack440.com/uniforms" target="_blank" rel="noopener">https://www.scarsdalepack440.com/uniforms</a></div>
+      </li>
+    </ol>
+    <form id="registerForm" class="stack" method="post" action="/payment_notifications_actions.php">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="create">
+      <input type="hidden" name="new_application" value="1">
+      <input type="hidden" name="youth_id" id="registerYouthId" value="">
+      <div class="actions">
+        <button class="button primary" type="submit">Please process my registration</button>
+        <button class="button" type="button" id="registerCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var modal = document.getElementById('registerModal');
+  var closeBtn = document.getElementById('registerClose');
+  var cancelBtn = document.getElementById('registerCancel');
+  var form = document.getElementById('registerForm');
+  var err = document.getElementById('registerErr');
+  var youthIdInp = document.getElementById('registerYouthId');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(id){
+    if (!modal) return;
+    clearErr();
+    if (youthIdInp) youthIdInp.value = id || '';
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function hide(){
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  var btns = document.querySelectorAll('.open-register-modal');
+  for (var i=0;i<btns.length;i++){
+    btns[i].addEventListener('click', function(e){
+      e.preventDefault();
+      var id = this.getAttribute('data-youth-id');
+      open(id);
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', function(){ hide(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ hide(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) hide(); });
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      var fd = new FormData(form);
+      fetch(form.getAttribute('action') || '/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            // Refresh the page to show "Registration Processing"
+            window.location = window.location.pathname + window.location.search;
+          } else {
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showErr('Network error.'); });
+    });
+  }
+})();
+</script>
 
 <?php footer_html(); ?>
