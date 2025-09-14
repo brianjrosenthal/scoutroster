@@ -107,6 +107,24 @@ function header_html(string $title) {
     if ($showPendingRegs) {
       echo $link('/pending_registrations.php','Pending Registrations');
     }
+    // Registration Renewals visible to approvers (Cubmaster, Committee Chair, Treasurer)
+    $showRenewals = false;
+    try {
+      $stPos3 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+      $stPos3->execute([(int)($u['id'] ?? 0)]);
+      $rowsPos3 = $stPos3->fetchAll();
+      if (is_array($rowsPos3)) {
+        foreach ($rowsPos3 as $pr3) {
+          $p3 = trim((string)($pr3['p'] ?? ''));
+          if ($p3 === 'cubmaster' || $p3 === 'committee chair' || $p3 === 'treasurer') { $showRenewals = true; break; }
+        }
+      }
+    } catch (Throwable $e) {
+      $showRenewals = false;
+    }
+    if ($showRenewals) {
+      echo $link('/registration_renewals.php','Registration Renewals');
+    }
     echo $link('/admin_recommendations.php','Recommendations');
     echo $link('/admin_settings.php','Settings');
     echo '</div>';

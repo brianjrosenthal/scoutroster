@@ -471,4 +471,49 @@ class YouthManagement {
     }
     return $count;
   }
+
+  /**
+   * List youths with a valid BSA Registration ID for renewal review, optionally filtered by status and grade.
+   * filters:
+   *   - status: 'needs' | 'renewed' | 'all' (default 'all')
+   *   - grade_label: 'K','1',..'5' (optional)
+   *   - grade: int (0..5) alternative to grade_label
+   */
+  public static function listForRenewals(UserContext $ctx, array $filters = []): array {
+    self::assertLogin($ctx);
+
+    $status = isset($filters['status']) ? trim((string)$filters['status']) : 'all';
+    $gradeLabel = isset($filters['grade_label']) ? (string)$filters['grade_label'] : '';
+    $grade = null;
+    if ($gradeLabel !== '') {
+      $g = \GradeCalculator::parseGradeLabel($gradeLabel);
+      if ($g !== null) { $grade = (int)$g; }
+    } elseif (array_key_exists('grade', $filters) && $filters['grade'] !== null && $filters['grade'] !== '') {
+      $grade = (int)$filters['grade'];
+    }
+
+    $params = [];
+    $sql = "SELECT id, first_name, last_name, preferred_name, suffix, class_of, bsa_registration_number, date_paid_until
+            FROM youth
+            WHERE (bsa_registration_number IS NOT NULL AND bsa_registration_number <> '')";
+
+    if ($status === 'needs') {
+      $sql .= " AND (date_paid_until IS NULL OR date_paid_until < CURDATE())";
+    } elseif ($status === 'renewed') {
+      $sql .= " AND (date_paid_until IS NOT NULL AND date_paid_until >= CURDATE())";
+    }
+
+    if ($grade !== null) {
+      // Filter by class_of derived from grade
+      $classOf = self::computeClassOfFromGrade((int)$grade);
+      $sql .= " AND class_of = ?";
+      $params[] = $classOf;
+    }
+
+    $sql .= " ORDER BY last_name, first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll() ?: [];
+  }
 }
