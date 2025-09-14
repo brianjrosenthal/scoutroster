@@ -16,7 +16,7 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 }
 
 $q = trim($_GET['q'] ?? '');
-$status = trim($_GET['status'] ?? 'new'); // new|verified|deleted
+$status = trim($_GET['status'] ?? 'new_or_unprocessed'); // new_or_unprocessed|new|verified|deleted
 $page = max(1, (int)($_GET['p'] ?? 1));
 $limit = 20;
 $offset = ($page - 1) * $limit;
@@ -43,6 +43,7 @@ header_html('Payment Notifications');
       </label>
       <label>Status
         <select name="status">
+          <option value="new_or_unprocessed" <?= $status==='new_or_unprocessed'?'selected':'' ?>>New or Verified (Not Processed)</option>
           <option value="new" <?= $status==='new'?'selected':'' ?>>New</option>
           <option value="verified" <?= $status==='verified'?'selected':'' ?>>Verified</option>
           <option value="deleted" <?= $status==='deleted'?'selected':'' ?>>Deleted</option>

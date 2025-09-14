@@ -52,12 +52,17 @@ class PaymentNotifications {
     $where = ['1=1'];
 
     // Status filter
-    $status = isset($filters['status']) ? trim((string)$filters['status']) : 'new';
-    if (!in_array($status, ['new','verified','deleted'], true)) {
-      $status = 'new';
+    $status = isset($filters['status']) ? trim((string)$filters['status']) : 'new_or_unprocessed';
+    if ($status === 'new_or_unprocessed') {
+      // Show NEW OR (VERIFIED AND new_application=1 AND not processed)
+      $where[] = "(pn.status = 'new' OR (pn.status = 'verified' AND pn.new_application = 1 AND pn.application_processed = 0))";
+    } else {
+      if (!in_array($status, ['new','verified','deleted'], true)) {
+        $status = 'new';
+      }
+      $where[] = 'pn.status = ?';
+      $params[] = $status;
     }
-    $where[] = 'pn.status = ?';
-    $params[] = $status;
 
     // Tokenized text search across youth/adult names
     $q = isset($filters['q']) ? trim((string)$filters['q']) : '';

@@ -19,6 +19,9 @@ header_html('Recommendations');
 ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Recommendations</h2>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <a class="button" href="/recommend.php">Recommend a friend!</a>
+  </div>
 </div>
 
 <div class="card">
