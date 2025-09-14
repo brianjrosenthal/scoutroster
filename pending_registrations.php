@@ -107,7 +107,7 @@ header_html('Pending Registrations');
           <td class="small">
           <?php if ($canTogglePaid): ?>
             <?php if ($pstatus === 'paid'): ?>
-              <button class="button" data-action="unmark_paid" data-id="<?= (int)$prId ?>">Unmark Paid</button>
+              <button class="button" data-action="unmark_paid" data-id="<?= (int)$prId ?>" data-youth-name="<?= hq($yName) ?>">Unmark Paid</button>
             <?php else: ?>
               <button class="button" data-action="mark_paid" data-id="<?= (int)$prId ?>">Mark Paid</button>
             <?php endif; ?>
@@ -232,6 +232,8 @@ header_html('Pending Registrations');
       return;
     }
     if (action === 'unmark_paid') {
+      var name = btn.getAttribute('data-youth-name') || 'this youth';
+      if (!confirm('This action will also un-mark the youth "' + name + '" as paid. Are you sure you want to do this?')) return;
       postAction(action, id).then(handleResult).catch(function(){ alert('Network error.'); });
       return;
     }
