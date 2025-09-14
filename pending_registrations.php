@@ -105,13 +105,13 @@ header_html('Pending Registrations');
           <td><?= hq(ucfirst($st)) ?></td>
           <td class="small"><?= hq(Settings::formatDateTime($createdAt)) ?></td>
           <td class="small">
-            <?php if ($canTogglePaid): ?>
-              <?php if ($pstatus === 'paid'): ?>
-                <button class="button" data-action="unmark_paid" data-id="<?= (int)$prId ?>">Unmark Paid</button>
-              <?php else: ?>
-                <button class="button" data-action="mark_paid" data-id="<?= (int)$prId ?>">Mark Paid</button>
-              <?php endif; ?>
+          <?php if ($canTogglePaid): ?>
+            <?php if ($pstatus === 'paid'): ?>
+              <button class="button" data-action="unmark_paid" data-id="<?= (int)$prId ?>">Unmark Paid</button>
+            <?php else: ?>
+              <button class="button" data-action="mark_paid" data-id="<?= (int)$prId ?>">Mark Paid</button>
             <?php endif; ?>
+          <?php endif; ?>
             <?php if ($canProcess): ?>
               <button class="button" data-action="mark_processed" data-id="<?= (int)$prId ?>">Mark Processed</button>
             <?php endif; ?>
@@ -145,6 +145,28 @@ header_html('Pending Registrations');
   <?php endif; ?>
 </div>
 
+<!-- Mark Paid Modal -->
+<div id="prMarkPaidModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:420px;">
+    <button class="close" type="button" id="prMarkPaidClose" aria-label="Close">&times;</button>
+    <h3>Mark Paid</h3>
+    <div id="prMarkPaidErr" class="error small" style="display:none;"></div>
+    <form id="prMarkPaidForm" class="stack" method="post" action="/pending_registrations_actions.php">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="mark_paid">
+      <input type="hidden" name="id" id="prMarkPaidId" value="">
+      <label>Paid Until (YYYY-MM-DD)
+        <input type="date" name="date_paid_until" id="prMarkPaidDate" required>
+      </label>
+      <p class="small">Set the youth’s membership “Paid Until” date and mark this pending registration as paid.</p>
+      <div class="actions">
+        <button class="button primary" type="submit">Mark Paid</button>
+        <button class="button" type="button" id="prMarkPaidCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
 (function(){
   function postAction(action, id){
@@ -156,27 +178,102 @@ header_html('Pending Registrations');
       .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); });
   }
 
+  // Modal helpers
+  function computeDefaultPaidYmd(){
+    // Next Aug 31 at least two months away (same heuristic as renew)
+    var now = new Date();
+    var thresh = new Date(now.getFullYear(), now.getMonth()+2, now.getDate());
+    var candidate = new Date(now.getFullYear(), 7, 31);
+    if (candidate < thresh) candidate = new Date(now.getFullYear()+1, 7, 31);
+    var y = candidate.getFullYear();
+    var m = (candidate.getMonth()+1).toString().padStart(2,'0');
+    var d = candidate.getDate().toString().padStart(2,'0');
+    return y + '-' + m + '-' + d;
+  }
+
+  var prModal = document.getElementById('prMarkPaidModal');
+  var prErr = document.getElementById('prMarkPaidErr');
+  var prClose = document.getElementById('prMarkPaidClose');
+  var prCancel = document.getElementById('prMarkPaidCancel');
+  var prForm = document.getElementById('prMarkPaidForm');
+  var prId = document.getElementById('prMarkPaidId');
+  var prDate = document.getElementById('prMarkPaidDate');
+
+  function prShowErr(msg){ if(prErr){ prErr.style.display=''; prErr.textContent = msg || 'Operation failed.'; } }
+  function prClearErr(){ if(prErr){ prErr.style.display='none'; prErr.textContent=''; } }
+  function prOpen(id){
+    if (!prModal) return;
+    prClearErr();
+    if (prId) prId.value = id || '';
+    if (prDate) prDate.value = computeDefaultPaidYmd();
+    prModal.classList.remove('hidden');
+    prModal.setAttribute('aria-hidden','false');
+  }
+  function prHide(){
+    if (!prModal) return;
+    prModal.classList.add('hidden');
+    prModal.setAttribute('aria-hidden','true');
+  }
+
+  if (prClose) prClose.addEventListener('click', function(){ prHide(); });
+  if (prCancel) prCancel.addEventListener('click', function(){ prHide(); });
+  if (prModal) prModal.addEventListener('click', function(e){ if (e.target === prModal) prHide(); });
+
   function onClick(e){
     var btn = e.target.closest('button[data-action]');
     if (!btn) return;
-    e.preventDefault();
     var action = btn.getAttribute('data-action');
     var id = btn.getAttribute('data-id');
     if (!action || !id) return;
-    if (action === 'delete' && !confirm('Delete this pending registration?')) return;
-    postAction(action, id)
-      .then(function(json){
-        if (json && json.ok) {
-          var usp = new URLSearchParams(window.location.search);
-          window.location = window.location.pathname + '?' + usp.toString();
-        } else {
-          alert((json && json.error) ? json.error : 'Operation failed.');
-        }
-      })
-      .catch(function(){ alert('Network error.'); });
+    e.preventDefault();
+    if (action === 'delete') {
+      if (!confirm('Delete this pending registration?')) return;
+      postAction(action, id).then(handleResult).catch(function(){ alert('Network error.'); });
+      return;
+    }
+    if (action === 'unmark_paid') {
+      postAction(action, id).then(handleResult).catch(function(){ alert('Network error.'); });
+      return;
+    }
+    if (action === 'mark_paid') {
+      prOpen(id);
+      return;
+    }
+    if (action === 'mark_processed') {
+      postAction(action, id).then(handleResult).catch(function(){ alert('Network error.'); });
+      return;
+    }
+  }
+
+  function handleResult(json){
+    if (json && json.ok) {
+      var usp = new URLSearchParams(window.location.search);
+      window.location = window.location.pathname + '?' + usp.toString();
+    } else {
+      alert((json && json.error) ? json.error : 'Operation failed.');
+    }
   }
 
   document.addEventListener('click', onClick);
+
+  if (prForm) {
+    prForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      prClearErr();
+      var fd = new FormData(prForm);
+      fetch(prForm.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            var usp = new URLSearchParams(window.location.search);
+            window.location = window.location.pathname + '?' + usp.toString();
+          } else {
+            prShowErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ prShowErr('Network error.'); });
+    });
+  }
 })();
 </script>
 
