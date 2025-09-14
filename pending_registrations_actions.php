@@ -129,7 +129,16 @@ try {
         PendingRegistrations::markPaid($ctx, $id, true);
         respond_json(true);
       } else {
-        // Unmark paid: only toggle payment_status back to not_paid
+        // Unmark paid: clear youth's paid-until and toggle payment_status back to not_paid
+        $row = PendingRegistrations::findById($id);
+        if (!$row) respond_json(false, 'Not found');
+
+        $youthId = (int)($row['youth_id'] ?? 0);
+        if ($youthId <= 0) respond_json(false, 'Invalid youth');
+
+        // Clear youth paid until (approver-only validated above)
+        YouthManagement::update($ctx, $youthId, ['date_paid_until' => null]);
+
         PendingRegistrations::markPaid($ctx, $id, false);
         respond_json(true);
       }
