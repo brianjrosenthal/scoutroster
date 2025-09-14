@@ -65,14 +65,71 @@ header_html('Mailing List');
       <button class="primary">Filter</button>
       <a class="button" href="/admin_mailing_list.php">Reset</a>
       <a class="button" href="/admin_mailing_list.php?<?=http_build_query(array_merge($_GET, ['export'=>'csv']))?>">Export (Evite CSV)</a>
+      <button type="button" class="button" id="copyEmailsBtn">Copy emails</button>
+      <span id="copyEmailsStatus" class="small" style="display:none;margin-left:8px;"></span>
     </div>
   </form>
 </div>
+
+<script>
+(function(){
+  var btn = document.getElementById('copyEmailsBtn');
+  var status = document.getElementById('copyEmailsStatus');
+  function show(msg, ok){
+    if (!status) return;
+    status.style.display = '';
+    status.style.color = ok ? '#060' : '#c00';
+    status.textContent = msg;
+    setTimeout(function(){ status.style.display='none'; }, 2000);
+  }
+  function copyText(text){
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text);
+    } else {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      ta.style.top = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      try {
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok ? Promise.resolve() : Promise.reject(new Error('execCommand copy failed'));
+      } catch (e) {
+        document.body.removeChild(ta);
+        return Promise.reject(e);
+      }
+    }
+  }
+  if (btn) {
+    btn.addEventListener('click', function(e){
+      e.preventDefault();
+      var payloadEl = document.getElementById('emailsPayload');
+      var text = payloadEl ? (payloadEl.value || payloadEl.textContent || '') : '';
+      copyText(text || '')
+        .then(function(){ show('Emails copied.', true); })
+        .catch(function(){ show('Copy failed.', false); });
+    });
+  }
+})();
+</script>
 
 <div class="card">
   <?php if (empty($contactsSorted)): ?>
     <p class="small">No matching contacts.</p>
   <?php else: ?>
+    <?php
+      $emailsMap = [];
+      foreach ($contactsSorted as $c) {
+        $e = trim((string)($c['email'] ?? ''));
+        if ($e !== '') { $emailsMap[$e] = true; }
+      }
+      $emailList = implode("\n", array_keys($emailsMap));
+    ?>
+    <textarea id="emailsPayload" readonly style="position:absolute;left:-9999px;top:-9999px;"><?= h($emailList) ?></textarea>
     <table class="list">
       <thead>
         <tr>
