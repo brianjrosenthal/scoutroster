@@ -6,8 +6,9 @@ require_once __DIR__ . '/UserContext.php';
 require_once __DIR__ . '/Search.php';
 require_once __DIR__ . '/YouthManagement.php';
 require_once __DIR__ . '/UserManagement.php';
+require_once __DIR__ . '/ActivityLog.php';
 
-class PaymentNotifications {
+final class PaymentNotifications {
   private static function pdo(): PDO { return pdo(); }
 
   // Only Cubmaster/Committee Chair/Treasurer qualify as "approver" for this feature
@@ -40,8 +41,22 @@ class PaymentNotifications {
       VALUES (?, ?, ?, ?, 'new', NOW())
     ");
     $ok = $st->execute([$youthId, (int)$ctx->id, $method, $cmt]);
-    if (!$ok) throw new RuntimeException('Failed to save notification.');
-    return (int)self::pdo()->lastInsertId();
+    if (!$ok) { throw new RuntimeException('Failed to save notification.'); }
+    $id = (int)self::pdo()->lastInsertId();
+
+    // Activity log: parent submitted a payment notification
+    try {
+      \ActivityLog::log($ctx, 'pn.create', [
+        'notification_id' => $id,
+        'youth_id' => (int)$youthId,
+        'method' => (string)$method,
+        'has_comment' => $cmt !== null,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
+
+    return $id;
   }
 
   // Filters: ['q' => string, 'status' => 'new'|'verified'|'deleted', 'limit' => int, 'offset' => int]
@@ -121,6 +136,17 @@ class PaymentNotifications {
     // Mark verified
     $st = self::pdo()->prepare("UPDATE payment_notifications_from_users SET status='verified' WHERE id=?");
     $st->execute([$id]);
+
+    // Activity log: approver verified the payment notification
+    try {
+      \ActivityLog::log($ctx, 'pn.verify', [
+        'notification_id' => (int)$id,
+        'youth_id' => (int)($row['youth_id'] ?? 0),
+        'paid_until' => (string)$paidUntilYmd,
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
   }
 
   public static function delete(UserContext $ctx, int $id): void {
@@ -129,8 +155,17 @@ class PaymentNotifications {
     if (!$row) throw new RuntimeException('Not found');
     $st = self::pdo()->prepare("UPDATE payment_notifications_from_users SET status='deleted' WHERE id=?");
     $st->execute([$id]);
-  }
 
+    // Activity log: approver deleted the payment notification
+    try {
+      \ActivityLog::log($ctx, 'pn.delete', [
+        'notification_id' => (int)$id,
+        'youth_id' => (int)($row['youth_id'] ?? 0),
+      ]);
+    } catch (\Throwable $e) {
+      // swallow
+    }
+  }
 
   public static function findById(int $id): ?array {
     $st = self::pdo()->prepare("SELECT * FROM payment_notifications_from_users WHERE id=? LIMIT 1");
