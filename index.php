@@ -964,6 +964,14 @@ header_html('Home');
       <label class="inline">
         <input type="checkbox" name="already_sent" value="1"> I have already sent the application another way
       </label>
+      <label>Please tell us how you paid <span style="color:red;">*</span>
+        <select name="payment_method" required>
+          <option value="">Payment method</option>
+          <option value="Paypal">Paypal</option>
+          <option value="Check">Check</option>
+          <option value="I will pay later">I will pay later</option>
+        </select>
+      </label>
       <label>Optional comment
         <input type="text" name="comment" placeholder="Any notes for leadership">
       </label>

@@ -31,8 +31,16 @@ try {
     $youthId = (int)($_POST['youth_id'] ?? 0);
     $alreadySent = isset($_POST['already_sent']) && $_POST['already_sent'] === '1';
     $comment = trim((string)($_POST['comment'] ?? ''));
+    $paymentMethod = trim((string)($_POST['payment_method'] ?? ''));
 
     if ($youthId <= 0) respond_json(false, 'Invalid youth');
+    if ($paymentMethod === '') respond_json(false, 'Payment method is required');
+    
+    // Validate payment method is one of the allowed values
+    $allowedMethods = ['Paypal', 'Check', 'I will pay later'];
+    if (!in_array($paymentMethod, $allowedMethods, true)) {
+      respond_json(false, 'Invalid payment method');
+    }
 
     // Optional file upload
     $secureFileId = null;
@@ -53,7 +61,7 @@ try {
         $secureFileId = Files::insertSecureFile($data, $ctype ?: null, $oname ?: null, (int)$ctx->id);
       }
 
-      $id = PendingRegistrations::create($ctx, $youthId, $secureFileId, $comment !== '' ? $comment : null);
+      $id = PendingRegistrations::create($ctx, $youthId, $secureFileId, $comment !== '' ? $comment : null, $paymentMethod);
 
       // Email leadership (Cubmaster, Committee Chair, Treasurer)
       try {
@@ -73,8 +81,11 @@ try {
           $safeUrl    = htmlspecialchars($adminUrl,  ENT_QUOTES, 'UTF-8');
           $safeComment = $comment !== '' ? nl2br(htmlspecialchars($comment, ENT_QUOTES, 'UTF-8')) : '';
 
+          $safePaymentMethod = htmlspecialchars($paymentMethod, ENT_QUOTES, 'UTF-8');
+          
           $subject = 'Cub Scouts: Pending registration for ' . $childName;
           $html = '<p><strong>'.$safePerson.'</strong> submitted a pending registration for <strong>'.$safeChild.'</strong>.</p>';
+          $html .= '<p><strong>Payment Method:</strong> '.$safePaymentMethod.'</p>';
           if ($safeComment !== '') {
             $html .= '<p><strong>Parent Comment:</strong><br>'.$safeComment.'</p>';
           }

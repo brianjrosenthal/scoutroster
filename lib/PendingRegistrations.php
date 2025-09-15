@@ -27,16 +27,19 @@ class PendingRegistrations {
     if (!$st->fetchColumn()) { throw new RuntimeException('Forbidden'); }
   }
 
-  public static function create(UserContext $ctx, int $youthId, ?int $secureFileId, ?string $comment): int {
+  public static function create(UserContext $ctx, int $youthId, ?int $secureFileId, ?string $comment, ?string $paymentMethod = null): int {
     self::assertParentOfYouth($ctx, $youthId);
     $cmt = trim((string)($comment ?? ''));
     if ($cmt === '') $cmt = null;
+    
+    $pm = trim((string)($paymentMethod ?? ''));
+    if ($pm === '') $pm = null;
 
     $st = self::pdo()->prepare("
-      INSERT INTO pending_registrations (youth_id, created_by, secure_file_id, comment, status, payment_status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'new', 'not_paid', NOW(), NOW())
+      INSERT INTO pending_registrations (youth_id, created_by, secure_file_id, comment, payment_method, status, payment_status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'new', 'not_paid', NOW(), NOW())
     ");
-    $ok = $st->execute([(int)$youthId, (int)$ctx->id, $secureFileId ?: null, $cmt]);
+    $ok = $st->execute([(int)$youthId, (int)$ctx->id, $secureFileId ?: null, $cmt, $pm]);
     if (!$ok) { throw new RuntimeException('Failed to save pending registration'); }
     $id = (int)self::pdo()->lastInsertId();
 
@@ -47,6 +50,7 @@ class PendingRegistrations {
         'youth_id' => (int)$youthId,
         'has_file' => $secureFileId ? true : false,
         'has_comment' => $cmt !== null,
+        'payment_method' => $pm,
       ]);
     } catch (\Throwable $e) {
       // swallow
