@@ -80,7 +80,7 @@ class YouthManagement {
     $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
     $st->execute([$youthId, (int)$ctx->id]);
     if (!$st->fetchColumn()) {
-      throw new RuntimeException('Forbidden');
+      throw new RuntimeException('Forbidden - assertAdminOrParent');
     }
   }
 
@@ -216,7 +216,7 @@ class YouthManagement {
   public static function setPhotoPublicFileId(UserContext $ctx, int $youthId, ?int $publicFileId): bool {
     // Permission
     if (!self::canUploadYouthPhoto($ctx, $youthId)) {
-      throw new RuntimeException('Forbidden');
+      throw new RuntimeException('Forbidden - setPhotoPublicField');
     }
     $st = self::pdo()->prepare('UPDATE youth SET photo_public_file_id = ? WHERE id = ?');
     $ok = $st->execute([$publicFileId, $youthId]);
@@ -421,7 +421,7 @@ class YouthManagement {
     // Paid-until: approver-only (Cubmaster/Committee Chair/Treasurer)
     if (array_key_exists('date_paid_until', $data)) {
       if (!\UserManagement::isApprover((int)$ctx->id)) {
-        throw new InvalidArgumentException('Forbidden');
+        throw new InvalidArgumentException('Forbidden - not approver');
       }
       $val = self::validateDateYmd($data['date_paid_until'] ?? null);
       $set[] = "date_paid_until = ?";
