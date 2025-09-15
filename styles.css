@@ -26,6 +26,8 @@ button:disabled{opacity:.6;cursor:not-allowed}
 details summary{cursor:pointer;color:#2563eb}
 .auth{display:grid;place-items:center;height:100vh;background:#0f172a;color:#000;}
 .auth .card{width:360px}
+.auth .card .logo{display:block;max-width:120px;height:auto;margin:0 auto 16px auto}
+.auth .card .subtitle{text-align:center;color:#666;font-size:14px;margin:8px 0 24px 0;font-weight:500}
 input,select,textarea{width:100%;padding:8px;border:1px solid #d9d9e3;border-radius:8px;background:#fff}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
 .modal.hidden{display:none}

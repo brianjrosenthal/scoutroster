@@ -77,7 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <title>Login - <?=h(Settings::siteTitle())?></title><link rel="stylesheet" href="/styles.css"></head>
 <body class="auth">
   <div class="card">
+    <img src="/images/pack440_logo.jpg" alt="Pack 440 Logo" class="logo">
     <h1>Login</h1>
+    <p class="subtitle">Pack 440 Cub Scouts</p>
     <?php if (!empty($created) && !empty($verifyNotice)): ?><p class="flash">Account created. Check your email to verify your account before signing in.</p><?php elseif (!empty($created)): ?><p class="flash">Account created.</p><?php endif; ?>
     <?php if (!empty($verified)): ?><p class="flash">Email verified. You can now sign in.</p><?php endif; ?>
     <?php if (!empty($verifyError)): ?><p class="error">Invalid or expired verification link.</p><?php endif; ?>
