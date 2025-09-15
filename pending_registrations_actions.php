@@ -109,7 +109,7 @@ try {
 
       respond_json(true, null, ['id' => $id]);
     } catch (Throwable $e) {
-      respond_json(false, 'Unable to submit pending registration.');
+      respond_json(false, 'Unable to submit pending registration: ' . $e->getMessage());
     }
   } elseif ($action === 'mark_paid' || $action === 'unmark_paid') {
     if (!\UserManagement::isApprover((int)$ctx->id)) respond_json(false, 'Forbidden');
@@ -180,5 +180,5 @@ try {
     respond_json(false, 'Unknown action');
   }
 } catch (Throwable $e) {
-  respond_json(false, 'Operation failed');
+  respond_json(false, 'Operation failed: ' . $e->getMessage());
 }
