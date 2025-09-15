@@ -122,6 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <button type="submit" class="primary">Sign in</button>
       </div>
     </form>
-    <p class="small" style="margin-top:0.75rem;"><a href="/forgot_password.php">Forgot your password?</a></p>
+    <p class="small" style="margin-bottom: 0px; margin-top:0.75rem;"><a href="/forgot_password.php">Forgot your password?</a></p>
+    <p class="small" style="margin-top:0.75rem;">Questions?  Email brian.rosenthal@gmail.com</p>
   </div>
 </body></html>
