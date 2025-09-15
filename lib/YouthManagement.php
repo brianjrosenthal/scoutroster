@@ -166,8 +166,16 @@ class YouthManagement {
     if (!$includeUnregistered) {
       $sql .= " AND ("
             . " (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
-            . " OR y.sibling = 1"
             . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"
+            . " OR (y.sibling = 1 AND EXISTS ("
+            . "   SELECT 1 FROM youth y2 "
+            . "   JOIN parent_relationships pr1 ON pr1.youth_id = y.id "
+            . "   JOIN parent_relationships pr2 ON pr2.adult_id = pr1.adult_id "
+            . "   WHERE pr2.youth_id = y2.id "
+            . "   AND y2.id != y.id "
+            . "   AND ((y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '') "
+            . "        OR (y2.date_paid_until IS NOT NULL AND y2.date_paid_until >= CURDATE()))"
+            . " ))"
             . ")";
     }
 

@@ -419,6 +419,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <td><?=h($p['first_name'].' '.$p['last_name'])?></td>
             <td><?=h($p['email'])?></td>
             <td class="small">
+              <?php if ($isAdmin): ?>
+                <a href="/adult_edit.php?id=<?= (int)$p['id'] ?>" class="button">Go</a>
+              <?php endif; ?>
               <form method="post" action="/adult_relationships.php" style="display:inline" onsubmit="return confirm('Remove this parent from this child? (At least one parent must remain)');">
                 <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
                 <input type="hidden" name="action" value="unlink">
