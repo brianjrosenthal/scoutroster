@@ -628,6 +628,18 @@ class UserManagement {
     return (bool)$st->fetchColumn();
   }
 
+  public static function isCubmaster(int $userId): bool {
+    $st = self::pdo()->prepare(
+      "SELECT 1
+       FROM adult_leadership_positions
+       WHERE adult_id = ?
+         AND position = 'Cubmaster'
+       LIMIT 1"
+    );
+    $st->execute([$userId]);
+    return (bool)$st->fetchColumn();
+  }
+
   // =========================
   // Leadership Positions
   // =========================
