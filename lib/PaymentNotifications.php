@@ -22,7 +22,7 @@ final class PaymentNotifications {
   // Ensure the given youth is linked to current user (parent)
   private static function assertParentOfYouthOrApprover(?UserContext $ctx, int $youthId): void {
     if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!\UserManagement::isApprover((int)$ctx->id)) {
+    if (\UserManagement::isApprover((int)$ctx->id)) {
       return;
     }
     $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');

@@ -22,7 +22,7 @@ class PendingRegistrations {
 
   private static function assertParentOfYouthOrApprover(?UserContext $ctx, int $youthId): void {
     self::assertLogin($ctx);
-    if (!\UserManagement::isApprover((int)$ctx->id)) { 
+    if (\UserManagement::isApprover((int)$ctx->id)) { 
       return; 
     }
 
