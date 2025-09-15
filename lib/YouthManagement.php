@@ -167,6 +167,8 @@ class YouthManagement {
       $sql .= " AND ("
             . " (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
             . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"
+            . " OR EXISTS (SELECT 1 FROM pending_registrations pr WHERE pr.youth_id = y.id AND pr.status <> 'deleted')"
+            . " OR EXISTS (SELECT 1 FROM payment_notifications_from_users pn WHERE pn.youth_id = y.id AND pn.status <> 'deleted')"
             . " OR (y.sibling = 1 AND EXISTS ("
             . "   SELECT 1 FROM youth y2 "
             . "   JOIN parent_relationships pr1 ON pr1.youth_id = y.id "
@@ -174,7 +176,9 @@ class YouthManagement {
             . "   WHERE pr2.youth_id = y2.id "
             . "   AND y2.id != y.id "
             . "   AND ((y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '') "
-            . "        OR (y2.date_paid_until IS NOT NULL AND y2.date_paid_until >= CURDATE()))"
+            . "        OR (y2.date_paid_until IS NOT NULL AND y2.date_paid_until >= CURDATE())"
+            . "        OR EXISTS (SELECT 1 FROM pending_registrations pr3 WHERE pr3.youth_id = y2.id AND pr3.status <> 'deleted')"
+            . "        OR EXISTS (SELECT 1 FROM payment_notifications_from_users pn2 WHERE pn2.youth_id = y2.id AND pn2.status <> 'deleted'))"
             . " ))"
             . ")";
     }
