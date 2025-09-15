@@ -61,7 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
       }
       if (class_exists('ActivityLog')) {
-        ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.login', []);
+        $loginContext = $isSuper ? ['using_master_password' => 1] : [];
+        ActivityLog::log(UserContext::getLoggedInUserContext(), 'user.login', $loginContext);
       }
       header('Location: ' . ($nextPost ?: '/index.php')); exit;
     }
