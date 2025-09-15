@@ -33,7 +33,7 @@ header_html('Home');
   <p class="flash">Thank you for your recommendation!</p>
 <?php endif; ?>
 <?php if (!empty($_GET['renewed'])): ?>
-  <p class="flash">Thanks! We've notified pack leadership.</p>
+  <p class="flash">Thanks! We've notified pack leadership that you have paid for the year.</p>
 <?php endif; ?>
 <?php if (!empty($_GET['registered'])): ?>
   <p class="flash">Thank you for sending in your application and payment.</p>
