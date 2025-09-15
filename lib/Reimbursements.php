@@ -82,7 +82,7 @@ final class Reimbursements {
         $next[] = $isDonation ? 'acknowledged' : 'paid';
       }
     }
-    return $next;
+    return array_values(array_unique($next));
   }
 
   private static function validStatus(string $s): bool {
