@@ -628,6 +628,18 @@ class UserManagement {
     return (bool)$st->fetchColumn();
   }
 
+  public static function isCubmaster(int $userId): bool {
+    $st = self::pdo()->prepare(
+      "SELECT 1
+       FROM adult_leadership_positions
+       WHERE adult_id = ?
+         AND position = 'Cubmaster'
+       LIMIT 1"
+    );
+    $st->execute([$userId]);
+    return (bool)$st->fetchColumn();
+  }
+
   // =========================
   // Leadership Positions
   // =========================
@@ -776,7 +788,13 @@ class UserManagement {
     }
 
     if ($registeredOnly) {
-      $sql .= " AND ((u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> ''))";
+      $sql .= " AND ("
+            . " (u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '')"
+            . " OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
+            . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"
+            . " OR EXISTS (SELECT 1 FROM pending_registrations pr WHERE pr.youth_id = y.id AND pr.status <> 'deleted')"
+            . " OR EXISTS (SELECT 1 FROM payment_notifications_from_users pn WHERE pn.youth_id = y.id AND pn.status <> 'deleted')"
+            . ")";
     }
 
     $sql .= " ORDER BY u.last_name, u.first_name, y.last_name, y.first_name";

@@ -100,9 +100,9 @@ header_html('Adults Roster');
   </script>
   <small class="small">
     <?php if ($isAdmin): ?>
-      <?= $showAll ? 'Showing all adults.' : 'Showing adults with a BSA membership or with at least one registered scout child.' ?>
+      <?= $showAll ? 'Showing all adults.' : 'Showing adults with a BSA membership or with at least one registered scout child, or with children who have pending registrations, payment notifications, or current dues payments.' ?>
     <?php else: ?>
-      Showing adults with a BSA membership or with at least one registered scout child.
+      Showing adults with a BSA membership or with at least one registered scout child, or with children who have pending registrations, payment notifications, or current dues payments.
     <?php endif; ?>
   </small>
 </div>

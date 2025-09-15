@@ -5,9 +5,11 @@ require_once __DIR__.'/lib/YouthManagement.php';
 require_once __DIR__.'/lib/UserManagement.php';
 require_once __DIR__.'/lib/Files.php';
 require_once __DIR__.'/lib/ParentRelationships.php';
+require_once __DIR__.'/lib/PaymentNotifications.php';
 require_login();
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
+$isCubmaster = UserManagement::isCubmaster((int)($me['id'] ?? 0));
 
 $err = null;
 $msg = null;
@@ -53,6 +55,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
     echo json_encode(['ok' => false, 'error' => 'Unable to update.']); exit;
   } catch (Throwable $e) {
     echo json_encode(['ok' => false, 'error' => 'Operation failed']); exit;
+  }
+}
+
+/** Handle POST (mark notified paid via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark_notified_paid')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    if (!$isCubmaster) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized - Cubmaster only']); exit;
+    }
+    $method = trim((string)($_POST['payment_method'] ?? ''));
+    $comment = trim((string)($_POST['comment'] ?? ''));
+    if ($method === '') { echo json_encode(['ok' => false, 'error' => 'Payment method is required']); exit; }
+    
+    $ctx = UserContext::getLoggedInUserContext();
+    $notificationId = PaymentNotifications::create($ctx, $id, $method, $comment !== '' ? $comment : null);
+    if ($notificationId > 0) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to create payment notification.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed: ' . $e->getMessage()]); exit;
   }
 }
 
@@ -229,13 +254,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Edit Youth: <?= h($y['first_name'] ?? '') ?> <?= h($y['last_name'] ?? '') ?></h2>
-  <?php if ($canUploadApplication || ($canEditPaidUntil && $needsPay)): ?>
+  <?php if ($canUploadApplication || ($canEditPaidUntil && $needsPay) || $isCubmaster): ?>
     <div class="actions">
       <?php if ($canUploadApplication): ?>
         <button type="button" class="button" id="btn_upload_app">Upload application</button>
       <?php endif; ?>
       <?php if ($canEditPaidUntil && $needsPay): ?>
         <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+      <?php endif; ?>
+      <?php if ($isCubmaster): ?>
+        <button type="button" class="button" id="btn_mark_notified_paid">Mark notified paid</button>
       <?php endif; ?>
     </div>
   <?php endif; ?>
@@ -248,6 +276,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php
   if (isset($_GET['paid'])) { $msg = 'Paid Until updated.'; }
   if (isset($_GET['registered'])) { $msg = 'Thank you for sending in your application and payment.'; }
+  if (isset($_GET['notified'])) { $msg = 'Payment notification created successfully. Approvers will be notified to verify the payment.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
@@ -646,6 +675,108 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
   })();
   </script>
+<?php endif; ?>
+
+<!-- Mark Notified Paid Modal (Cubmaster only) -->
+<?php if ($isCubmaster): ?>
+<div id="notifiedPaidModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:520px;">
+    <button class="close" type="button" id="notifiedPaidClose" aria-label="Close">&times;</button>
+    <h3>Mark Notified Paid</h3>
+    <div id="notifiedPaidErr" class="error small" style="display:none;"></div>
+    <p>Use this when a parent has notified you that they have paid their dues. This will create a payment notification for approvers to verify.</p>
+    <form id="notifiedPaidForm" class="stack" method="post" action="/youth_edit.php?id=<?= (int)$id ?>">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="mark_notified_paid">
+      <label>Payment Method <span style="color:red;">*</span>
+        <select name="payment_method" required>
+          <option value="">-- Select --</option>
+          <option value="Paypal">Paypal</option>
+          <option value="Zelle">Zelle</option>
+          <option value="Venmo">Venmo</option>
+          <option value="Check">Check</option>
+          <option value="Other">Other</option>
+        </select>
+      </label>
+      <label>Comment (optional)
+        <input type="text" name="comment" placeholder="Any additional notes about the payment">
+      </label>
+      <div class="actions">
+        <button class="button primary" type="submit">Mark paid</button>
+        <button class="button" type="button" id="notifiedPaidCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var openBtn = document.getElementById('btn_mark_notified_paid');
+  var modal = document.getElementById('notifiedPaidModal');
+  var closeBtn = document.getElementById('notifiedPaidClose');
+  var cancelBtn = document.getElementById('notifiedPaidCancel');
+  var form = document.getElementById('notifiedPaidForm');
+  var err = document.getElementById('notifiedPaidErr');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(){
+    if (!modal) return;
+    clearErr();
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+  }
+  function hide(){
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+  }
+
+  if (openBtn) openBtn.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  if (closeBtn) closeBtn.addEventListener('click', function(){ hide(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ hide(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) hide(); });
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      
+      // Double-click protection
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+      }
+      
+      var fd = new FormData(form);
+      fetch(form.getAttribute('action') || window.location.href, { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            window.location = '/youth_edit.php?id=<?= (int)$id ?>&notified=1';
+          } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Mark paid';
+            }
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Mark paid';
+          }
+          showErr('Network error.'); 
+        });
+    });
+  }
+})();
+</script>
 <?php endif; ?>
 
 <?php
