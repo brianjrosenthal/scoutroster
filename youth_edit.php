@@ -522,75 +522,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <!-- Upload Application Modal -->
 <?php if ($canUploadApplication): ?>
-<script>
-(function(){
-  var uploadAppBtn = document.getElementById('btn_upload_app');
-  var uploadAppModal = document.getElementById('uploadAppModal');
-  var uploadAppClose = document.getElementById('uploadAppClose');
-  var uploadAppCancel = document.getElementById('uploadAppCancel');
-  var uploadAppForm = document.getElementById('uploadAppForm');
-  var uploadAppErr = document.getElementById('uploadAppErr');
-
-  function showUploadAppErr(msg){ if(uploadAppErr){ uploadAppErr.style.display=''; uploadAppErr.textContent = msg || 'Operation failed.'; } }
-  function clearUploadAppErr(){ if(uploadAppErr){ uploadAppErr.style.display='none'; uploadAppErr.textContent=''; } }
-  function openUploadApp(){
-    if (!uploadAppModal) return;
-    clearUploadAppErr();
-    uploadAppModal.classList.remove('hidden');
-    uploadAppModal.setAttribute('aria-hidden','false');
-  }
-  function hideUploadApp(){
-    if (!uploadAppModal) return;
-    uploadAppModal.classList.add('hidden');
-    uploadAppModal.setAttribute('aria-hidden','true');
-  }
-
-  if (uploadAppBtn) uploadAppBtn.addEventListener('click', function(e){ e.preventDefault(); openUploadApp(); });
-  if (uploadAppClose) uploadAppClose.addEventListener('click', function(){ hideUploadApp(); });
-  if (uploadAppCancel) uploadAppCancel.addEventListener('click', function(){ hideUploadApp(); });
-  if (uploadAppModal) uploadAppModal.addEventListener('click', function(e){ if (e.target === uploadAppModal) hideUploadApp(); });
-
-  if (uploadAppForm) {
-    uploadAppForm.addEventListener('submit', function(e){
-      e.preventDefault();
-      clearUploadAppErr();
-      
-      // Double-click protection
-      var submitBtn = uploadAppForm.querySelector('button[type="submit"]');
-      if (submitBtn && submitBtn.disabled) return;
-      if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Processing application...';
-      }
-      
-      var fd = new FormData(uploadAppForm);
-      fetch(uploadAppForm.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
-        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
-        .then(function(json){
-          if (json && json.ok) {
-            // Redirect with success message
-            window.location = '/youth_edit.php?id=<?= (int)$id ?>&registered=1';
-          } else {
-            // Re-enable button on error
-            if (submitBtn) {
-              submitBtn.disabled = false;
-              submitBtn.textContent = 'Please process my application';
-            }
-            showUploadAppErr((json && json.error) ? json.error : 'Operation failed.');
-          }
-        })
-        .catch(function(){ 
-          // Re-enable button on error
-          if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Please process my application';
-          }
-          showUploadAppErr('Network error.'); 
-        });
-    });
-  }
-})();
-</script>
   <?php
     // Resolve leader names for the modal content
     $cubmasterName = UserManagement::findLeaderNameByPosition('Cubmaster') ?? '';
@@ -645,6 +576,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       </form>
     </div>
   </div>
+
+  <script>
+  (function(){
+    var uploadAppBtn = document.getElementById('btn_upload_app');
+    var uploadAppModal = document.getElementById('uploadAppModal');
+    var uploadAppClose = document.getElementById('uploadAppClose');
+    var uploadAppCancel = document.getElementById('uploadAppCancel');
+    var uploadAppForm = document.getElementById('uploadAppForm');
+    var uploadAppErr = document.getElementById('uploadAppErr');
+
+    function showUploadAppErr(msg){ if(uploadAppErr){ uploadAppErr.style.display=''; uploadAppErr.textContent = msg || 'Operation failed.'; } }
+    function clearUploadAppErr(){ if(uploadAppErr){ uploadAppErr.style.display='none'; uploadAppErr.textContent=''; } }
+    function openUploadApp(){
+      if (!uploadAppModal) return;
+      clearUploadAppErr();
+      uploadAppModal.classList.remove('hidden');
+      uploadAppModal.setAttribute('aria-hidden','false');
+    }
+    function hideUploadApp(){
+      if (!uploadAppModal) return;
+      uploadAppModal.classList.add('hidden');
+      uploadAppModal.setAttribute('aria-hidden','true');
+    }
+
+    if (uploadAppBtn) uploadAppBtn.addEventListener('click', function(e){ e.preventDefault(); openUploadApp(); });
+    if (uploadAppClose) uploadAppClose.addEventListener('click', function(){ hideUploadApp(); });
+    if (uploadAppCancel) uploadAppCancel.addEventListener('click', function(){ hideUploadApp(); });
+    if (uploadAppModal) uploadAppModal.addEventListener('click', function(e){ if (e.target === uploadAppModal) hideUploadApp(); });
+
+    if (uploadAppForm) {
+      uploadAppForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        clearUploadAppErr();
+        
+        // Double-click protection
+        var submitBtn = uploadAppForm.querySelector('button[type="submit"]');
+        if (submitBtn && submitBtn.disabled) return;
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Processing application...';
+        }
+        
+        var fd = new FormData(uploadAppForm);
+        fetch(uploadAppForm.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+          .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+          .then(function(json){
+            if (json && json.ok) {
+              // Redirect with success message
+              window.location = '/youth_edit.php?id=<?= (int)$id ?>&registered=1';
+            } else {
+              // Re-enable button on error
+              if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Please process my application';
+              }
+              showUploadAppErr((json && json.error) ? json.error : 'Operation failed.');
+            }
+          })
+          .catch(function(){ 
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Please process my application';
+            }
+            showUploadAppErr('Network error.'); 
+          });
+      });
+    }
+  })();
+  </script>
 <?php endif; ?>
 
 <?php
