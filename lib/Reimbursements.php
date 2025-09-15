@@ -46,9 +46,10 @@ final class Reimbursements {
     $s = (string)$req['status'];
     $creator = (int)$req['created_by'] === (int)$ctx->id;
     $approver = self::isApprover($ctx);
+    $isDonation = ((string)($req['payment_method'] ?? '') === 'Donation Letter Only');
 
     // Terminal states
-    if ($s === 'rejected' || $s === 'revoked' || $s === 'paid') return [];
+    if ($s === 'rejected' || $s === 'revoked' || $s === 'paid' || $s === 'acknowledged') return [];
 
     $next = [];
     if ($s === 'submitted') {
@@ -57,7 +58,7 @@ final class Reimbursements {
         $next[] = 'more_info_requested';
         $next[] = 'approved';
         $next[] = 'rejected';
-        $next[] = 'paid';
+        $next[] = $isDonation ? 'acknowledged' : 'paid';
       }
     } elseif ($s === 'more_info_requested') {
       if ($creator) $next[] = 'resubmitted';
@@ -66,7 +67,7 @@ final class Reimbursements {
         $next[] = 'resubmitted';
         $next[] = 'approved';
         $next[] = 'rejected';
-        $next[] = 'paid';
+        $next[] = $isDonation ? 'acknowledged' : 'paid';
       }
     } elseif ($s === 'resubmitted') {
       if ($creator) $next[] = 'revoked';
@@ -74,18 +75,18 @@ final class Reimbursements {
         $next[] = 'more_info_requested';
         $next[] = 'approved';
         $next[] = 'rejected';
-        $next[] = 'paid';
+        $next[] = $isDonation ? 'acknowledged' : 'paid';
       }
     } elseif ($s === 'approved') {
       if ($approver) {
-        $next[] = 'paid';
+        $next[] = $isDonation ? 'acknowledged' : 'paid';
       }
     }
     return $next;
   }
 
   private static function validStatus(string $s): bool {
-    static $all = ['submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid'];
+    static $all = ['submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid','acknowledged'];
     return in_array($s, $all, true);
   }
 
@@ -266,6 +267,13 @@ final class Reimbursements {
     if (!self::validStatus($newStatus)) throw new InvalidArgumentException('Invalid status.');
     $comment = trim($comment);
     if ($comment === '') throw new InvalidArgumentException('Comment is required.');
+    $pm = (string)($req['payment_method'] ?? '');
+    if ($pm === 'Donation Letter Only' && $newStatus === 'paid') {
+      throw new RuntimeException('Donation Letter Only requests cannot be marked as paid; use acknowledged.');
+    }
+    if ($pm !== 'Donation Letter Only' && $newStatus === 'acknowledged') {
+      throw new RuntimeException('Only Donation Letter Only requests can be acknowledged.');
+    }
     $allowed = self::allowedTransitionsFor($ctx, $req);
     if (!in_array($newStatus, $allowed, true)) throw new RuntimeException('Transition not allowed.');
 
@@ -561,10 +569,16 @@ final class Reimbursements {
       throw new RuntimeException('Failed to send email.');
     }
 
-    // Record an audit comment
-    $ins = self::pdo()->prepare("INSERT INTO reimbursement_request_comments (reimbursement_request_id, created_by, created_at, status_changed_to, comment_text)
-                                 VALUES (?, ?, NOW(), NULL, ?)");
-    $ins->execute([(int)$req['id'], (int)$ctx->id, 'Donation letter sent.']);
+    // After email, mark acknowledged if not already; otherwise just record a comment
+    $currentStatus = (string)($req['status'] ?? '');
+    if ($currentStatus !== 'acknowledged') {
+      self::changeStatus($ctx, $reqId, 'acknowledged', 'Donation letter sent.');
+    } else {
+      // Record an audit comment
+      $ins = self::pdo()->prepare("INSERT INTO reimbursement_request_comments (reimbursement_request_id, created_by, created_at, status_changed_to, comment_text)
+                                   VALUES (?, ?, NOW(), NULL, ?)");
+      $ins->execute([(int)$req['id'], (int)$ctx->id, 'Donation letter sent.']);
+    }
 
     // Activity log
     self::logAction('reimbursement.send_donation_letter', [
