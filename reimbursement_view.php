@@ -159,7 +159,7 @@ header_html('Reimbursement Details');
         $amtDisplay = ($amt !== null && $amt !== '') ? ('$' . number_format((float)$amt, 2)) : '—';
       ?>
       <?= h($amtDisplay) ?>
-      <?php if ($isOwner && (string)$req['status'] === 'more_info_requested'): ?>
+      <?php if ($isOwner && in_array((string)$req['status'], ['submitted','resubmitted','more_info_requested'], true)): ?>
         — <a href="#" id="linkEditAmount">edit</a>
       <?php endif; ?>
     </div>
@@ -342,7 +342,7 @@ EIN 13-2750608 (Greater Hudson Valley Council)
         <button class="primary">Save</button>
         <button type="button" id="closeAmountModal" class="button">Cancel</button>
       </div>
-      <p class="small">Amount can be edited only while the request is in “more_info_requested”.</p>
+      <p class="small">Amount can be edited while the request is in “submitted”, “resubmitted”, or “more_info_requested”.</p>
     </form>
   </div>
 </div>
@@ -360,10 +360,12 @@ EIN 13-2750608 (Greater Hudson Valley Council)
           <option value="">— None —</option>
           <?php
             $currentEid = (int)($req['event_id'] ?? 0);
-            $upcoming = \EventManagement::listUpcoming(100);
+            $since = date('Y-m-d 00:00:00', strtotime('-1 year'));
+            $until = date('Y-m-d 23:59:59', strtotime('+1 year'));
+            $events = \EventManagement::listBetween($since, $until);
             $haveCurrent = false;
-            foreach ($upcoming as $ev2) {
-              $id2 = (int)$ev2['id'];
+            foreach ($events as $ev2) {
+              $id2 = (int)($ev2['id'] ?? 0);
               if ($id2 === $currentEid) $haveCurrent = true;
               $dt = $ev2['starts_at'] ?? '';
               // Label should be date only
