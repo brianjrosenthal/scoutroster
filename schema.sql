@@ -246,7 +246,7 @@ CREATE TABLE reimbursement_requests (
   event_id INT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   last_modified_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  status ENUM('submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid') NOT NULL,
+  status ENUM('submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid','acknowledged') NOT NULL,
   comment_from_last_status_change TEXT DEFAULT NULL,
   last_status_set_by INT DEFAULT NULL,
   last_status_set_at DATETIME DEFAULT NULL,
@@ -279,7 +279,7 @@ CREATE TABLE reimbursement_request_comments (
   reimbursement_request_id INT NOT NULL,
   created_by INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  status_changed_to ENUM('submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid') DEFAULT NULL,
+  status_changed_to ENUM('submitted','revoked','more_info_requested','resubmitted','approved','rejected','paid','acknowledged') DEFAULT NULL,
   comment_text TEXT NOT NULL,
   CONSTRAINT fk_rrc_req FOREIGN KEY (reimbursement_request_id) REFERENCES reimbursement_requests(id) ON DELETE CASCADE,
   CONSTRAINT fk_rrc_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT
