@@ -33,7 +33,10 @@ header_html('Home');
   <p class="flash">Thank you for your recommendation!</p>
 <?php endif; ?>
 <?php if (!empty($_GET['renewed'])): ?>
-  <p class="flash">Thanks! We’ve notified pack leadership.</p>
+  <p class="flash">Thanks! We've notified pack leadership.</p>
+<?php endif; ?>
+<?php if (!empty($_GET['registered'])): ?>
+  <p class="flash">Thank you for sending in your application and payment.</p>
 <?php endif; ?>
 <?php if (trim($announcement) !== ''): ?>
   <p class="announcement"><?=h($announcement)?></p>
@@ -1058,8 +1061,8 @@ header_html('Home');
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
         .then(function(json){
           if (json && json.ok) {
-            // Refresh the page to show "Registration Processing"
-            window.location = window.location.pathname + window.location.search;
+            // Redirect with success message
+            window.location = '/index.php?registered=1';
           } else {
             // Re-enable button on error
             if (submitBtn) {
