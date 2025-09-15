@@ -215,13 +215,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $needsPay = true;
   }
 
+  // Determine if child might need registration (for Upload application button)
+  $needsRegistration = false;
+  $bsaReg = trim((string)($y['bsa_registration_number'] ?? ''));
+  if ($bsaReg === '' && $currentGrade !== null && $currentGrade >= 0 && $currentGrade <= 5) {
+    $needsRegistration = true;
+  }
+
+  // Check if user can upload application (parent of this child OR approver)
+  $canUploadApplication = ($isParentOfThis || $canEditPaidUntil) && $needsRegistration;
+
   header_html('Edit Youth');
 ?>
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Edit Youth: <?= h($y['first_name'] ?? '') ?> <?= h($y['last_name'] ?? '') ?></h2>
-  <?php if ($canEditPaidUntil && $needsPay): ?>
+  <?php if ($canUploadApplication || ($canEditPaidUntil && $needsPay)): ?>
     <div class="actions">
-      <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+      <?php if ($canUploadApplication): ?>
+        <button type="button" class="button" id="btn_upload_app">Upload application</button>
+      <?php endif; ?>
+      <?php if ($canEditPaidUntil && $needsPay): ?>
+        <button type="button" class="button" id="btn_mark_paid">Mark Paid for this year</button>
+      <?php endif; ?>
     </div>
   <?php endif; ?>
 </div>
@@ -232,6 +247,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 ?>
 <?php
   if (isset($_GET['paid'])) { $msg = 'Paid Until updated.'; }
+  if (isset($_GET['registered'])) { $msg = 'Thank you for sending in your application and payment.'; }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
@@ -499,6 +515,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 })();
 </script>
+<?php endif; ?>
+
+<!-- Upload Application Modal -->
+<?php if ($canUploadApplication): ?>
+<script>
+(function(){
+  var uploadAppBtn = document.getElementById('btn_upload_app');
+  var uploadAppModal = document.getElementById('uploadAppModal');
+  var uploadAppClose = document.getElementById('uploadAppClose');
+  var uploadAppCancel = document.getElementById('uploadAppCancel');
+  var uploadAppForm = document.getElementById('uploadAppForm');
+  var uploadAppErr = document.getElementById('uploadAppErr');
+
+  function showUploadAppErr(msg){ if(uploadAppErr){ uploadAppErr.style.display=''; uploadAppErr.textContent = msg || 'Operation failed.'; } }
+  function clearUploadAppErr(){ if(uploadAppErr){ uploadAppErr.style.display='none'; uploadAppErr.textContent=''; } }
+  function openUploadApp(){
+    if (!uploadAppModal) return;
+    clearUploadAppErr();
+    uploadAppModal.classList.remove('hidden');
+    uploadAppModal.setAttribute('aria-hidden','false');
+  }
+  function hideUploadApp(){
+    if (!uploadAppModal) return;
+    uploadAppModal.classList.add('hidden');
+    uploadAppModal.setAttribute('aria-hidden','true');
+  }
+
+  if (uploadAppBtn) uploadAppBtn.addEventListener('click', function(e){ e.preventDefault(); openUploadApp(); });
+  if (uploadAppClose) uploadAppClose.addEventListener('click', function(){ hideUploadApp(); });
+  if (uploadAppCancel) uploadAppCancel.addEventListener('click', function(){ hideUploadApp(); });
+  if (uploadAppModal) uploadAppModal.addEventListener('click', function(e){ if (e.target === uploadAppModal) hideUploadApp(); });
+
+  if (uploadAppForm) {
+    uploadAppForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearUploadAppErr();
+      
+      // Double-click protection
+      var submitBtn = uploadAppForm.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing application...';
+      }
+      
+      var fd = new FormData(uploadAppForm);
+      fetch(uploadAppForm.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            // Redirect with success message
+            window.location = '/youth_edit.php?id=<?= (int)$id ?>&registered=1';
+          } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Please process my application';
+            }
+            showUploadAppErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Please process my application';
+          }
+          showUploadAppErr('Network error.'); 
+        });
+    });
+  }
+})();
+</script>
+  <?php
+    // Resolve leader names for the modal content
+    $cubmasterName = UserManagement::findLeaderNameByPosition('Cubmaster') ?? '';
+    $committeeChairName = UserManagement::findLeaderNameByPosition('Committee Chair') ?? '';
+    $cubmasterLabel = $cubmasterName !== '' ? $cubmasterName : 'the Cubmaster';
+    $committeeChairLabel = $committeeChairName !== '' ? $committeeChairName : 'the Committee Chair';
+  ?>
+  <div id="uploadAppModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content" style="max-width:520px;">
+      <button class="close" type="button" id="uploadAppClose" aria-label="Close">&times;</button>
+      <h3>How to register your child for Cub Scouts</h3>
+      <div id="uploadAppErr" class="error small" style="display:none;"></div>
+      <ol>
+        <li>
+          Fill out this "Youth Application Form" and send it to <?= h($cubmasterLabel) ?> or <?= h($committeeChairLabel) ?>.
+          <div><a href="https://filestore.scouting.org/filestore/pdf/524-406.pdf" target="_blank" rel="noopener">https://filestore.scouting.org/filestore/pdf/524-406.pdf</a></div>
+        </li>
+        <li>
+          Pay the dues through any payment option here:
+          <div><a href="https://www.scarsdalepack440.com/join" target="_blank" rel="noopener">https://www.scarsdalepack440.com/join</a></div>
+        </li>
+        <li>
+          Buy a uniform. Instructions here:
+          <div><a href="https://www.scarsdalepack440.com/uniforms" target="_blank" rel="noopener">https://www.scarsdalepack440.com/uniforms</a></div>
+        </li>
+      </ol>
+      <form id="uploadAppForm" class="stack" method="post" action="/pending_registrations_actions.php" enctype="multipart/form-data">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="action" value="create">
+        <input type="hidden" name="youth_id" value="<?= (int)$id ?>">
+        <label>Application (PDF or image)
+          <input type="file" name="application" accept="application/pdf,image/*">
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="already_sent" value="1"> I have already sent the application another way
+        </label>
+        <label>Please tell us how you paid <span style="color:red;">*</span>
+          <select name="payment_method" required>
+            <option value="">Payment method</option>
+            <option value="Paypal">Paypal</option>
+            <option value="Check">Check</option>
+            <option value="I will pay later">I will pay later</option>
+          </select>
+        </label>
+        <label>Optional comment
+          <input type="text" name="comment" placeholder="Any notes for leadership">
+        </label>
+        <div class="actions">
+          <button class="button primary" type="submit">Please process my application</button>
+          <button class="button" type="button" id="uploadAppCancel">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
 <?php endif; ?>
 
 <?php
