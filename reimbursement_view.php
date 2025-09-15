@@ -457,12 +457,42 @@ EIN 13-2750608 (Greater Hudson Valley Council)
         });
       }
     }
+    
+    // Add double-click protection to all modal forms
+    function addFormProtection(modalId) {
+      var modal = document.getElementById(modalId);
+      if (!modal) return;
+      
+      var form = modal.querySelector('form');
+      if (!form) return;
+      
+      form.addEventListener('submit', function(e) {
+        var submitBtn = form.querySelector('button[type="submit"], button.primary');
+        if (submitBtn && submitBtn.disabled) {
+          e.preventDefault();
+          return;
+        }
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Processing...';
+        }
+      });
+    }
+    
     wire('linkEditStatus', 'statusModal', 'closeStatusModal');
     wire('linkEditAmount', 'amountModal', 'closeAmountModal');
     wire('linkChangeEvent', 'changeEventModal', 'closeChangeEventModal');
     wire('linkEditPaymentMethod', 'paymentMethodModal', 'closePaymentMethodModal');
     wire('linkEditPaymentDetails', 'paymentDetailsModal', 'closePaymentDetailsModal');
     wire('linkDonationLetter', 'donationModal', 'closeDonationModal');
+    
+    // Add protection to all modal forms
+    addFormProtection('statusModal');
+    addFormProtection('amountModal');
+    addFormProtection('changeEventModal');
+    addFormProtection('paymentMethodModal');
+    addFormProtection('paymentDetailsModal');
+    addFormProtection('donationModal');
   })();
 </script>
 

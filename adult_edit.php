@@ -233,10 +233,10 @@ header_html('Edit Adult');
 <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <h2>Edit Adult</h2>
   <?php if ($canEditAll && !empty($u['email']) && empty($u['email_verified_at'])): ?>
-    <form method="post" class="inline">
+    <form method="post" class="inline" id="inviteForm">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="invite">
-      <button class="button">Invite user to activate account</button>
+      <button class="button" id="inviteBtn">Invite user to activate account</button>
     </form>
   <?php endif; ?>
 </div>
@@ -576,5 +576,24 @@ header_html('Edit Adult');
   <?php endif; ?>
 </div>
 
+
+<script>
+(function(){
+  // Add double-click protection to invite form
+  var inviteForm = document.getElementById('inviteForm');
+  var inviteBtn = document.getElementById('inviteBtn');
+  
+  if (inviteForm && inviteBtn) {
+    inviteForm.addEventListener('submit', function(e) {
+      if (inviteBtn.disabled) {
+        e.preventDefault();
+        return;
+      }
+      inviteBtn.disabled = true;
+      inviteBtn.textContent = 'Sending invitation...';
+    });
+  }
+})();
+</script>
 
 <?php footer_html(); ?>

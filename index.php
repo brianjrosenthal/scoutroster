@@ -456,6 +456,15 @@ header_html('Home');
     form.addEventListener('submit', function(e){
       e.preventDefault();
       clearErr();
+      
+      // Double-click protection
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+      }
+      
       var fd = new FormData(form);
       fetch(form.getAttribute('action') || '/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
@@ -464,10 +473,22 @@ header_html('Home');
             suppressRenewFor(7);
             window.location = '/index.php?renewed=1';
           } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = "I've paid";
+            }
             showErr((json && json.error) ? json.error : 'Operation failed.');
           }
         })
-        .catch(function(){ showErr('Network error.'); });
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "I've paid";
+          }
+          showErr('Network error.'); 
+        });
     });
   }
 })();
@@ -1023,6 +1044,15 @@ header_html('Home');
     form.addEventListener('submit', function(e){
       e.preventDefault();
       clearErr();
+      
+      // Double-click protection
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing application...';
+      }
+      
       var fd = new FormData(form);
       fetch(form.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
@@ -1031,10 +1061,22 @@ header_html('Home');
             // Refresh the page to show "Registration Processing"
             window.location = window.location.pathname + window.location.search;
           } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Please process my application';
+            }
             showErr((json && json.error) ? json.error : 'Operation failed.');
           }
         })
-        .catch(function(){ showErr('Network error.'); });
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Please process my application';
+          }
+          showErr('Network error.'); 
+        });
     });
   }
 })();
