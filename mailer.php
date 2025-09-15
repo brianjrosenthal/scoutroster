@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/lib/EmailLog.php';
+require_once __DIR__ . '/lib/UserContext.php';
 
 /**
  * Send an HTML email via SMTP (supports SSL 465 and STARTTLS 587).
@@ -98,7 +100,18 @@ function send_smtp_mail(string $toEmail, string $toName, string $subject, string
  */
 function send_email(string $to, string $subject, string $html, string $toName = ''): bool {
   if ($toName === '') $toName = $to;
-  return send_smtp_mail($to, $toName, $subject, $html);
+  
+  $success = send_smtp_mail($to, $toName, $subject, $html);
+  
+  // Log the email attempt
+  try {
+    $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+    EmailLog::log($ctx, $to, $toName, $subject, $html, $success, $success ? null : 'SMTP send failed');
+  } catch (\Throwable $e) {
+    // Don't let logging errors break email flow
+  }
+  
+  return $success;
 }
 
 /**
@@ -114,8 +127,17 @@ function send_email_with_ics(
   string $toName = ''
 ): bool {
   if ($toName === '') $toName = $toEmail;
+  
+  $logBody = $html . "\n\n[ICS Attachment: " . $icsFilename . "]";
 
   if (!defined('SMTP_HOST') || !defined('SMTP_PORT') || !defined('SMTP_USER') || !defined('SMTP_PASS')) {
+    // Log the failed attempt
+    try {
+      $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+      EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, false, 'SMTP configuration missing');
+    } catch (\Throwable $e) {
+      // Don't let logging errors break email flow
+    }
     return false;
   }
 
@@ -128,7 +150,16 @@ function send_email_with_ics(
   $timeout = 20;
   $transport = ($secure === 'ssl') ? "ssl://$host" : $host;
   $fp = @stream_socket_client("$transport:$port", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT);
-  if (!$fp) return false;
+  if (!$fp) {
+    // Log the failed attempt
+    try {
+      $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+      EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, false, 'Failed to connect to SMTP server');
+    } catch (\Throwable $e) {
+      // Don't let logging errors break email flow
+    }
+    return false;
+  }
 
   stream_set_timeout($fp, $timeout);
 
@@ -213,5 +244,16 @@ function send_email_with_ics(
 
   $send("QUIT");
   fclose($fp);
+  
+  $success = true;
+  
+  // Log the email attempt
+  try {
+    $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+    EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, $success, null);
+  } catch (\Throwable $e) {
+    // Don't let logging errors break email flow
+  }
+  
   return true;
 }

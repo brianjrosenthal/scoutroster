@@ -33,7 +33,10 @@ header_html('Home');
   <p class="flash">Thank you for your recommendation!</p>
 <?php endif; ?>
 <?php if (!empty($_GET['renewed'])): ?>
-  <p class="flash">Thanks! We’ve notified pack leadership.</p>
+  <p class="flash">Thanks! We've notified pack leadership.</p>
+<?php endif; ?>
+<?php if (!empty($_GET['registered'])): ?>
+  <p class="flash">Thank you for sending in your application and payment.</p>
 <?php endif; ?>
 <?php if (trim($announcement) !== ''): ?>
   <p class="announcement"><?=h($announcement)?></p>
@@ -456,6 +459,15 @@ header_html('Home');
     form.addEventListener('submit', function(e){
       e.preventDefault();
       clearErr();
+      
+      // Double-click protection
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing...';
+      }
+      
       var fd = new FormData(form);
       fetch(form.getAttribute('action') || '/payment_notifications_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
@@ -464,10 +476,22 @@ header_html('Home');
             suppressRenewFor(7);
             window.location = '/index.php?renewed=1';
           } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = "I've paid";
+            }
             showErr((json && json.error) ? json.error : 'Operation failed.');
           }
         })
-        .catch(function(){ showErr('Network error.'); });
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "I've paid";
+          }
+          showErr('Network error.'); 
+        });
     });
   }
 })();
@@ -964,6 +988,14 @@ header_html('Home');
       <label class="inline">
         <input type="checkbox" name="already_sent" value="1"> I have already sent the application another way
       </label>
+      <label>Please tell us how you paid <span style="color:red;">*</span>
+        <select name="payment_method" required>
+          <option value="">Payment method</option>
+          <option value="Paypal">Paypal</option>
+          <option value="Check">Check</option>
+          <option value="I will pay later">I will pay later</option>
+        </select>
+      </label>
       <label>Optional comment
         <input type="text" name="comment" placeholder="Any notes for leadership">
       </label>
@@ -1015,18 +1047,39 @@ header_html('Home');
     form.addEventListener('submit', function(e){
       e.preventDefault();
       clearErr();
+      
+      // Double-click protection
+      var submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) return;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Processing application...';
+      }
+      
       var fd = new FormData(form);
       fetch(form.getAttribute('action') || '/pending_registrations_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
         .then(function(json){
           if (json && json.ok) {
-            // Refresh the page to show "Registration Processing"
-            window.location = window.location.pathname + window.location.search;
+            // Redirect with success message
+            window.location = '/index.php?registered=1';
           } else {
+            // Re-enable button on error
+            if (submitBtn) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Please process my application';
+            }
             showErr((json && json.error) ? json.error : 'Operation failed.');
           }
         })
-        .catch(function(){ showErr('Network error.'); });
+        .catch(function(){ 
+          // Re-enable button on error
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Please process my application';
+          }
+          showErr('Network error.'); 
+        });
     });
   }
 })();

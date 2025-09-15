@@ -310,13 +310,13 @@ header_html('My Profile');
       <div class="avatar avatar-initials" aria-hidden="true" style="width:80px;height:80px;font-size:20px"><?= h($meInitials) ?></div>
     <?php endif; ?>
 
-    <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px">
+    <form method="post" action="/upload_photo.php?type=adult&adult_id=<?= (int)$me['id'] ?>&return_to=/my_profile.php" enctype="multipart/form-data" class="stack" style="margin-left:auto;min-width:260px" id="profilePhotoForm">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <label>Upload a new photo
         <input type="file" name="photo" accept="image/*" required>
       </label>
       <div class="actions">
-        <button class="button">Upload Photo</button>
+        <button class="button" id="profilePhotoBtn">Upload Photo</button>
       </div>
     </form>
     <?php if (!empty($mePhotoUrl)): ?>
@@ -629,6 +629,21 @@ header_html('My Profile');
         } else {
           f.style.display = 'none';
         }
+      });
+    }
+    
+    // Add double-click protection to profile photo upload
+    var profilePhotoForm = document.getElementById('profilePhotoForm');
+    var profilePhotoBtn = document.getElementById('profilePhotoBtn');
+    
+    if (profilePhotoForm && profilePhotoBtn) {
+      profilePhotoForm.addEventListener('submit', function(e) {
+        if (profilePhotoBtn.disabled) {
+          e.preventDefault();
+          return;
+        }
+        profilePhotoBtn.disabled = true;
+        profilePhotoBtn.textContent = 'Uploading...';
       });
     }
   })();
