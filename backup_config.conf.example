@@ -1,0 +1,18 @@
+# MySQL Backup Configuration for Pack 440 Cub Scouts
+# Copy this file to backup_config.conf and fill in your database details
+# Keep this file secure - it contains database credentials
+
+# Database connection details
+DB_HOST="localhost"
+DB_NAME="cub_scouts_app"
+DB_USER="your_db_username"
+DB_PASS="your_db_password"
+
+# Optional: MySQL port (uncomment if not using default 3306)
+# DB_PORT="3306"
+
+# Backup directory (will be created if it doesn't exist)
+BACKUP_DIR="$HOME/backups/pack440"
+
+# Optional: Enable logging (uncomment to enable)
+# LOG_FILE="$HOME/backups/pack440/backup.log"
