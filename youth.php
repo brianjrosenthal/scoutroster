@@ -113,7 +113,7 @@ header_html('Youth Roster');
     </div>
     <label class="inline">
       <input type="hidden" name="only_reg_sib" value="0">
-      <input type="checkbox" name="only_reg_sib" value="1" <?= $onlyRegSib ? 'checked' : '' ?>> Include only registered members, paid members pending registration, and siblings
+      <input type="checkbox" name="only_reg_sib" value="1" <?= $onlyRegSib ? 'checked' : '' ?>> Include only registered members, paid members pending registration, and siblings of registered or paid members
     </label>
   </form>
   <script>
