@@ -91,11 +91,6 @@ create_backup() {
     mysqldump_cmd+=" --port=$DB_PORT"
     mysqldump_cmd+=" --user=$DB_USER"
     mysqldump_cmd+=" --password=$DB_PASS"
-    mysqldump_cmd+=" --single-transaction"     # Consistent backup for InnoDB
-    mysqldump_cmd+=" --routines"               # Include stored procedures/functions
-    mysqldump_cmd+=" --triggers"               # Include triggers
-    mysqldump_cmd+=" --events"                 # Include events
-    mysqldump_cmd+=" --add-drop-database"      # Add DROP DATABASE statement
     mysqldump_cmd+=" --databases $DB_NAME"     # Specify database
     
     # Execute backup to temporary file, then compress
