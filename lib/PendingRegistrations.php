@@ -16,19 +16,23 @@ class PendingRegistrations {
   private static function assertApprover(?UserContext $ctx): void {
     self::assertLogin($ctx);
     if (!\UserManagement::isApprover((int)$ctx->id)) {
-      throw new RuntimeException('Forbidden');
+      throw new RuntimeException('Forbidden: not approver');
     }
   }
 
-  private static function assertParentOfYouth(?UserContext $ctx, int $youthId): void {
+  private static function assertParentOfYouthOrApprover(?UserContext $ctx, int $youthId): void {
     self::assertLogin($ctx);
+    if (!\UserManagement::isApprover((int)$ctx->id)) { 
+      return; 
+    }
+
     $st = self::pdo()->prepare('SELECT 1 FROM parent_relationships WHERE youth_id=? AND adult_id=? LIMIT 1');
     $st->execute([(int)$youthId, (int)$ctx->id]);
-    if (!$st->fetchColumn()) { throw new RuntimeException('Forbidden'); }
+    if (!$st->fetchColumn()) { throw new RuntimeException('Forbidden: not parent of youth or approver'); }
   }
 
   public static function create(UserContext $ctx, int $youthId, ?int $secureFileId, ?string $comment, ?string $paymentMethod = null): int {
-    self::assertParentOfYouth($ctx, $youthId);
+    self::assertParentOfYouthOrApprover($ctx, $youthId);
     $cmt = trim((string)($comment ?? ''));
     if ($cmt === '') $cmt = null;
     
