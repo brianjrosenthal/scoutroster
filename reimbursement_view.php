@@ -145,26 +145,6 @@ header_html('Reimbursement Details');
   <h3>Details</h3>
   <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;">
     <div>
-      <strong>Status:</strong>
-      <?= h($req['status']) ?>
-      <?php if (!empty($allowed)): ?> — <a href="#" id="linkEditStatus">edit</a><?php endif; ?>
-    </div>
-
-    <div><strong>Last updated:</strong> <?= h($req['last_modified_at']) ?></div>
-
-    <div>
-      <strong>Amount:</strong>
-      <?php
-        $amt = $req['amount'] ?? null;
-        $amtDisplay = ($amt !== null && $amt !== '') ? ('$' . number_format((float)$amt, 2)) : '—';
-      ?>
-      <?= h($amtDisplay) ?>
-      <?php if ($isOwner && in_array((string)$req['status'], ['submitted','resubmitted','more_info_requested'], true)): ?>
-        — <a href="#" id="linkEditAmount">edit</a>
-      <?php endif; ?>
-    </div>
-
-    <div>
       <strong>Created by:</strong>
       <?php
         require_once __DIR__ . '/lib/UserManagement.php';
@@ -182,6 +162,15 @@ header_html('Reimbursement Details');
         }
         echo h($createdText);
       ?>
+    </div>
+
+    <div>
+      <strong>Status:</strong>
+      <?= h($req['status']) ?>
+      <?php if (!empty($allowed)): ?> — <a href="#" id="linkEditStatus">edit</a><?php endif; ?>
+      <?php if (!empty($req['comment_from_last_status_change'])): ?>
+        <br><span class="small">"<?= nl2br(h($req['comment_from_last_status_change'])) ?>"</span>
+      <?php endif; ?>
     </div>
 
     <div>
@@ -205,6 +194,25 @@ header_html('Reimbursement Details');
     </div>
 
     <div>
+      <strong>Amount:</strong>
+      <?php
+        $amt = $req['amount'] ?? null;
+        $amtDisplay = ($amt !== null && $amt !== '') ? ('$' . number_format((float)$amt, 2)) : '—';
+      ?>
+      <?= h($amtDisplay) ?>
+      <?php if ($isOwner && in_array((string)$req['status'], ['submitted','resubmitted','more_info_requested'], true)): ?>
+        — <a href="#" id="linkEditAmount">edit</a>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!empty($req['description'])): ?>
+      <div>
+        <strong>Description</strong>
+        <div class="small" style="white-space:pre-wrap;"><?= h($req['description']) ?></div>
+      </div>
+    <?php endif; ?>
+
+    <div>
       <strong>Payment Method:</strong>
       <?php $pmCur = (string)($req['payment_method'] ?? ''); ?>
       <?= h($pmCur) ?: '—' ?>
@@ -224,18 +232,9 @@ header_html('Reimbursement Details');
       <?php endif; ?>
       <?php if ($isOwner): ?> — <a href="#" id="linkEditPaymentDetails">edit</a><?php endif; ?>
     </div>
+
+    <div><strong>Last updated:</strong> <?= h($req['last_modified_at']) ?></div>
   </div>
-
-  <?php if (!empty($req['comment_from_last_status_change'])): ?>
-    <p class="small"><strong>Last status comment:</strong> <?= nl2br(h($req['comment_from_last_status_change'])) ?></p>
-  <?php endif; ?>
-
-  <?php if (!empty($req['description'])): ?>
-    <div style="margin-top:8px;">
-      <strong>Description</strong>
-      <div class="small" style="white-space:pre-wrap;"><?= h($req['description']) ?></div>
-    </div>
-  <?php endif; ?>
 </div>
 
 <?php
