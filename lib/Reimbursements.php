@@ -413,15 +413,16 @@ final class Reimbursements {
     ]);
   }
 
-  // Amount update: only creator can edit, and only when status is 'more_info_requested'
+  // Amount update: only creator can edit, and only when status is in 'submitted', 'resubmitted', or 'more_info_requested'
   public static function updateAmount(UserContext $ctx, int $reqId, ?string $amount): void {
     if (!$ctx) throw new RuntimeException('Login required');
     $req = self::getWithAuth($ctx, $reqId);
     if ((int)$req['created_by'] !== (int)$ctx->id) {
       throw new RuntimeException('Only the request creator can edit amount.');
     }
-    if ((string)$req['status'] !== 'more_info_requested') {
-      throw new RuntimeException('Amount can only be edited when status is "more_info_requested".');
+    $editableStatuses = ['submitted','resubmitted','more_info_requested'];
+    if (!in_array((string)$req['status'], $editableStatuses, true)) {
+      throw new RuntimeException('Amount can only be edited when status is "submitted", "resubmitted", or "more_info_requested".');
     }
     $canon = self::validateAmount($amount);
     $st = self::pdo()->prepare("UPDATE reimbursement_requests SET amount = ?, last_modified_at = NOW() WHERE id = ?");
