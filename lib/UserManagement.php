@@ -47,7 +47,7 @@ class UserManagement {
 
   private static function assertCanUpdate(?UserContext $ctx, int $targetUserId): void {
     if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $targetUserId) { throw new RuntimeException('Forbidden'); }
+    if (!$ctx->admin && $ctx->id !== $targetUserId) { throw new RuntimeException('Forbidden (assertCanUpdate)'); }
   }
 
   // Admin-created users are auto-verified (email_verify_token=NULL, email_verified_at=NOW())
@@ -635,7 +635,7 @@ class UserManagement {
   public static function listLeadershipPositions(?UserContext $ctx, int $adultId): array {
     // Admins can view anyone; users can view their own
     if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - listLeadershipPositions'); }
 
     $st = self::pdo()->prepare('SELECT id, position, class_of, created_at FROM adult_leadership_positions WHERE adult_id=? ORDER BY position');
     $st->execute([$adultId]);
@@ -645,7 +645,7 @@ class UserManagement {
   public static function addLeadershipPosition(?UserContext $ctx, int $adultId, string $position, ?int $grade = null): void {
     // Admins or self can add
     if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - addLeadershipPosition'); }
 
     $pos = trim($position);
     if ($pos === '') { throw new InvalidArgumentException('Position is required.'); }
@@ -686,7 +686,7 @@ class UserManagement {
   public static function removeLeadershipPosition(?UserContext $ctx, int $adultId, int $leadershipId): void {
     // Admins or self can remove
     if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden'); }
+    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - removeLeadershipPosition'); }
 
     // Ensure the position belongs to this adult
     $st = self::pdo()->prepare('DELETE FROM adult_leadership_positions WHERE id=? AND adult_id=?');
