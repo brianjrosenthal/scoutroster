@@ -35,6 +35,13 @@ header_html('Payment Notifications');
   <h2>Payment Notifications from Users</h2>
 </div>
 
+<?php if (!empty($_SESSION['success_message'])): ?>
+  <div class="alert alert-success">
+    <?= htmlspecialchars($_SESSION['success_message'], ENT_QUOTES, 'UTF-8') ?>
+  </div>
+  <?php unset($_SESSION['success_message']); ?>
+<?php endif; ?>
+
 <div class="card">
   <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
