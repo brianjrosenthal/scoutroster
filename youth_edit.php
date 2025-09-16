@@ -585,7 +585,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <?php endif; ?>
 
 <!-- Medical Forms Expiration Modal (approvers only) -->
-<?php if ($canEditPaidUntil): ?>
+<?php if ($canEditPaidUntil): 
+    // Compute default: exactly one year from today
+    $medicalFormsDefault = (new DateTime('now'))->modify('+1 year')->format('Y-m-d');
+?>
 <div id="medical_forms_modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content" style="max-width:420px;">
     <button class="close" type="button" id="medical_forms_close" aria-label="Close">&times;</button>
@@ -595,7 +598,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="mark_medical_forms_expiration">
       <label>Medical Forms Expiration Date (YYYY-MM-DD)
-        <input type="date" name="medical_forms_expiration_date" id="medical_forms_date" required>
+        <input type="date" name="medical_forms_expiration_date" id="medical_forms_date" value="<?= h($medicalFormsDefault) ?>" required>
       </label>
       <p class="small">Set when this youth's medical forms expire.</p>
       <div class="actions">
@@ -624,7 +627,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       e.preventDefault();
       var cur = this.getAttribute('data-current') || '';
       var dateInp = document.getElementById('medical_forms_date');
-      if (dateInp && cur) { dateInp.value = cur; }
+      if (dateInp) {
+        if (cur) {
+          dateInp.value = cur;
+        } else {
+          // If no current date, use the default (one year from today)
+          dateInp.value = '<?= h($medicalFormsDefault) ?>';
+        }
+      }
       open();
     });
   }
