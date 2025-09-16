@@ -54,6 +54,7 @@ ISSUE - there should be a way to "archive" a recommendation.
 3. Uplaods are currently stored in the file system, but I'd like to transition this so that instead they are stored in the database and cached in the file system.
 4. The database schema is documented in a file schema.sql.
 5. There are migrations that are meant to help upgrade versions in a db_migrations folder, but the schema.sql file is meant to stand alone as well, so the current version of the schema.sql file at any time should not need any migrations.
+IMPORTANT: When making database changes, always update schema.sql to reflect the current state. The schema.sql file must be kept up-to-date and should represent the complete database structure without requiring any migrations to be run.  Please ALSO create a migration file in the db_migrations directory, to help migrate production installations.
 
 ## Design Notes
 1. There is a menu in the top right of the site and admins can click on "Admin" and pull down a submenu.

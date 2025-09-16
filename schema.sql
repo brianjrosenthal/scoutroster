@@ -414,7 +414,7 @@ CREATE TABLE pending_registrations (
   created_by INT NOT NULL,
   secure_file_id INT DEFAULT NULL,
   comment TEXT DEFAULT NULL,
-  payment_method ENUM('Paypal','Check','I will pay later') DEFAULT NULL,
+  payment_method ENUM('Paypal','Zelle','Check','I will pay later') DEFAULT NULL,
   status ENUM('new','processed','deleted') NOT NULL DEFAULT 'new',
   payment_status ENUM('not_paid','paid') NOT NULL DEFAULT 'not_paid',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

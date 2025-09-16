@@ -590,6 +590,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <label>Please tell us how you paid <span style="color:red;">*</span>
           <select name="payment_method" required>
             <option value="">Payment method</option>
+            <option value="Zelle">Zelle</option>
             <option value="Paypal">Paypal</option>
             <option value="Check">Check</option>
             <option value="I will pay later">I will pay later</option>
@@ -691,8 +692,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <label>Payment Method <span style="color:red;">*</span>
         <select name="payment_method" required>
           <option value="">-- Select --</option>
-          <option value="Paypal">Paypal</option>
           <option value="Zelle">Zelle</option>
+          <option value="Paypal">Paypal</option>
           <option value="Venmo">Venmo</option>
           <option value="Check">Check</option>
           <option value="Other">Other</option>
