@@ -125,6 +125,7 @@ CREATE TABLE events (
   description TEXT DEFAULT NULL,
   max_cub_scouts INT DEFAULT NULL,
   allow_non_user_rsvp TINYINT(1) NOT NULL DEFAULT 1,
+  needs_medical_form TINYINT(1) NOT NULL DEFAULT 0,
   evite_rsvp_url VARCHAR(512) DEFAULT NULL,
   google_maps_url VARCHAR(512) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

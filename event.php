@@ -607,6 +607,16 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         </label>
       </div>
       
+      <?php if (!empty($e['needs_medical_form'])): ?>
+      <div style="margin-top: 12px;">
+        <label class="inline">
+          <input type="checkbox" name="medical_form_filter" value="1">
+          Needs Medical Form Only
+        </label>
+        <p class="small">Only include families where at least one member needs a medical form</p>
+      </div>
+      <?php endif; ?>
+      
       <div style="margin-top: 16px;">
         <label>Email addresses (one per line):
           <textarea id="emailsList" rows="10" readonly style="font-family: monospace; font-size: 12px;"></textarea>
@@ -765,12 +775,16 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         }
       }
       
+      // Check medical form filter
+      const medicalFormCheckbox = document.querySelector('input[name="medical_form_filter"]');
+      const medicalFormOnly = medicalFormCheckbox && medicalFormCheckbox.checked ? '1' : '0';
+      
       const emailsList = document.getElementById('emailsList');
       if (emailsList) {
         emailsList.value = 'Loading...';
       }
       
-      fetch(`/admin_event_emails.php?event_id=${eventId}&filter=${filter}`, {
+      fetch(`/admin_event_emails.php?event_id=${eventId}&filter=${filter}&medical_form_only=${medicalFormOnly}`, {
         headers: { 'Accept': 'application/json' }
       })
       .then(response => response.json())
@@ -795,6 +809,12 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     emailFilterRadios.forEach(radio => {
       radio.addEventListener('change', loadEmailsForEvent);
     });
+
+    // Listen for medical form filter changes
+    const medicalFormCheckbox = document.querySelector('input[name="medical_form_filter"]');
+    if (medicalFormCheckbox) {
+      medicalFormCheckbox.addEventListener('change', loadEmailsForEvent);
+    }
 
     // Close modal on outside click or Escape
     if (copyEmailsModal) {
