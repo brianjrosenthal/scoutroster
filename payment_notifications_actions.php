@@ -96,7 +96,7 @@ try {
 
     try {
       // Get the payment notification to find the youth_id
-      $notification = PaymentNotifications::findById($ctx, $id);
+      $notification = PaymentNotifications::findById($id);
       if (!$notification) {
         respond_json(false, 'Payment notification not found.');
         return;
