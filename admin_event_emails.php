@@ -74,7 +74,7 @@ try {
                 $adultId = (int)$adult['id'];
                 
                 // Check if this adult who RSVP'd needs a medical form
-                $adultData = UserManagement::findById($adultId);
+                $adultData = UserManagement::findFullById($adultId);
                 if ($adultData && needsMedicalForm($adultData['medical_forms_expiration_date'] ?? null)) {
                     // Get all children of this adult
                     $children = ParentRelationships::listChildrenForAdult($adultId);
