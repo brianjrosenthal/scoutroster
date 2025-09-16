@@ -39,90 +39,113 @@ try {
         $answers = ['yes'];
     }
     
-    foreach ($answers as $answer) {
-        // Get adult entries who RSVP'd with this answer
-        $adultEntries = RSVPManagement::listAdultEntriesByAnswer($eventId, $answer);
+    if ($medicalFormOnly === '1') {
+        // Medical form filtering logic
+        $listA = []; // Adults who are parents of children who RSVP'd and need medical forms
+        $listB = []; // Adults in families where an adult RSVP'd and needs medical forms
         
-        foreach ($adultEntries as $adult) {
-            $adultId = (int)$adult['id'];
-            $familyEmails = [];
-            $familyNeedsMedicalForm = false;
+        foreach ($answers as $answer) {
+            // Get all adults who RSVP'd with this answer
+            $rsvpAdults = RSVPManagement::listAdultEntriesByAnswer($eventId, $answer);
             
-            // Check if this adult needs a medical form
-            $adultData = UserManagement::findById($adultId);
-            if ($adultData) {
-                if (needsMedicalForm($adultData['medical_forms_expiration_date'] ?? null)) {
-                    $familyNeedsMedicalForm = true;
-                }
-                if (!empty($adultData['email'])) {
-                    $familyEmails[] = trim($adultData['email']);
+            // Get all youth who RSVP'd with this answer
+            $rsvpYouthIds = RSVPManagement::listYouthIdsByAnswer($eventId, $answer);
+            
+            // Process children who RSVP'd -> List A
+            foreach ($rsvpYouthIds as $youthId) {
+                // Get youth data to check medical form
+                $pdo = pdo();
+                $youthStmt = $pdo->prepare("SELECT medical_forms_expiration_date FROM youth WHERE id = ?");
+                $youthStmt->execute([$youthId]);
+                $youthData = $youthStmt->fetch();
+                
+                // If this child who RSVP'd needs a medical form
+                if ($youthData && needsMedicalForm($youthData['medical_forms_expiration_date'] ?? null)) {
+                    // Get all parents of this child and add to List A
+                    $parents = ParentRelationships::listParentsForChild($youthId);
+                    foreach ($parents as $parent) {
+                        $listA[] = (int)$parent['id'];
+                    }
                 }
             }
             
-            // Get all parents of children in this family and check their medical forms
-            $children = ParentRelationships::listChildrenForAdult($adultId);
-            foreach ($children as $child) {
-                $childId = (int)$child['id'];
+            // Process adults who RSVP'd -> List B
+            foreach ($rsvpAdults as $adult) {
+                $adultId = (int)$adult['id'];
                 
-                // Check if this child needs a medical form
-                if (needsMedicalForm($child['medical_forms_expiration_date'] ?? null)) {
-                    $familyNeedsMedicalForm = true;
+                // Check if this adult who RSVP'd needs a medical form
+                $adultData = UserManagement::findById($adultId);
+                if ($adultData && needsMedicalForm($adultData['medical_forms_expiration_date'] ?? null)) {
+                    // Get all children of this adult
+                    $children = ParentRelationships::listChildrenForAdult($adultId);
+                    
+                    // Get all parents of those children and add to List B
+                    foreach ($children as $child) {
+                        $childId = (int)$child['id'];
+                        $parents = ParentRelationships::listParentsForChild($childId);
+                        foreach ($parents as $parent) {
+                            $listB[] = (int)$parent['id'];
+                        }
+                    }
+                    
+                    // Also add the adult themselves to List B
+                    $listB[] = $adultId;
+                }
+            }
+        }
+        
+        // Merge and deduplicate List A and List B to create List C
+        $listC = array_unique(array_merge($listA, $listB));
+        
+        // Get emails for all adults in List C
+        foreach ($listC as $adultId) {
+            $adultData = UserManagement::findById($adultId);
+            if ($adultData && !empty($adultData['email'])) {
+                $emails[] = trim($adultData['email']);
+            }
+        }
+    } else {
+        // Regular email collection (no medical form filtering)
+        foreach ($answers as $answer) {
+            // Get adult entries who RSVP'd with this answer
+            $adultEntries = RSVPManagement::listAdultEntriesByAnswer($eventId, $answer);
+            
+            foreach ($adultEntries as $adult) {
+                $adultId = (int)$adult['id'];
+                
+                // Get the adult's email
+                $adultData = UserManagement::findById($adultId);
+                if ($adultData && !empty($adultData['email'])) {
+                    $emails[] = trim($adultData['email']);
                 }
                 
-                // Get parents for this child
-                $parents = ParentRelationships::listParentsForChild($childId);
-                foreach ($parents as $parent) {
-                    $parentId = (int)$parent['id'];
-                    if ($parentId !== $adultId) { // Don't duplicate the original adult
-                        // Check if this parent needs a medical form
-                        if (needsMedicalForm($parent['medical_forms_expiration_date'] ?? null)) {
-                            $familyNeedsMedicalForm = true;
-                        }
-                        if (!empty($parent['email'])) {
-                            $familyEmails[] = trim($parent['email']);
+                // Get all parents of children in this family
+                $children = ParentRelationships::listChildrenForAdult($adultId);
+                foreach ($children as $child) {
+                    $childId = (int)$child['id'];
+                    
+                    // Get parents for this child
+                    $parents = ParentRelationships::listParentsForChild($childId);
+                    foreach ($parents as $parent) {
+                        $parentId = (int)$parent['id'];
+                        if ($parentId !== $adultId && !empty($parent['email'])) { // Don't duplicate the original adult
+                            $emails[] = trim($parent['email']);
                         }
                     }
                 }
             }
             
-            // Add family emails if medical form filter is off OR family needs medical forms
-            if ($medicalFormOnly !== '1' || $familyNeedsMedicalForm) {
-                $emails = array_merge($emails, $familyEmails);
-            }
-        }
-        
-        // Get youth who RSVP'd with this answer and their parents
-        $youthIds = RSVPManagement::listYouthIdsByAnswer($eventId, $answer);
-        
-        foreach ($youthIds as $youthId) {
-            $familyEmails = [];
-            $familyNeedsMedicalForm = false;
+            // Get youth who RSVP'd with this answer and their parents
+            $youthIds = RSVPManagement::listYouthIdsByAnswer($eventId, $answer);
             
-            // Get youth data to check medical form
-            $pdo = pdo();
-            $youthStmt = $pdo->prepare("SELECT medical_forms_expiration_date FROM youth WHERE id = ?");
-            $youthStmt->execute([$youthId]);
-            $youthData = $youthStmt->fetch();
-            
-            if ($youthData && needsMedicalForm($youthData['medical_forms_expiration_date'] ?? null)) {
-                $familyNeedsMedicalForm = true;
-            }
-            
-            // Get parents for this youth
-            $parents = ParentRelationships::listParentsForChild($youthId);
-            foreach ($parents as $parent) {
-                // Check if this parent needs a medical form
-                if (needsMedicalForm($parent['medical_forms_expiration_date'] ?? null)) {
-                    $familyNeedsMedicalForm = true;
+            foreach ($youthIds as $youthId) {
+                // Get parents for this youth
+                $parents = ParentRelationships::listParentsForChild($youthId);
+                foreach ($parents as $parent) {
+                    if (!empty($parent['email'])) {
+                        $emails[] = trim($parent['email']);
+                    }
                 }
-                if (!empty($parent['email'])) {
-                    $familyEmails[] = trim($parent['email']);
-                }
-            }
-            
-            // Add family emails if medical form filter is off OR family needs medical forms
-            if ($medicalFormOnly !== '1' || $familyNeedsMedicalForm) {
-                $emails = array_merge($emails, $familyEmails);
             }
         }
     }
