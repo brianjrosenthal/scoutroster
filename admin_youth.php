@@ -135,7 +135,7 @@ if (empty($errors)) {
       header('Location: /youth.php'); exit;
     } catch (Throwable $e) {
       if (isset($pdo) && $pdo->inTransaction()) { $pdo->rollBack(); }
-      $err = 'Error creating youth.';
+      $err = 'Error creating youth: ' . $e->getMessage();
     }
   } else {
     $err = implode(' ', $errors);

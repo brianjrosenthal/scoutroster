@@ -500,3 +500,61 @@
     }
   });
 })();
+
+// Admin RSVP submission function
+function submitAdminRSVP(eventId) {
+    const form = document.getElementById('adminRSVPForm');
+    const formData = new FormData(form);
+    
+    fetch('admin_rsvp_edit.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Get the selected person's name for the success message
+            const selectedPersonName = document.getElementById('adminSelectedPersonName').textContent;
+            
+            // Show step 1 again with success message
+            const adminStep1 = document.getElementById('adminRsvpStep1');
+            const adminStep2 = document.getElementById('adminRsvpStep2');
+            
+            if (adminStep1) adminStep1.style.display = 'block';
+            if (adminStep2) adminStep2.style.display = 'none';
+            
+            // Clear the search field and results
+            const adminFamilySearch = document.getElementById('adminFamilySearch');
+            const adminFamilySearchResults = document.getElementById('adminFamilySearchResults');
+            
+            if (adminFamilySearch) adminFamilySearch.value = '';
+            if (adminFamilySearchResults) {
+                adminFamilySearchResults.innerHTML = '';
+                adminFamilySearchResults.style.display = 'none';
+            }
+            
+            // Show success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-success';
+            successDiv.textContent = `You have successfully RSVP'd for ${selectedPersonName}`;
+            
+            // Insert success message at the top of step 1
+            if (adminStep1) {
+                adminStep1.insertBefore(successDiv, adminStep1.firstChild);
+                
+                // Remove success message after 5 seconds
+                setTimeout(() => {
+                    if (successDiv.parentNode) {
+                        successDiv.parentNode.removeChild(successDiv);
+                    }
+                }, 5000);
+            }
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving the RSVP');
+    });
+}
