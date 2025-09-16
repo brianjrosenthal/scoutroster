@@ -184,7 +184,7 @@ final class PaymentNotifications {
     $sql = "SELECT 1
             FROM payment_notifications_from_users
             WHERE youth_id = ?
-              AND status == 'new' 
+              AND status = 'new' 
               AND created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
             LIMIT 1";
     $st = self::pdo()->prepare($sql);
