@@ -116,10 +116,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <?= $myGuestsCount > 0 ? ' and '.(int)$myGuestsCount.' guest'.($myGuestsCount === 1 ? '' : 's') : '' ?>.
       <?php
         $creatorId = (int)($myRsvp['created_by_user_id'] ?? 0);
+        $enteredById = (int)($myRsvp['entered_by'] ?? 0);
+        
         if ($creatorId && $creatorId !== (int)$me['id']) {
           $nameBy = UserManagement::getFullName($creatorId);
           if ($nameBy !== null) {
             echo ' <span class="small">(by ' . h($nameBy) . ')</span>';
+          }
+        }
+        
+        if ($enteredById && $enteredById !== $creatorId) {
+          $enteredByName = UserManagement::getFullName($enteredById);
+          if ($enteredByName !== null) {
+            echo ' <span class="small">(entered by ' . h($enteredByName) . ')</span>';
           }
         }
       ?>
@@ -184,7 +193,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     Cub Scouts: <?= (int)$youthCountCombined ?><?= !empty($e['max_cub_scouts']) ? ' / '.(int)$e['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
     Other Guests: <?= (int)$guestsTotal ?>
     <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP’d maybe)</em>
+      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
+    <?php endif; ?>
+    <?php if ($isAdmin): ?>
+      &nbsp;&nbsp; | &nbsp;&nbsp; <button class="button small" id="adminManageRsvpBtn">Manage RSVPs</button>
     <?php endif; ?>
   </p>
 
@@ -501,6 +513,64 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
     })();
   </script>
+<?php endif; ?>
+
+<?php if ($eviteUrl === '' && $isAdmin): ?>
+<!-- Admin RSVP Management modal -->
+<div id="adminRsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="adminRsvpModalClose" aria-label="Close">&times;</button>
+    <h3>Manage RSVP for <?= h($e['name']) ?></h3>
+    
+    <!-- Step 1: Search for family member -->
+    <div id="adminRsvpStep1" class="stack">
+      <label>Search for adult or child:
+        <input type="text" id="adminFamilySearch" placeholder="Type name to search adults and children" autocomplete="off">
+        <div id="adminFamilySearchResults" class="typeahead-results" style="display:none;"></div>
+      </label>
+    </div>
+    
+    <!-- Step 2: RSVP form (hidden initially) -->
+    <div id="adminRsvpStep2" class="stack" style="display:none;">
+      <form method="post" class="stack" action="/admin_rsvp_edit.php">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+        <input type="hidden" name="context_adult_id" id="adminContextAdultId" value="">
+        <input type="hidden" name="answer" id="adminRsvpAnswerInput" value="yes">
+
+        <div style="margin-bottom: 16px;">
+          <strong>RSVP for: <span id="adminSelectedPersonName"></span></strong>
+          <div class="actions" style="margin-top: 8px;">
+            <button type="button" class="primary" id="adminRsvpYesBtn">Yes</button>
+            <button type="button" id="adminRsvpMaybeBtn" class="primary">Maybe</button>
+            <button type="button" id="adminRsvpNoBtn">No</button>
+          </div>
+        </div>
+
+        <h4>Adults</h4>
+        <div id="adminAdultsList"></div>
+
+        <h4>Children</h4>
+        <div id="adminYouthList"></div>
+
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;align-items:start;">
+          <label>Number of other guests
+            <input type="number" name="n_guests" id="adminNGuests" value="0" min="0">
+          </label>
+        </div>
+
+        <label>Comments
+          <textarea name="comments" id="adminComments" rows="3"></textarea>
+        </label>
+
+        <div class="actions">
+          <button type="submit" class="primary">Save RSVP</button>
+          <button type="button" id="adminRsvpBackBtn" class="button">Back to Search</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 <?php endif; ?>
 
 <?php if ($eviteUrl === ''): ?>
