@@ -95,7 +95,12 @@ $showVolunteerModal = $hasYes && $openVolunteerRoles && !empty($_GET['vol']);
 
 header_html('Event');
 ?>
-<h2><?=h($e['name'])?></h2>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;"><?=h($e['name'])?></h2>
+  <?php if ($isAdmin && $eviteUrl === ''): ?>
+    <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+  <?php endif; ?>
+</div>
 
 <?php if ($flashSaved): ?>
   <p class="flash">Your RSVP has been saved.</p>
@@ -194,9 +199,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     Other Guests: <?= (int)$guestsTotal ?>
     <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
       &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
-    <?php endif; ?>
-    <?php if ($isAdmin): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <button class="button" style="font-size: 12px;" id="adminManageRsvpBtn">Manage RSVPs</button>
     <?php endif; ?>
   </p>
 
