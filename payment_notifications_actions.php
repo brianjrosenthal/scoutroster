@@ -95,16 +95,25 @@ try {
     if (!$dt || $dt->format('Y-m-d') !== $paid) respond_json(false, 'Invalid date format');
 
     try {
+      // Get the payment notification to find the youth_id
+      $notification = PaymentNotifications::findById($ctx, $id);
+      if (!$notification) {
+        respond_json(false, 'Payment notification not found.');
+        return;
+      }
+      
       PaymentNotifications::verify($ctx, $id, $paid);
 
-      // Fetch youth name for success message
-      $youth = YouthManagement::findBasicById((int)($_POST['youth_id'] ?? 0));
-      if ($youth) {
-        $msg = "Payment Notification about " . ($youth['first_name'] ?? '') . " " . ($youth['last_name'] ?? '') . " marked as verified and paid_until date set.";
-        $_SESSION['success_message'] = $msg;
+      // Redirect with success parameters instead of JSON response
+      $youthId = (int)($notification['youth_id'] ?? 0);
+      $redirectUrl = '/payment_notifications_from_users.php?verified=1&youth_id=' . $youthId;
+      
+      // Preserve existing query parameters (filters, pagination)
+      if (!empty($_POST['current_url_params'])) {
+        $redirectUrl .= '&' . $_POST['current_url_params'];
       }
-
-      respond_json(true);
+      
+      respond_json(true, null, ['redirect' => $redirectUrl]);
     } catch (Throwable $e) {
       respond_json(false, 'Unable to verify.');
     }

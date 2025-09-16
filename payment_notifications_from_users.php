@@ -15,6 +15,21 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
   exit('Forbidden');
 }
 
+// Check for verification success message
+$msg = '';
+if (!empty($_GET['verified']) && !empty($_GET['youth_id'])) {
+  $youthId = (int)$_GET['youth_id'];
+  try {
+    $youth = YouthManagement::findBasicById($youthId);
+    if ($youth) {
+      $youthName = trim(($youth['first_name'] ?? '') . ' ' . ($youth['last_name'] ?? ''));
+      $msg = "Payment Notification about {$youthName} marked as verified and paid_until date set.";
+    }
+  } catch (Throwable $e) {
+    // Ignore errors in flash message generation
+  }
+}
+
 $q = trim($_GET['q'] ?? '');
 $status = trim($_GET['status'] ?? 'new'); // new|verified|deleted
 $page = max(1, (int)($_GET['p'] ?? 1));
@@ -35,12 +50,7 @@ header_html('Payment Notifications');
   <h2>Payment Notifications from Users</h2>
 </div>
 
-<?php if (!empty($_SESSION['success_message'])): ?>
-  <div class="alert alert-success">
-    <?= htmlspecialchars($_SESSION['success_message'], ENT_QUOTES, 'UTF-8') ?>
-  </div>
-  <?php unset($_SESSION['success_message']); ?>
-<?php endif; ?>
+<?php if ($msg): ?><p class="flash"><?= h($msg) ?></p><?php endif; ?>
 
 <div class="card">
   <form id="filterForm" method="get" class="stack">
@@ -229,9 +239,14 @@ header_html('Payment Notifications');
         .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid response'); }); })
         .then(function(json){
           if (json && json.ok) {
-            // Reload keeping filters
-            var usp = new URLSearchParams(window.location.search);
-            window.location = window.location.pathname + '?' + usp.toString();
+            if (json.redirect) {
+              // Use the redirect URL provided by the server
+              window.location = json.redirect;
+            } else {
+              // Fallback: reload keeping filters
+              var usp = new URLSearchParams(window.location.search);
+              window.location = window.location.pathname + '?' + usp.toString();
+            }
           } else {
             vShowErr((json && json.error) ? json.error : 'Operation failed.');
           }
