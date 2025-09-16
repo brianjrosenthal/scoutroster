@@ -348,6 +348,28 @@ final class RSVPManagement {
     return $out;
   }
 
+  /**
+   * List youth IDs who RSVP'd with a specific answer for an event.
+   * Returns array of youth IDs.
+   */
+  public static function listYouthIdsByAnswer(int $eventId, string $answer): array {
+    $ans = strtolower(trim($answer));
+    if (!in_array($ans, ['yes','maybe','no'], true)) return [];
+    $st = self::pdo()->prepare("
+      SELECT DISTINCT rm.youth_id
+      FROM rsvp_members rm
+      JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer = ?
+      WHERE rm.event_id = ? AND rm.participant_type = 'youth' AND rm.youth_id IS NOT NULL
+    ");
+    $st->execute([$ans, (int)$eventId]);
+    $out = [];
+    foreach ($st->fetchAll() as $r) {
+      $yid = (int)($r['youth_id'] ?? 0);
+      if ($yid > 0) $out[] = $yid;
+    }
+    return $out;
+  }
+
   // =========================
   // Writes
   // =========================

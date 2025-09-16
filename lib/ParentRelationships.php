@@ -55,6 +55,19 @@ class ParentRelationships {
     return (int)$st->fetchColumn();
   }
 
+  // All parents (adult user rows) linked to a youth
+  public static function listParentsForChild(int $youthId): array {
+    $st = self::pdo()->prepare("
+      SELECT u.*
+      FROM parent_relationships pr
+      JOIN users u ON u.id = pr.adult_id
+      WHERE pr.youth_id = ?
+      ORDER BY u.last_name, u.first_name
+    ");
+    $st->execute([(int)$youthId]);
+    return $st->fetchAll() ?: [];
+  }
+
   // =========================
   // Mutations (require UserContext)
   // =========================

@@ -44,40 +44,27 @@ try {
             $children = ParentRelationships::listChildrenForAdult($adultId);
             foreach ($children as $child) {
                 $childId = (int)$child['id'];
-                $parents = ParentRelationships::listParentsForChild($childId);
                 
+                // Get parents for this child
+                $parents = ParentRelationships::listParentsForChild($childId);
                 foreach ($parents as $parent) {
                     $parentId = (int)$parent['id'];
-                    if ($parentId !== $adultId) { // Don't duplicate the original adult
-                        $parentData = UserManagement::findById($parentId);
-                        if ($parentData && !empty($parentData['email'])) {
-                            $emails[] = trim($parentData['email']);
-                        }
+                    if ($parentId !== $adultId && !empty($parent['email'])) { // Don't duplicate the original adult
+                        $emails[] = trim($parent['email']);
                     }
                 }
             }
         }
         
         // Get youth who RSVP'd with this answer and their parents
-        // We need to query the rsvp_members table directly since there's no listYouthRsvpsByAnswer method
-        $pdo = pdo();
-        $stmt = $pdo->prepare("
-            SELECT DISTINCT rm.youth_id
-            FROM rsvp_members rm
-            JOIN rsvps r ON r.id = rm.rsvp_id AND r.answer = ?
-            WHERE rm.event_id = ? AND rm.participant_type = 'youth' AND rm.youth_id IS NOT NULL
-        ");
-        $stmt->execute([$answer, $eventId]);
+        $youthIds = RSVPManagement::listYouthIdsByAnswer($eventId, $answer);
         
-        while ($row = $stmt->fetch()) {
-            $youthId = (int)$row['youth_id'];
+        foreach ($youthIds as $youthId) {
+            // Get parents for this youth
             $parents = ParentRelationships::listParentsForChild($youthId);
-            
             foreach ($parents as $parent) {
-                $parentId = (int)$parent['id'];
-                $parentData = UserManagement::findById($parentId);
-                if ($parentData && !empty($parentData['email'])) {
-                    $emails[] = trim($parentData['email']);
+                if (!empty($parent['email'])) {
+                    $emails[] = trim($parent['email']);
                 }
             }
         }
