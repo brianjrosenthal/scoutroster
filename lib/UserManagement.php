@@ -378,6 +378,14 @@ class UserManagement {
   // Update profile and extended details; by default does NOT allow changing is_admin
   public static function updateProfile(UserContext $ctx, int $id, array $fields, bool $allowAdminFlag = false): bool {
     self::assertCanUpdate($ctx, $id);
+    
+    // Medical forms expiration: approver-only (Cubmaster/Committee Chair/Treasurer)
+    if (array_key_exists('medical_forms_expiration_date', $fields)) {
+      if (!self::isApprover((int)$ctx->id)) {
+        throw new InvalidArgumentException('Forbidden - not approver');
+      }
+    }
+    
     // Whitelist of updatable columns
     $allowed = [
       'first_name','last_name','email',
@@ -385,6 +393,7 @@ class UserManagement {
       'email2','phone_home','phone_cell','shirt_size',
       'suppress_email_directory','suppress_phone_directory',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
+      'medical_forms_expiration_date',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
     ];
     if ($allowAdminFlag && $ctx->admin && array_key_exists('is_admin', $fields)) {
@@ -426,7 +435,13 @@ class UserManagement {
     $sql = 'UPDATE users SET ' . implode(', ', $set) . ' WHERE id = ?';
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute($params);
-    if ($ok) self::log('user.update_profile', $id, array_intersect_key($fields, array_flip($allowed)));
+    if ($ok) {
+      $updatedFields = array_intersect_key($fields, array_flip($allowed));
+      self::log('user.update_profile', $id, $updatedFields);
+      if (array_key_exists('medical_forms_expiration_date', $updatedFields)) {
+        self::log('user.update_medical_forms_expiration', $id, ['medical_forms_expiration_date' => $updatedFields['medical_forms_expiration_date']]);
+      }
+    }
     return $ok;
   }
 

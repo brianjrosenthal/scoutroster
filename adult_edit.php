@@ -99,6 +99,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'invi
   }
 }
 
+/** Handle POST (mark medical forms expiration via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark_medical_forms_expiration')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
+    }
+    $date = trim((string)($_POST['medical_forms_expiration_date'] ?? ''));
+    if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
+    // Basic Y-m-d validation
+    $dt = DateTime::createFromFormat('Y-m-d', $date);
+    if (!$dt || $dt->format('Y-m-d') !== $date) {
+      echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+    }
+    $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, ['medical_forms_expiration_date' => $date]);
+    if ($ok) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to update.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed']); exit;
+  }
+}
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] === 'save_profile')) {
   require_csrf();
@@ -244,6 +269,7 @@ header_html('Edit Adult');
   if (isset($_GET['uploaded'])) { $msg = 'Photo uploaded.'; }
   if (isset($_GET['deleted'])) { $msg = 'Photo removed.'; }
   if (isset($_GET['saved'])) { $msg = 'Profile updated.'; }
+  if (isset($_GET['medical_forms'])) { $msg = 'Medical Forms Expiration updated.'; }
   if (isset($_GET['child_added'])) { $msg = 'Child added.'; }
   if (isset($_GET['created'])) { $msg = trim((string)($u['first_name'] ?? '') . ' ' . (string)($u['last_name'] ?? '')) . ' created successfully.'; }
   if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
@@ -400,6 +426,15 @@ header_html('Edit Adult');
       <label>Safeguarding Training Completed On
         <input type="date" name="safeguarding_training_completed_on" value="<?=h($u['safeguarding_training_completed_on'])?>" placeholder="YYYY-MM-DD">
       </label>
+      <div>
+        <div class="small">Medical Forms Expire</div>
+        <div>
+          <?= h($u['medical_forms_expiration_date'] ?? '—') ?>
+          <?php if (\UserManagement::isApprover((int)($me['id'] ?? 0))): ?>
+            <a href="#" class="small" id="edit_medical_forms_link" data-current="<?= h($u['medical_forms_expiration_date'] ?? '') ?>" style="margin-left:6px;">Edit</a>
+          <?php endif; ?>
+        </div>
+      </div>
     </div>
 
     <h3>Emergency Contacts</h3>
@@ -576,6 +611,85 @@ header_html('Edit Adult');
   <?php endif; ?>
 </div>
 
+
+<!-- Medical Forms Expiration Modal (approvers only) -->
+<?php if (\UserManagement::isApprover((int)($me['id'] ?? 0))): 
+    // Compute default: exactly one year from today
+    $medicalFormsDefault = (new DateTime('now'))->modify('+1 year')->format('Y-m-d');
+?>
+<div id="medical_forms_modal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:420px;">
+    <button class="close" type="button" id="medical_forms_close" aria-label="Close">&times;</button>
+    <h3>Set Medical Forms Expiration</h3>
+    <div id="medical_forms_err" class="error small" style="display:none;"></div>
+    <form id="medical_forms_form" class="stack" method="post" action="/adult_edit.php?id=<?= (int)$id ?>">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="mark_medical_forms_expiration">
+      <label>Medical Forms Expiration Date (YYYY-MM-DD)
+        <input type="date" name="medical_forms_expiration_date" id="medical_forms_date" value="<?= h($medicalFormsDefault) ?>" required>
+      </label>
+      <p class="small">Set when this adult's medical forms expire.</p>
+      <div class="actions">
+        <button class="button primary" type="submit">Set Expiration Date</button>
+        <button class="button" type="button" id="medical_forms_cancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  var modal = document.getElementById('medical_forms_modal');
+  var closeBtn = document.getElementById('medical_forms_close');
+  var cancelBtn = document.getElementById('medical_forms_cancel');
+  var form = document.getElementById('medical_forms_form');
+  var err = document.getElementById('medical_forms_err');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(){ if(modal){ modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); clearErr(); } }
+  function close(){ if(modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
+
+  var editLink = document.getElementById('edit_medical_forms_link');
+  if (editLink) {
+    editLink.addEventListener('click', function(e){
+      e.preventDefault();
+      var cur = this.getAttribute('data-current') || '';
+      var dateInp = document.getElementById('medical_forms_date');
+      if (dateInp) {
+        if (cur) {
+          dateInp.value = cur;
+        } else {
+          // If no current date, use the default (one year from today)
+          dateInp.value = '<?= h($medicalFormsDefault) ?>';
+        }
+      }
+      open();
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      var fd = new FormData(form);
+      fetch(form.getAttribute('action') || window.location.href, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json().catch(function(){ throw new Error('Invalid server response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            window.location = '/adult_edit.php?id=<?= (int)$id ?>&medical_forms=1';
+          } else {
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showErr('Network error.'); });
+    });
+  }
+})();
+</script>
+<?php endif; ?>
 
 <script>
 (function(){

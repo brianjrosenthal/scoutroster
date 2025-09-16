@@ -33,6 +33,7 @@ CREATE TABLE users (
   bsa_membership_number VARCHAR(50) DEFAULT NULL,
   bsa_registration_expires_on DATE DEFAULT NULL,
   safeguarding_training_completed_on DATE DEFAULT NULL,
+  medical_forms_expiration_date DATE DEFAULT NULL,
 
   -- Medical/emergency contacts
   emergency_contact1_name  VARCHAR(100) DEFAULT NULL,
