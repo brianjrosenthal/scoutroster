@@ -698,20 +698,102 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     const emailFilterRadios = document.querySelectorAll('input[name="email_filter"]');
 
     if (copyEmailsBtn) {
-      copyEmailsBtn.addEventListener('click', openCopyEmailsModal);
+      copyEmailsBtn.addEventListener('click', function() {
+        const modal = document.getElementById('copyEmailsModal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('aria-hidden', 'false');
+          loadEmailsForEvent(); // Load initial emails
+        }
+      });
     }
 
     if (copyEmailsModalClose) {
-      copyEmailsModalClose.addEventListener('click', closeCopyEmailsModal);
+      copyEmailsModalClose.addEventListener('click', function() {
+        const modal = document.getElementById('copyEmailsModal');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      });
     }
 
     if (copyEmailsBtnInModal) {
-      copyEmailsBtnInModal.addEventListener('click', copyEmailsToClipboard);
+      copyEmailsBtnInModal.addEventListener('click', function() {
+        const emailsList = document.getElementById('emailsList');
+        const copyStatus = document.getElementById('copyStatus');
+        
+        if (emailsList) {
+          emailsList.select();
+          emailsList.setSelectionRange(0, 99999); // For mobile devices
+          
+          try {
+            navigator.clipboard.writeText(emailsList.value).then(() => {
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            }).catch(() => {
+              // Fallback for older browsers
+              document.execCommand('copy');
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            });
+          } catch (err) {
+            console.error('Failed to copy emails:', err);
+          }
+        }
+      });
+    }
+
+    // Function to load emails for the event
+    function loadEmailsForEvent() {
+      const eventId = new URLSearchParams(window.location.search).get('id');
+      const filterRadios = document.querySelectorAll('input[name="email_filter"]');
+      let filter = 'yes';
+      
+      for (const radio of filterRadios) {
+        if (radio.checked) {
+          filter = radio.value;
+          break;
+        }
+      }
+      
+      const emailsList = document.getElementById('emailsList');
+      if (emailsList) {
+        emailsList.value = 'Loading...';
+      }
+      
+      fetch(`/admin_event_emails.php?event_id=${eventId}&filter=${filter}`, {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && emailsList) {
+          emailsList.value = data.emails.join('\n');
+        } else {
+          if (emailsList) {
+            emailsList.value = 'Error loading emails: ' + (data.error || 'Unknown error');
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error loading emails:', error);
+        if (emailsList) {
+          emailsList.value = 'Error loading emails';
+        }
+      });
     }
 
     // Listen for filter changes
     emailFilterRadios.forEach(radio => {
-      radio.addEventListener('change', loadEmails);
+      radio.addEventListener('change', loadEmailsForEvent);
     });
 
     // Close modal on outside click or Escape
