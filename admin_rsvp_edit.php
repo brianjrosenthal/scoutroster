@@ -179,8 +179,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         (int)$me['id'] // entered_by = current admin user
       );
       
-      $vol = (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) ? '&vol=1' : '';
-      header('Location: /event.php?id='.$eventId.'&rsvp=1'.$vol); 
+      // Admin RSVPs should not trigger volunteer screen
+      header('Location: /event.php?id='.$eventId.'&rsvp=1'); 
       exit;
     } catch (Throwable $e) {
       $error = 'Failed to save RSVP: ' . $e->getMessage();
