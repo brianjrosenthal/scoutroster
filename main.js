@@ -372,6 +372,12 @@
           if (adminNGuests) adminNGuests.value = data.n_guests || 0;
           if (adminComments) adminComments.value = data.comments || '';
 
+          // Set the correct radio button
+          const answerRadios = adminModal ? adminModal.querySelectorAll('input[name="answer_radio"]') : [];
+          answerRadios.forEach(radio => {
+            radio.checked = radio.value === (data.answer || 'yes');
+          });
+
           // Render adults
           if (adminAdultsList && data.family_adults) {
             adminAdultsList.innerHTML = '';
@@ -461,24 +467,13 @@
           adminFamilySearch.addEventListener('input', debounce(onFamilySearchInput, 350));
         }
 
-        // RSVP answer buttons
-        if (adminRsvpYesBtn) {
-          adminRsvpYesBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'yes';
+        // RSVP answer radio buttons
+        const answerRadios = adminModal ? adminModal.querySelectorAll('input[name="answer_radio"]') : [];
+        answerRadios.forEach(radio => {
+          radio.addEventListener('change', function() {
+            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = this.value;
           });
-        }
-
-        if (adminRsvpMaybeBtn) {
-          adminRsvpMaybeBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'maybe';
-          });
-        }
-
-        if (adminRsvpNoBtn) {
-          adminRsvpNoBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'no';
-          });
-        }
+        });
 
         // Close on outside click or Escape
         if (adminModal) {

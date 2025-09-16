@@ -540,10 +540,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
         <div style="margin-bottom: 16px;">
           <strong>RSVP for: <span id="adminSelectedPersonName"></span></strong>
-          <div class="actions" style="margin-top: 8px;">
-            <button type="button" class="primary" id="adminRsvpYesBtn">Yes</button>
-            <button type="button" id="adminRsvpMaybeBtn" class="primary">Maybe</button>
-            <button type="button" id="adminRsvpNoBtn">No</button>
+          <div style="margin-top: 8px;">
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="yes" checked>
+              Yes
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="maybe">
+              Maybe
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="no">
+              No
+            </label>
           </div>
         </div>
 
