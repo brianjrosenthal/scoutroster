@@ -64,13 +64,13 @@ try {
  */
 function searchYouth(string $q, int $limit = 20): array {
   if (trim($q) === '') return [];
-  
+
   $tokens = \Search::tokenize($q);
   if (empty($tokens)) return [];
-  
+
   $params = [];
   $likeClause = \Search::buildAndLikeClause(['y.first_name', 'y.last_name'], $tokens, $params);
-  
+
   $sql = "
     SELECT y.id, y.first_name, y.last_name
     FROM youth y
@@ -78,9 +78,17 @@ function searchYouth(string $q, int $limit = 20): array {
     ORDER BY y.last_name, y.first_name
     LIMIT ?
   ";
-  $params[] = (int)$limit;
-  
+
   $st = pdo()->prepare($sql);
-  $st->execute($params);
+
+  // Bind the LIKE params (positional)
+  foreach ($params as $i => $val) {
+    $st->bindValue($i + 1, $val); // likely already strings with wildcards
+  }
+
+  // Bind LIMIT as an integer
+  $st->bindValue(count($params) + 1, (int)$limit, \PDO::PARAM_INT);
+
+  $st->execute();
   return $st->fetchAll();
 }
