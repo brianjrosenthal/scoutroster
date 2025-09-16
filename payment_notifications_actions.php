@@ -96,6 +96,14 @@ try {
 
     try {
       PaymentNotifications::verify($ctx, $id, $paid);
+
+      // Fetch youth name for success message
+      $youth = YouthManagement::findBasicById((int)($_POST['youth_id'] ?? 0));
+      if ($youth) {
+        $msg = "Payment Notification about " . ($youth['first_name'] ?? '') . " " . ($youth['last_name'] ?? '') . " marked as verified and paid_until date set.";
+        $_SESSION['success_message'] = $msg;
+      }
+
       respond_json(true);
     } catch (Throwable $e) {
       respond_json(false, 'Unable to verify.');
