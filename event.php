@@ -97,12 +97,20 @@ header_html('Event');
 ?>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;"><?=h($e['name'])?></h2>
-  <?php if ($isAdmin && $eviteUrl === ''): ?>
-    <div style="display: flex; gap: 8px;">
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" href="/events.php">Back to Events</a>
+    <?php if ($isAdmin): ?>
+      <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
+      <?php if ($allowPublic): ?>
+        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
+      <?php endif; ?>
+      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
+    <?php endif; ?>
+    <?php if ($isAdmin && $eviteUrl === ''): ?>
       <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
       <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
-    </div>
-  <?php endif; ?>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if ($flashSaved): ?>
@@ -181,16 +189,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     <div class="description"><?= Text::renderMarkup((string)$e['description']) ?></div>
   <?php endif; ?>
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
-  <div class="actions">
-    <a class="button" href="/events.php">Back to Events</a>
-    <?php if ($isAdmin): ?>
-      <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
-      <?php if ($allowPublic): ?>
-        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
-      <?php endif; ?>
-      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
-    <?php endif; ?>
-  </div>
 </div>
 
 <?php if ($eviteUrl === ''): ?>
