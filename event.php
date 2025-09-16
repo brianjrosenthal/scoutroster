@@ -98,7 +98,10 @@ header_html('Event');
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;"><?=h($e['name'])?></h2>
   <?php if ($isAdmin && $eviteUrl === ''): ?>
-    <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+    <div style="display: flex; gap: 8px;">
+      <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
+      <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+    </div>
   <?php endif; ?>
 </div>
 
@@ -584,6 +587,40 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 </div>
 <?php endif; ?>
 
+<?php if ($eviteUrl === '' && $isAdmin): ?>
+<!-- Copy Emails modal -->
+<div id="copyEmailsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="copyEmailsModalClose" aria-label="Close">&times;</button>
+    <h3>Copy Emails for <?= h($e['name']) ?></h3>
+    
+    <div class="stack">
+      <p>Select which RSVPs to include:</p>
+      <div>
+        <label class="inline">
+          <input type="radio" name="email_filter" value="yes" checked>
+          Yes only
+        </label>
+        <label class="inline">
+          <input type="radio" name="email_filter" value="yes_maybe">
+          Yes and Maybe
+        </label>
+      </div>
+      
+      <div style="margin-top: 16px;">
+        <label>Email addresses (one per line):
+          <textarea id="emailsList" rows="10" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+        </label>
+        <div style="margin-top: 8px;">
+          <button type="button" id="copyEmailsBtn" class="button primary">Copy to Clipboard</button>
+          <span id="copyStatus" style="margin-left: 8px; color: green; display: none;">Copied!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if ($eviteUrl === ''): ?>
 <!-- RSVP modal (posts to rsvp_edit.php) -->
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
@@ -653,6 +690,43 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php if ($eviteUrl === ''): ?>
 <script>
   (function(){
+    // Copy Emails modal functionality
+    const copyEmailsBtn = document.getElementById('adminCopyEmailsBtn');
+    const copyEmailsModal = document.getElementById('copyEmailsModal');
+    const copyEmailsModalClose = document.getElementById('copyEmailsModalClose');
+    const copyEmailsBtnInModal = document.getElementById('copyEmailsBtn');
+    const emailFilterRadios = document.querySelectorAll('input[name="email_filter"]');
+
+    if (copyEmailsBtn) {
+      copyEmailsBtn.addEventListener('click', openCopyEmailsModal);
+    }
+
+    if (copyEmailsModalClose) {
+      copyEmailsModalClose.addEventListener('click', closeCopyEmailsModal);
+    }
+
+    if (copyEmailsBtnInModal) {
+      copyEmailsBtnInModal.addEventListener('click', copyEmailsToClipboard);
+    }
+
+    // Listen for filter changes
+    emailFilterRadios.forEach(radio => {
+      radio.addEventListener('change', loadEmails);
+    });
+
+    // Close modal on outside click or Escape
+    if (copyEmailsModal) {
+      copyEmailsModal.addEventListener('click', function(e) {
+        if (e.target === copyEmailsModal) closeCopyEmailsModal();
+      });
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && copyEmailsModal && !copyEmailsModal.classList.contains('hidden')) {
+        closeCopyEmailsModal();
+      }
+    });
+
     const modal = document.getElementById('rsvpModal');
     const closeBtn = document.getElementById('rsvpModalClose');
     const yesBtn = document.getElementById('rsvpYesBtn');
