@@ -224,7 +224,7 @@ header_html('Home');
                   $needsRenewal = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
                 }
                 // Processing/eligibility indicators
-                $processingRenewal = ($yReg !== '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), false) : false;
+                $processingRenewal = ($yReg !== '' && $needsRenewal && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentActiveForYouth((int)($m['youth_id'] ?? 0), false) : false;
                 $eligibleRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5 && !($hasAnyRegistered ?? false));
                 $processingRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PendingRegistrations::hasNewForYouth((int)($m['youth_id'] ?? 0)) : false;
               ?>
