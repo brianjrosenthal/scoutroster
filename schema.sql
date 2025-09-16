@@ -136,16 +136,19 @@ CREATE TABLE rsvps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   event_id INT NOT NULL,
   created_by_user_id INT NOT NULL,
+  entered_by INT NULL,
   comments TEXT DEFAULT NULL,
   n_guests INT DEFAULT 0,
   answer ENUM('yes','maybe','no') NOT NULL DEFAULT 'yes',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_rsvps_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
-  CONSTRAINT fk_rsvps_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT
+  CONSTRAINT fk_rsvps_creator FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE RESTRICT,
+  CONSTRAINT fk_rsvps_entered_by FOREIGN KEY (entered_by) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_rsvps_event ON rsvps(event_id);
+CREATE INDEX idx_rsvps_entered_by ON rsvps(entered_by);
 
 -- RSVP members (youth or adult per row)
 CREATE TABLE rsvp_members (

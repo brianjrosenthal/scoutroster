@@ -360,7 +360,7 @@ final class RSVPManagement {
    * @throws InvalidArgumentException on invalid inputs
    * @throws RuntimeException on business rule violation (e.g., capacity) or DB error
    */
-  public static function setFamilyRSVP(?\UserContext $ctx, int $creatorAdultId, int $eventId, string $answer, array $adultIds, array $youthIds, ?string $comments, int $nGuests): int {
+  public static function setFamilyRSVP(?\UserContext $ctx, int $creatorAdultId, int $eventId, string $answer, array $adultIds, array $youthIds, ?string $comments, int $nGuests, ?int $enteredBy = null): int {
     $eventId = (int)$eventId;
     if ($eventId <= 0) throw new \InvalidArgumentException('Invalid event.');
     $ans = strtolower(trim((string)$answer));
@@ -419,11 +419,11 @@ final class RSVPManagement {
 
       // Upsert RSVP
       if ($rsvpId > 0) {
-        $up = $db->prepare("UPDATE rsvps SET comments=?, n_guests=?, answer=? WHERE id=?");
-        $up->execute([$comments !== null && trim($comments) !== '' ? $comments : null, $nGuests, $ans, $rsvpId]);
+        $up = $db->prepare("UPDATE rsvps SET comments=?, n_guests=?, answer=?, entered_by=? WHERE id=?");
+        $up->execute([$comments !== null && trim($comments) !== '' ? $comments : null, $nGuests, $ans, $enteredBy, $rsvpId]);
       } else {
-        $ins = $db->prepare("INSERT INTO rsvps (event_id, created_by_user_id, comments, n_guests, answer) VALUES (?,?,?,?,?)");
-        $ins->execute([$eventId, (int)$creatorAdultId, $comments !== null && trim($comments) !== '' ? $comments : null, $nGuests, $ans]);
+        $ins = $db->prepare("INSERT INTO rsvps (event_id, created_by_user_id, entered_by, comments, n_guests, answer) VALUES (?,?,?,?,?,?)");
+        $ins->execute([$eventId, (int)$creatorAdultId, $enteredBy, $comments !== null && trim($comments) !== '' ? $comments : null, $nGuests, $ans]);
         $rsvpId = (int)$db->lastInsertId();
       }
 

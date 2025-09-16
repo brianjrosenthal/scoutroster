@@ -256,5 +256,252 @@
         });
       }
     }
+
+    // Admin RSVP Management: event.php admin modal
+    if (path.endsWith('/event.php')) {
+      const adminModal = document.getElementById('adminRsvpModal');
+      const adminManageBtn = document.getElementById('adminManageRsvpBtn');
+      const adminModalClose = document.getElementById('adminRsvpModalClose');
+      const adminStep1 = document.getElementById('adminRsvpStep1');
+      const adminStep2 = document.getElementById('adminRsvpStep2');
+      const adminBackBtn = document.getElementById('adminRsvpBackBtn');
+      const adminFamilySearch = document.getElementById('adminFamilySearch');
+      const adminFamilySearchResults = document.getElementById('adminFamilySearchResults');
+      const adminContextAdultId = document.getElementById('adminContextAdultId');
+      const adminSelectedPersonName = document.getElementById('adminSelectedPersonName');
+      const adminRsvpAnswerInput = document.getElementById('adminRsvpAnswerInput');
+      const adminRsvpYesBtn = document.getElementById('adminRsvpYesBtn');
+      const adminRsvpMaybeBtn = document.getElementById('adminRsvpMaybeBtn');
+      const adminRsvpNoBtn = document.getElementById('adminRsvpNoBtn');
+      const adminAdultsList = document.getElementById('adminAdultsList');
+      const adminYouthList = document.getElementById('adminYouthList');
+      const adminNGuests = document.getElementById('adminNGuests');
+      const adminComments = document.getElementById('adminComments');
+
+      if (adminModal && adminManageBtn) {
+        let searchSeq = 0;
+
+        const openAdminModal = () => {
+          adminModal.classList.remove('hidden');
+          adminModal.setAttribute('aria-hidden', 'false');
+          showStep1();
+        };
+
+        const closeAdminModal = () => {
+          adminModal.classList.add('hidden');
+          adminModal.setAttribute('aria-hidden', 'true');
+          resetModal();
+        };
+
+        const showStep1 = () => {
+          if (adminStep1) adminStep1.style.display = 'block';
+          if (adminStep2) adminStep2.style.display = 'none';
+        };
+
+        const showStep2 = () => {
+          if (adminStep1) adminStep1.style.display = 'none';
+          if (adminStep2) adminStep2.style.display = 'block';
+        };
+
+        const resetModal = () => {
+          if (adminFamilySearch) adminFamilySearch.value = '';
+          if (adminFamilySearchResults) {
+            adminFamilySearchResults.innerHTML = '';
+            adminFamilySearchResults.style.display = 'none';
+          }
+          showStep1();
+        };
+
+        const hideSearchResults = () => {
+          if (adminFamilySearchResults) {
+            adminFamilySearchResults.style.display = 'none';
+            adminFamilySearchResults.innerHTML = '';
+          }
+        };
+
+        const renderSearchResults = (items) => {
+          if (!adminFamilySearchResults) return;
+          if (!Array.isArray(items) || items.length === 0) {
+            hideSearchResults();
+            return;
+          }
+          adminFamilySearchResults.innerHTML = '';
+          items.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.setAttribute('role', 'option');
+            div.dataset.id = String(item.id || '');
+            div.dataset.type = String(item.type || '');
+            div.textContent = String(item.label || '');
+            div.addEventListener('click', function() {
+              selectPerson(item);
+            });
+            adminFamilySearchResults.appendChild(div);
+          });
+          adminFamilySearchResults.style.display = 'block';
+        };
+
+        const selectPerson = (person) => {
+          hideSearchResults();
+          if (adminFamilySearch) adminFamilySearch.value = person.label || '';
+          
+          // Load family RSVP data
+          const eventId = new URLSearchParams(window.location.search).get('id');
+          if (!eventId) return;
+          
+          fetch(`/admin_rsvp_edit.php?ajax=1&event_id=${eventId}&person_type=${person.type}&person_id=${person.id}`, {
+            headers: { 'Accept': 'application/json' }
+          })
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(json => {
+            if (json && json.ok) {
+              loadFamilyRsvpData(json, person.label);
+            } else {
+              alert('Failed to load family data: ' + (json.error || 'Unknown error'));
+            }
+          })
+          .catch(() => {
+            alert('Failed to load family data');
+          });
+        };
+
+        const loadFamilyRsvpData = (data, personLabel) => {
+          if (adminContextAdultId) adminContextAdultId.value = data.context_adult_id || '';
+          if (adminSelectedPersonName) adminSelectedPersonName.textContent = personLabel || '';
+          if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = data.answer || 'yes';
+          if (adminNGuests) adminNGuests.value = data.n_guests || 0;
+          if (adminComments) adminComments.value = data.comments || '';
+
+          // Render adults
+          if (adminAdultsList && data.family_adults) {
+            adminAdultsList.innerHTML = '';
+            data.family_adults.forEach(adult => {
+              const label = document.createElement('label');
+              label.className = 'inline';
+              const checkbox = document.createElement('input');
+              checkbox.type = 'checkbox';
+              checkbox.name = 'adults[]';
+              checkbox.value = adult.id;
+              checkbox.checked = (data.selected_adults || []).includes(adult.id);
+              const name = `${adult.first_name || ''} ${adult.last_name || ''}`.trim();
+              label.appendChild(checkbox);
+              label.appendChild(document.createTextNode(' ' + name));
+              adminAdultsList.appendChild(label);
+            });
+          }
+
+          // Render youth
+          if (adminYouthList && data.family_youth) {
+            if (data.family_youth.length === 0) {
+              adminYouthList.innerHTML = '<p class="small">No children on file.</p>';
+            } else {
+              adminYouthList.innerHTML = '';
+              data.family_youth.forEach(youth => {
+                const label = document.createElement('label');
+                label.className = 'inline';
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'youth[]';
+                checkbox.value = youth.id;
+                checkbox.checked = (data.selected_youth || []).includes(youth.id);
+                const name = `${youth.first_name || ''} ${youth.last_name || ''}`.trim();
+                label.appendChild(checkbox);
+                label.appendChild(document.createTextNode(' ' + name));
+                adminYouthList.appendChild(label);
+              });
+            }
+          }
+
+          showStep2();
+        };
+
+        const doFamilySearch = (q, mySeq) => {
+          fetch('/admin_family_search.php?q=' + encodeURIComponent(q) + '&limit=20', {
+            headers: { 'Accept': 'application/json' }
+          })
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(json => {
+            if (mySeq !== searchSeq) return;
+            const items = (json && json.items) ? json.items : [];
+            renderSearchResults(items);
+          })
+          .catch(() => {
+            if (mySeq === searchSeq) hideSearchResults();
+          });
+        };
+
+        const onFamilySearchInput = () => {
+          const q = adminFamilySearch ? adminFamilySearch.value.trim() : '';
+          searchSeq++;
+          const mySeq = searchSeq;
+          if (q.length < 2) {
+            hideSearchResults();
+            return;
+          }
+          doFamilySearch(q, mySeq);
+        };
+
+        // Event listeners
+        if (adminManageBtn) {
+          adminManageBtn.addEventListener('click', openAdminModal);
+        }
+
+        if (adminModalClose) {
+          adminModalClose.addEventListener('click', closeAdminModal);
+        }
+
+        if (adminBackBtn) {
+          adminBackBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            showStep1();
+          });
+        }
+
+        if (adminFamilySearch) {
+          adminFamilySearch.addEventListener('input', debounce(onFamilySearchInput, 350));
+        }
+
+        // RSVP answer buttons
+        if (adminRsvpYesBtn) {
+          adminRsvpYesBtn.addEventListener('click', function() {
+            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'yes';
+          });
+        }
+
+        if (adminRsvpMaybeBtn) {
+          adminRsvpMaybeBtn.addEventListener('click', function() {
+            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'maybe';
+          });
+        }
+
+        if (adminRsvpNoBtn) {
+          adminRsvpNoBtn.addEventListener('click', function() {
+            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'no';
+          });
+        }
+
+        // Close on outside click or Escape
+        if (adminModal) {
+          adminModal.addEventListener('click', function(e) {
+            if (e.target === adminModal) closeAdminModal();
+          });
+        }
+
+        document.addEventListener('click', function(e) {
+          if (!adminFamilySearchResults || !adminFamilySearch) return;
+          const within = adminFamilySearchResults.contains(e.target) || adminFamilySearch.contains(e.target);
+          if (!within) hideSearchResults();
+        });
+
+        document.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') {
+            hideSearchResults();
+            if (adminModal && !adminModal.classList.contains('hidden')) {
+              closeAdminModal();
+            }
+          }
+        });
+      }
+    }
   });
 })();
