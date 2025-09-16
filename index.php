@@ -224,7 +224,7 @@ header_html('Home');
                   $needsRenewal = ($paidUntilRaw === '' || ($ts !== false && $ts < time()));
                 }
                 // Processing/eligibility indicators
-                $processingRenewal = ($yReg !== '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentForYouth((int)($m['youth_id'] ?? 0), false) : false;
+                $processingRenewal = ($yReg !== '' && $needsRenewal && $grade !== null && $grade >= 0 && $grade <= 5) ? PaymentNotifications::hasRecentActiveForYouth((int)($m['youth_id'] ?? 0), false) : false;
                 $eligibleRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5 && !($hasAnyRegistered ?? false));
                 $processingRegistration = ($yReg === '' && $grade !== null && $grade >= 0 && $grade <= 5) ? PendingRegistrations::hasNewForYouth((int)($m['youth_id'] ?? 0)) : false;
               ?>
@@ -388,7 +388,7 @@ header_html('Home');
     <button class="close" type="button" id="renewPaidClose" aria-label="Close">&times;</button>
     <h3>How to renew your cub scout membership</h3>
     <div id="renewPaidErr" class="error small" style="display:none;"></div>
-    <p>1. Pay your dues ($450, or $200 for additional siblings) via Paypal to "Scarsdale Cubs" (scarsdalecubs@gmail.com) or by delivering a check to Takford Mau (contact: takfordmau@gmail.com)</p>
+    <p>1. Pay your dues ($450, or $200 for additional siblings) via Zelle to "takfordmau@gmail.com" (name will be clear that it's Pack 440) OR Paypal to "Scarsdale Cubs" (scarsdalecubs@gmail.com) or by delivering a check to Takford Mau (contact: takfordmau@gmail.com)</p>
     <p>2. Mark that you paid here:</p>
     <form id="renewPaidForm" class="stack" method="post" action="/payment_notifications_actions.php">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -397,6 +397,7 @@ header_html('Home');
       <label>Payment Method
         <select name="payment_method" id="renewPaidMethod" required>
           <option value="">-- Select --</option>
+          <option value="Zelle">Zelle</option>
           <option value="Paypal">Paypal</option>
           <option value="Check">Check</option>
         </select>
@@ -992,6 +993,7 @@ header_html('Home');
         <select name="payment_method" required>
           <option value="">Payment method</option>
           <option value="Paypal">Paypal</option>
+          <option value="Zelle">Zelle</option>
           <option value="Check">Check</option>
           <option value="I will pay later">I will pay later</option>
         </select>
