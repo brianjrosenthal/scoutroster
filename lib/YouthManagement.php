@@ -432,6 +432,16 @@ class YouthManagement {
       $params[] = $val;
     }
 
+    // Medical forms expiration: approver-only (Cubmaster/Committee Chair/Treasurer)
+    if (array_key_exists('medical_forms_expiration_date', $data)) {
+      if (!\UserManagement::isApprover((int)$ctx->id)) {
+        throw new InvalidArgumentException('Forbidden - not approver');
+      }
+      $val = self::validateDateYmd($data['medical_forms_expiration_date'] ?? null);
+      $set[] = "medical_forms_expiration_date = ?";
+      $params[] = $val;
+    }
+
     if (empty($set)) return false;
     $params[] = $id;
 
@@ -448,6 +458,9 @@ class YouthManagement {
       self::log('youth.edit', $id, ['fields' => $fieldNames]);
       if (in_array('date_paid_until', $fieldNames, true)) {
         self::log('youth.mark_paid', $id, ['paid_until' => $data['date_paid_until'] ?? null]);
+      }
+      if (in_array('medical_forms_expiration_date', $fieldNames, true)) {
+        self::log('youth.update_medical_forms_expiration', $id, ['medical_forms_expiration_date' => $data['medical_forms_expiration_date'] ?? null]);
       }
     }
     return $ok;
