@@ -196,7 +196,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
     <?php endif; ?>
     <?php if ($isAdmin): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <button class="button small" id="adminManageRsvpBtn">Manage RSVPs</button>
+      &nbsp;&nbsp; | &nbsp;&nbsp; <button class="button" style="font-size: 12px;" id="adminManageRsvpBtn">Manage RSVPs</button>
     <?php endif; ?>
   </p>
 
