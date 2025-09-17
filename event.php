@@ -109,6 +109,7 @@ header_html('Event');
     <?php if ($isAdmin && $eviteUrl === ''): ?>
       <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
       <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+      <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
     <?php endif; ?>
   </div>
 </div>
@@ -629,6 +630,32 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 </div>
 <?php endif; ?>
 
+<?php if ($eviteUrl === '' && $isAdmin): ?>
+<!-- Export Attendees modal -->
+<div id="exportAttendeesModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="exportAttendeesModalClose" aria-label="Close">&times;</button>
+    <h3>Attendees</h3>
+    
+    <div class="stack">
+      <div id="attendeesSummary" style="margin-bottom: 16px;">
+        <p>Loading attendee data...</p>
+      </div>
+      
+      <div>
+        <label>CSV Export Data:
+          <textarea id="attendeesCSV" rows="15" readonly style="font-family: monospace; font-size: 12px; width: 100%;"></textarea>
+        </label>
+        <div style="margin-top: 8px;">
+          <button type="button" id="copyAttendeesBtn" class="button primary">Copy to Clipboard</button>
+          <span id="copyAttendeesStatus" style="margin-left: 8px; color: green; display: none;">Copied!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <?php if ($eviteUrl === ''): ?>
 <!-- RSVP modal (posts to rsvp_edit.php) -->
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
@@ -698,6 +725,125 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php if ($eviteUrl === ''): ?>
 <script>
   (function(){
+    // Export Attendees modal functionality
+    const exportAttendeesBtn = document.getElementById('adminExportAttendeesBtn');
+    const exportAttendeesModal = document.getElementById('exportAttendeesModal');
+    const exportAttendeesModalClose = document.getElementById('exportAttendeesModalClose');
+    const copyAttendeesBtnInModal = document.getElementById('copyAttendeesBtn');
+
+    if (exportAttendeesBtn) {
+      exportAttendeesBtn.addEventListener('click', function() {
+        const modal = document.getElementById('exportAttendeesModal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('aria-hidden', 'false');
+          loadAttendeesForEvent(); // Load attendee data
+        }
+      });
+    }
+
+    if (exportAttendeesModalClose) {
+      exportAttendeesModalClose.addEventListener('click', function() {
+        const modal = document.getElementById('exportAttendeesModal');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
+    if (copyAttendeesBtnInModal) {
+      copyAttendeesBtnInModal.addEventListener('click', function() {
+        const attendeesCSV = document.getElementById('attendeesCSV');
+        const copyStatus = document.getElementById('copyAttendeesStatus');
+        
+        if (attendeesCSV) {
+          attendeesCSV.select();
+          attendeesCSV.setSelectionRange(0, 99999); // For mobile devices
+          
+          try {
+            navigator.clipboard.writeText(attendeesCSV.value).then(() => {
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            }).catch(() => {
+              // Fallback for older browsers
+              document.execCommand('copy');
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            });
+          } catch (err) {
+            console.error('Failed to copy attendees:', err);
+          }
+        }
+      });
+    }
+
+    // Function to load attendees for the event
+    function loadAttendeesForEvent() {
+      const eventId = new URLSearchParams(window.location.search).get('id');
+      const attendeesSummary = document.getElementById('attendeesSummary');
+      const attendeesCSV = document.getElementById('attendeesCSV');
+      
+      if (attendeesSummary) {
+        attendeesSummary.innerHTML = '<p>Loading attendee data...</p>';
+      }
+      if (attendeesCSV) {
+        attendeesCSV.value = 'Loading...';
+      }
+      
+      fetch(`/event_attendees_export.php?event_id=${eventId}`, {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          if (attendeesSummary) {
+            attendeesSummary.innerHTML = `
+              <p><strong>${data.event_name || 'Event'}</strong></p>
+              <p>Adults: ${data.adult_count || 0} | Cub Scouts: ${data.youth_count || 0}</p>
+            `;
+          }
+          if (attendeesCSV) {
+            attendeesCSV.value = data.csv_data || '';
+          }
+        } else {
+          if (attendeesSummary) {
+            attendeesSummary.innerHTML = '<p class="error">Error loading attendee data: ' + (data.error || 'Unknown error') + '</p>';
+          }
+          if (attendeesCSV) {
+            attendeesCSV.value = 'Error loading attendee data';
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error loading attendees:', error);
+        if (attendeesSummary) {
+          attendeesSummary.innerHTML = '<p class="error">Error loading attendee data</p>';
+        }
+        if (attendeesCSV) {
+          attendeesCSV.value = 'Error loading attendee data';
+        }
+      });
+    }
+
+    // Close export attendees modal on outside click or Escape
+    if (exportAttendeesModal) {
+      exportAttendeesModal.addEventListener('click', function(e) {
+        if (e.target === exportAttendeesModal) {
+          exportAttendeesModal.classList.add('hidden');
+          exportAttendeesModal.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
     // Copy Emails modal functionality
     const copyEmailsBtn = document.getElementById('adminCopyEmailsBtn');
     const copyEmailsModal = document.getElementById('copyEmailsModal');
@@ -822,8 +968,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     }
 
     document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && copyEmailsModal && !copyEmailsModal.classList.contains('hidden')) {
-        closeCopyEmailsModal();
+      if (e.key === 'Escape') {
+        if (copyEmailsModal && !copyEmailsModal.classList.contains('hidden')) {
+          copyEmailsModal.classList.add('hidden');
+          copyEmailsModal.setAttribute('aria-hidden', 'true');
+        }
+        if (exportAttendeesModal && !exportAttendeesModal.classList.contains('hidden')) {
+          exportAttendeesModal.classList.add('hidden');
+          exportAttendeesModal.setAttribute('aria-hidden', 'true');
+        }
       }
     });
 
