@@ -132,10 +132,13 @@ if (empty($errors)) {
       }
 
       $pdo->commit();
-      header('Location: /youth.php'); exit;
+      
+      // Redirect with success message
+      $youthName = trim($first . ' ' . $last);
+      header('Location: /youth.php?added=' . urlencode($youthName)); exit;
     } catch (Throwable $e) {
       if (isset($pdo) && $pdo->inTransaction()) { $pdo->rollBack(); }
-      $err = 'Error creating youth.';
+      $err = 'Error creating youth: ' . $e->getMessage();
     }
   } else {
     $err = implode(' ', $errors);

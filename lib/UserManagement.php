@@ -386,6 +386,13 @@ class UserManagement {
       }
     }
     
+    // Medical form in-person opt-in: approver-only (Cubmaster/Committee Chair/Treasurer)
+    if (array_key_exists('medical_form_in_person_opt_in', $fields)) {
+      if (!self::isApprover((int)$ctx->id)) {
+        throw new InvalidArgumentException('Forbidden - not approver');
+      }
+    }
+    
     // Whitelist of updatable columns
     $allowed = [
       'first_name','last_name','email',
@@ -393,7 +400,7 @@ class UserManagement {
       'email2','phone_home','phone_cell','shirt_size',
       'suppress_email_directory','suppress_phone_directory',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
-      'medical_forms_expiration_date',
+      'medical_forms_expiration_date','medical_form_in_person_opt_in',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
     ];
     if ($allowAdminFlag && $ctx->admin && array_key_exists('is_admin', $fields)) {
@@ -415,7 +422,7 @@ class UserManagement {
       } elseif ($key === 'is_admin') {
         $set[] = 'is_admin = ?';
         $params[] = self::boolInt($fields['is_admin']);
-      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory') {
+      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory' || $key === 'medical_form_in_person_opt_in') {
         $set[] = "$key = ?";
         $params[] = self::boolInt($fields[$key] ?? 0);
       } else {

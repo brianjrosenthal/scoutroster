@@ -119,16 +119,17 @@ final class EventManagement {
     $description = self::nn($data['description'] ?? null);
     $max_cub_scouts = isset($data['max_cub_scouts']) && $data['max_cub_scouts'] !== '' ? (int)$data['max_cub_scouts'] : null;
     $allow_non_user_rsvp = self::boolInt($data['allow_non_user_rsvp'] ?? 0);
+    $needs_medical_form = self::boolInt($data['needs_medical_form'] ?? 0);
     $evite_rsvp_url = self::nn($data['evite_rsvp_url'] ?? null);
     $google_maps_url = self::nn($data['google_maps_url'] ?? null);
 
     $sql = "INSERT INTO events
-      (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, evite_rsvp_url, google_maps_url)
-      VALUES (?,?,?,?,?,?,?,?,?,?)";
+      (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, evite_rsvp_url, google_maps_url)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)";
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute([
       $name, $starts_at, $ends_at, $location, $location_address, $description,
-      $max_cub_scouts, $allow_non_user_rsvp, $evite_rsvp_url, $google_maps_url,
+      $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $evite_rsvp_url, $google_maps_url,
     ]);
     if (!$ok) throw new \RuntimeException('Failed to create event.');
     $id = (int)self::pdo()->lastInsertId();
@@ -146,7 +147,7 @@ final class EventManagement {
 
     $allowed = [
       'name','starts_at','ends_at','location','location_address','description',
-      'max_cub_scouts','allow_non_user_rsvp','evite_rsvp_url','google_maps_url'
+      'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','evite_rsvp_url','google_maps_url'
     ];
     $set = [];
     $params = [];
@@ -157,7 +158,7 @@ final class EventManagement {
         $val = ($data[$key] === '' || $data[$key] === null) ? null : (int)$data[$key];
         $set[] = "$key = ?";
         $params[] = $val;
-      } elseif ($key === 'allow_non_user_rsvp') {
+      } elseif ($key === 'allow_non_user_rsvp' || $key === 'needs_medical_form') {
         $set[] = "$key = ?";
         $params[] = self::boolInt($data[$key] ?? 0);
       } else {

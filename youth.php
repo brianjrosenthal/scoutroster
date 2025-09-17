@@ -9,6 +9,15 @@ $u = current_user();
 
 $msg = null;
 $err = null;
+
+// Check for success message from adding a youth
+if (isset($_GET['added']) && !empty($_GET['added'])) {
+  $addedName = trim($_GET['added']);
+  if ($addedName !== '') {
+    $msg = 'You have successfully added ' . h($addedName);
+  }
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
   if (!empty($u['is_admin'])) {

@@ -44,6 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $location_address = trim($_POST['location_address'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
+    $needs_medical_form = isset($_POST['needs_medical_form']) ? 1 : 0;
     $evite_rsvp_url = trim($_POST['evite_rsvp_url'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
@@ -63,6 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'location_address' => ($location_address !== '' ? $location_address : null),
           'description' => ($description !== '' ? $description : null),
           'allow_non_user_rsvp' => $allow_non_user_rsvp,
+          'needs_medical_form' => $needs_medical_form,
           'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
           'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
         ];
@@ -193,6 +195,10 @@ header_html('Manage Events');
     <label>
       <input type="checkbox" name="allow_non_user_rsvp" <?php $v = $editing['allow_non_user_rsvp'] ?? 1; echo ((int)$v === 1 ? 'checked' : ''); ?>>
       Allow public RSVP (non-user)
+    </label>
+    <label>
+      <input type="checkbox" name="needs_medical_form" <?php $v = $editing['needs_medical_form'] ?? 0; echo ((int)$v === 1 ? 'checked' : ''); ?>>
+      Needs Medical Form
     </label>
     <label>Location
       <input type="text" name="location" value="<?=h($editing['location'] ?? '')?>">

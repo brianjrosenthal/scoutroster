@@ -95,7 +95,24 @@ $showVolunteerModal = $hasYes && $openVolunteerRoles && !empty($_GET['vol']);
 
 header_html('Event');
 ?>
-<h2><?=h($e['name'])?></h2>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;"><?=h($e['name'])?></h2>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" href="/events.php">Back to Events</a>
+    <?php if ($isAdmin): ?>
+      <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
+      <?php if ($allowPublic): ?>
+        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
+      <?php endif; ?>
+      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
+    <?php endif; ?>
+    <?php if ($isAdmin && $eviteUrl === ''): ?>
+      <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
+      <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+      <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
+    <?php endif; ?>
+  </div>
+</div>
 
 <?php if ($flashSaved): ?>
   <p class="flash">Your RSVP has been saved.</p>
@@ -173,16 +190,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     <div class="description"><?= Text::renderMarkup((string)$e['description']) ?></div>
   <?php endif; ?>
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
-  <div class="actions">
-    <a class="button" href="/events.php">Back to Events</a>
-    <?php if ($isAdmin): ?>
-      <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
-      <?php if ($allowPublic): ?>
-        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
-      <?php endif; ?>
-      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
-    <?php endif; ?>
-  </div>
 </div>
 
 <?php if ($eviteUrl === ''): ?>
@@ -194,9 +201,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     Other Guests: <?= (int)$guestsTotal ?>
     <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
       &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
-    <?php endif; ?>
-    <?php if ($isAdmin): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <button class="button small" id="adminManageRsvpBtn">Manage RSVPs</button>
     <?php endif; ?>
   </p>
 
@@ -540,10 +544,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
         <div style="margin-bottom: 16px;">
           <strong>RSVP for: <span id="adminSelectedPersonName"></span></strong>
-          <div class="actions" style="margin-top: 8px;">
-            <button type="button" class="primary" id="adminRsvpYesBtn">Yes</button>
-            <button type="button" id="adminRsvpMaybeBtn" class="primary">Maybe</button>
-            <button type="button" id="adminRsvpNoBtn">No</button>
+          <div style="margin-top: 8px;">
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="yes" checked>
+              Yes
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="maybe">
+              Maybe
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="no">
+              No
+            </label>
           </div>
         </div>
 
@@ -568,6 +581,76 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           <button type="button" id="adminRsvpBackBtn" class="button">Back to Search</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($eviteUrl === '' && $isAdmin): ?>
+<!-- Copy Emails modal -->
+<div id="copyEmailsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="copyEmailsModalClose" aria-label="Close">&times;</button>
+    <h3>Copy Emails for <?= h($e['name']) ?></h3>
+    
+    <div class="stack">
+      <p>Select which RSVPs to include:</p>
+      <div>
+        <label class="inline">
+          <input type="radio" name="email_filter" value="yes" checked>
+          Yes only
+        </label>
+        <label class="inline">
+          <input type="radio" name="email_filter" value="yes_maybe">
+          Yes and Maybe
+        </label>
+      </div>
+      
+      <?php if (!empty($e['needs_medical_form'])): ?>
+      <div style="margin-top: 12px;">
+        <label class="inline">
+          <input type="checkbox" name="medical_form_filter" value="1">
+          Needs Medical Form Only
+        </label>
+        <p class="small">Only include families where at least one member needs a medical form</p>
+      </div>
+      <?php endif; ?>
+      
+      <div style="margin-top: 16px;">
+        <label>Email addresses (one per line):
+          <textarea id="emailsList" rows="10" readonly style="font-family: monospace; font-size: 12px;"></textarea>
+        </label>
+        <div style="margin-top: 8px;">
+          <button type="button" id="copyEmailsBtn" class="button primary">Copy to Clipboard</button>
+          <span id="copyStatus" style="margin-left: 8px; color: green; display: none;">Copied!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
+<?php if ($eviteUrl === '' && $isAdmin): ?>
+<!-- Export Attendees modal -->
+<div id="exportAttendeesModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="exportAttendeesModalClose" aria-label="Close">&times;</button>
+    <h3>Attendees</h3>
+    
+    <div class="stack">
+      <div id="attendeesSummary" style="margin-bottom: 16px;">
+        <p>Loading attendee data...</p>
+      </div>
+      
+      <div>
+        <label>CSV Export Data:
+          <textarea id="attendeesCSV" rows="15" readonly style="font-family: monospace; font-size: 12px; width: 100%;"></textarea>
+        </label>
+        <div style="margin-top: 8px;">
+          <button type="button" id="copyAttendeesBtn" class="button primary">Copy to Clipboard</button>
+          <span id="copyAttendeesStatus" style="margin-left: 8px; color: green; display: none;">Copied!</span>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -642,6 +725,261 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php if ($eviteUrl === ''): ?>
 <script>
   (function(){
+    // Export Attendees modal functionality
+    const exportAttendeesBtn = document.getElementById('adminExportAttendeesBtn');
+    const exportAttendeesModal = document.getElementById('exportAttendeesModal');
+    const exportAttendeesModalClose = document.getElementById('exportAttendeesModalClose');
+    const copyAttendeesBtnInModal = document.getElementById('copyAttendeesBtn');
+
+    if (exportAttendeesBtn) {
+      exportAttendeesBtn.addEventListener('click', function() {
+        const modal = document.getElementById('exportAttendeesModal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('aria-hidden', 'false');
+          loadAttendeesForEvent(); // Load attendee data
+        }
+      });
+    }
+
+    if (exportAttendeesModalClose) {
+      exportAttendeesModalClose.addEventListener('click', function() {
+        const modal = document.getElementById('exportAttendeesModal');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
+    if (copyAttendeesBtnInModal) {
+      copyAttendeesBtnInModal.addEventListener('click', function() {
+        const attendeesCSV = document.getElementById('attendeesCSV');
+        const copyStatus = document.getElementById('copyAttendeesStatus');
+        
+        if (attendeesCSV) {
+          attendeesCSV.select();
+          attendeesCSV.setSelectionRange(0, 99999); // For mobile devices
+          
+          try {
+            navigator.clipboard.writeText(attendeesCSV.value).then(() => {
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            }).catch(() => {
+              // Fallback for older browsers
+              document.execCommand('copy');
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            });
+          } catch (err) {
+            console.error('Failed to copy attendees:', err);
+          }
+        }
+      });
+    }
+
+    // Function to load attendees for the event
+    function loadAttendeesForEvent() {
+      const eventId = new URLSearchParams(window.location.search).get('id');
+      const attendeesSummary = document.getElementById('attendeesSummary');
+      const attendeesCSV = document.getElementById('attendeesCSV');
+      
+      if (attendeesSummary) {
+        attendeesSummary.innerHTML = '<p>Loading attendee data...</p>';
+      }
+      if (attendeesCSV) {
+        attendeesCSV.value = 'Loading...';
+      }
+      
+      fetch(`/event_attendees_export.php?event_id=${eventId}`, {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          if (attendeesSummary) {
+            attendeesSummary.innerHTML = `
+              <p><strong>${data.event_name || 'Event'}</strong></p>
+              <p>Adults: ${data.adult_count || 0} | Cub Scouts: ${data.youth_count || 0}</p>
+            `;
+          }
+          if (attendeesCSV) {
+            attendeesCSV.value = data.csv_data || '';
+          }
+        } else {
+          if (attendeesSummary) {
+            attendeesSummary.innerHTML = '<p class="error">Error loading attendee data: ' + (data.error || 'Unknown error') + '</p>';
+          }
+          if (attendeesCSV) {
+            attendeesCSV.value = 'Error loading attendee data';
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error loading attendees:', error);
+        if (attendeesSummary) {
+          attendeesSummary.innerHTML = '<p class="error">Error loading attendee data</p>';
+        }
+        if (attendeesCSV) {
+          attendeesCSV.value = 'Error loading attendee data';
+        }
+      });
+    }
+
+    // Close export attendees modal on outside click or Escape
+    if (exportAttendeesModal) {
+      exportAttendeesModal.addEventListener('click', function(e) {
+        if (e.target === exportAttendeesModal) {
+          exportAttendeesModal.classList.add('hidden');
+          exportAttendeesModal.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
+    // Copy Emails modal functionality
+    const copyEmailsBtn = document.getElementById('adminCopyEmailsBtn');
+    const copyEmailsModal = document.getElementById('copyEmailsModal');
+    const copyEmailsModalClose = document.getElementById('copyEmailsModalClose');
+    const copyEmailsBtnInModal = document.getElementById('copyEmailsBtn');
+    const emailFilterRadios = document.querySelectorAll('input[name="email_filter"]');
+
+    if (copyEmailsBtn) {
+      copyEmailsBtn.addEventListener('click', function() {
+        const modal = document.getElementById('copyEmailsModal');
+        if (modal) {
+          modal.classList.remove('hidden');
+          modal.setAttribute('aria-hidden', 'false');
+          loadEmailsForEvent(); // Load initial emails
+        }
+      });
+    }
+
+    if (copyEmailsModalClose) {
+      copyEmailsModalClose.addEventListener('click', function() {
+        const modal = document.getElementById('copyEmailsModal');
+        if (modal) {
+          modal.classList.add('hidden');
+          modal.setAttribute('aria-hidden', 'true');
+        }
+      });
+    }
+
+    if (copyEmailsBtnInModal) {
+      copyEmailsBtnInModal.addEventListener('click', function() {
+        const emailsList = document.getElementById('emailsList');
+        const copyStatus = document.getElementById('copyStatus');
+        
+        if (emailsList) {
+          emailsList.select();
+          emailsList.setSelectionRange(0, 99999); // For mobile devices
+          
+          try {
+            navigator.clipboard.writeText(emailsList.value).then(() => {
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            }).catch(() => {
+              // Fallback for older browsers
+              document.execCommand('copy');
+              if (copyStatus) {
+                copyStatus.style.display = 'inline';
+                setTimeout(() => {
+                  copyStatus.style.display = 'none';
+                }, 2000);
+              }
+            });
+          } catch (err) {
+            console.error('Failed to copy emails:', err);
+          }
+        }
+      });
+    }
+
+    // Function to load emails for the event
+    function loadEmailsForEvent() {
+      const eventId = new URLSearchParams(window.location.search).get('id');
+      const filterRadios = document.querySelectorAll('input[name="email_filter"]');
+      let filter = 'yes';
+      
+      for (const radio of filterRadios) {
+        if (radio.checked) {
+          filter = radio.value;
+          break;
+        }
+      }
+      
+      // Check medical form filter
+      const medicalFormCheckbox = document.querySelector('input[name="medical_form_filter"]');
+      const medicalFormOnly = medicalFormCheckbox && medicalFormCheckbox.checked ? '1' : '0';
+      
+      const emailsList = document.getElementById('emailsList');
+      if (emailsList) {
+        emailsList.value = 'Loading...';
+      }
+      
+      fetch(`/admin_event_emails.php?event_id=${eventId}&filter=${filter}&medical_form_only=${medicalFormOnly}`, {
+        headers: { 'Accept': 'application/json' }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && emailsList) {
+          emailsList.value = data.emails.join('\n');
+        } else {
+          if (emailsList) {
+            emailsList.value = 'Error loading emails: ' + (data.error || 'Unknown error');
+          }
+        }
+      })
+      .catch(error => {
+        console.error('Error loading emails:', error);
+        if (emailsList) {
+          emailsList.value = 'Error loading emails';
+        }
+      });
+    }
+
+    // Listen for filter changes
+    emailFilterRadios.forEach(radio => {
+      radio.addEventListener('change', loadEmailsForEvent);
+    });
+
+    // Listen for medical form filter changes
+    const medicalFormCheckbox = document.querySelector('input[name="medical_form_filter"]');
+    if (medicalFormCheckbox) {
+      medicalFormCheckbox.addEventListener('change', loadEmailsForEvent);
+    }
+
+    // Close modal on outside click or Escape
+    if (copyEmailsModal) {
+      copyEmailsModal.addEventListener('click', function(e) {
+        if (e.target === copyEmailsModal) closeCopyEmailsModal();
+      });
+    }
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        if (copyEmailsModal && !copyEmailsModal.classList.contains('hidden')) {
+          copyEmailsModal.classList.add('hidden');
+          copyEmailsModal.setAttribute('aria-hidden', 'true');
+        }
+        if (exportAttendeesModal && !exportAttendeesModal.classList.contains('hidden')) {
+          exportAttendeesModal.classList.add('hidden');
+          exportAttendeesModal.setAttribute('aria-hidden', 'true');
+        }
+      }
+    });
+
     const modal = document.getElementById('rsvpModal');
     const closeBtn = document.getElementById('rsvpModalClose');
     const yesBtn = document.getElementById('rsvpYesBtn');

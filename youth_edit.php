@@ -43,10 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
     }
     $date = trim((string)($_POST['date_paid_until'] ?? ''));
     if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
-    // Basic Y-m-d validation
-    $dt = DateTime::createFromFormat('Y-m-d', $date);
-    if (!$dt || $dt->format('Y-m-d') !== $date) {
-      echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+    // Basic Y-m-d validation (only if date is provided)
+    if ($date !== '') {
+      $dt = DateTime::createFromFormat('Y-m-d', $date);
+      if (!$dt || $dt->format('Y-m-d') !== $date) {
+        echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+      }
     }
     $ok = YouthManagement::update(UserContext::getLoggedInUserContext(), $id, ['date_paid_until' => $date]);
     if ($ok) {
@@ -67,13 +69,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
       echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
     }
     $date = trim((string)($_POST['medical_forms_expiration_date'] ?? ''));
-    if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
-    // Basic Y-m-d validation
-    $dt = DateTime::createFromFormat('Y-m-d', $date);
-    if (!$dt || $dt->format('Y-m-d') !== $date) {
-      echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+    $inPersonOptIn = !empty($_POST['medical_form_in_person_opt_in']) ? 1 : 0;
+    
+    // Date is only required if not opting for in-person forms
+    if (!$inPersonOptIn && $date === '') { 
+      echo json_encode(['ok' => false, 'error' => 'Date is required when not bringing forms in person']); 
+      exit; 
     }
-    $ok = YouthManagement::update(UserContext::getLoggedInUserContext(), $id, ['medical_forms_expiration_date' => $date]);
+    // Basic Y-m-d validation (only if date is provided)
+    if ($date !== '') {
+      $dt = DateTime::createFromFormat('Y-m-d', $date);
+      if (!$dt || $dt->format('Y-m-d') !== $date) {
+        echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+      }
+    }
+    $ok = YouthManagement::update(UserContext::getLoggedInUserContext(), $id, [
+      'medical_forms_expiration_date' => $date,
+      'medical_form_in_person_opt_in' => $inPersonOptIn
+    ]);
     if ($ok) {
       echo json_encode(['ok' => true]); exit;
     }
@@ -441,9 +454,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div>
           <div class="small">Medical Forms Expire</div>
           <div>
-            <?= h($y['medical_forms_expiration_date'] ?? '—') ?>
+            <?php
+              $medicalExpiration = $y['medical_forms_expiration_date'] ?? null;
+              $inPersonOptIn = !empty($y['medical_form_in_person_opt_in']);
+              
+              if ($inPersonOptIn && ($medicalExpiration === null || $medicalExpiration === '' || (new DateTime($medicalExpiration) < new DateTime()))) {
+                echo 'in person opt in';
+              } else {
+                echo h($medicalExpiration ?? '—');
+              }
+            ?>
             <?php if ($canEditPaidUntil): ?>
-              <a href="#" class="small" id="edit_medical_forms_link" data-current="<?= h($y['medical_forms_expiration_date'] ?? '') ?>" style="margin-left:6px;">Edit</a>
+              <a href="#" class="small" id="edit_medical_forms_link" 
+                 data-current="<?= h($y['medical_forms_expiration_date'] ?? '') ?>"
+                 data-opt-in="<?= !empty($y['medical_form_in_person_opt_in']) ? '1' : '0' ?>" 
+                 style="margin-left:6px;">Edit</a>
             <?php endif; ?>
           </div>
         </div>
@@ -600,7 +625,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <label>Medical Forms Expiration Date (YYYY-MM-DD)
         <input type="date" name="medical_forms_expiration_date" id="medical_forms_date" value="<?= h($medicalFormsDefault) ?>" required>
       </label>
-      <p class="small">Set when this youth's medical forms expire.</p>
+      <label class="inline">
+        <input type="checkbox" name="medical_form_in_person_opt_in" id="medical_forms_opt_in" value="1">
+        Will bring medical forms to events in person
+      </label>
+      <p class="small">Set when this youth's medical forms expire. If you check "Will bring medical forms to events in person", this person will be considered as having valid medical forms for event purposes regardless of the expiration date.</p>
       <div class="actions">
         <button class="button primary" type="submit">Set Expiration Date</button>
         <button class="button" type="button" id="medical_forms_cancel">Cancel</button>
@@ -626,7 +655,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     editLink.addEventListener('click', function(e){
       e.preventDefault();
       var cur = this.getAttribute('data-current') || '';
+      var optIn = this.getAttribute('data-opt-in') || '0';
       var dateInp = document.getElementById('medical_forms_date');
+      var optInCheckbox = document.getElementById('medical_forms_opt_in');
+      
       if (dateInp) {
         if (cur) {
           dateInp.value = cur;
@@ -635,8 +667,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           dateInp.value = '<?= h($medicalFormsDefault) ?>';
         }
       }
+      
+      if (optInCheckbox) {
+        optInCheckbox.checked = (optIn === '1');
+        // Toggle required attribute based on checkbox state
+        toggleDateRequired();
+      }
+      
       open();
     });
+  }
+
+  // Function to toggle the required attribute on the date field
+  function toggleDateRequired() {
+    var dateInp = document.getElementById('medical_forms_date');
+    var optInCheckbox = document.getElementById('medical_forms_opt_in');
+    
+    if (dateInp && optInCheckbox) {
+      if (optInCheckbox.checked) {
+        dateInp.removeAttribute('required');
+      } else {
+        dateInp.setAttribute('required', 'required');
+      }
+    }
+  }
+
+  // Listen for checkbox changes
+  var optInCheckbox = document.getElementById('medical_forms_opt_in');
+  if (optInCheckbox) {
+    optInCheckbox.addEventListener('change', toggleDateRequired);
   }
   if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
   if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });

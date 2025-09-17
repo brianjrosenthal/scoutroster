@@ -442,6 +442,16 @@ class YouthManagement {
       $params[] = $val;
     }
 
+    // Medical form in-person opt-in: approver-only (Cubmaster/Committee Chair/Treasurer)
+    if (array_key_exists('medical_form_in_person_opt_in', $data)) {
+      if (!\UserManagement::isApprover((int)$ctx->id)) {
+        throw new InvalidArgumentException('Forbidden - not approver');
+      }
+      $val = self::boolInt($data['medical_form_in_person_opt_in'] ?? 0);
+      $set[] = "medical_form_in_person_opt_in = ?";
+      $params[] = $val;
+    }
+
     if (empty($set)) return false;
     $params[] = $id;
 

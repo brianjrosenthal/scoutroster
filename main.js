@@ -372,6 +372,12 @@
           if (adminNGuests) adminNGuests.value = data.n_guests || 0;
           if (adminComments) adminComments.value = data.comments || '';
 
+          // Set the correct radio button
+          const answerRadios = adminModal ? adminModal.querySelectorAll('input[name="answer_radio"]') : [];
+          answerRadios.forEach(radio => {
+            radio.checked = radio.value === (data.answer || 'yes');
+          });
+
           // Render adults
           if (adminAdultsList && data.family_adults) {
             adminAdultsList.innerHTML = '';
@@ -461,24 +467,13 @@
           adminFamilySearch.addEventListener('input', debounce(onFamilySearchInput, 350));
         }
 
-        // RSVP answer buttons
-        if (adminRsvpYesBtn) {
-          adminRsvpYesBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'yes';
+        // RSVP answer radio buttons
+        const answerRadios = adminModal ? adminModal.querySelectorAll('input[name="answer_radio"]') : [];
+        answerRadios.forEach(radio => {
+          radio.addEventListener('change', function() {
+            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = this.value;
           });
-        }
-
-        if (adminRsvpMaybeBtn) {
-          adminRsvpMaybeBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'maybe';
-          });
-        }
-
-        if (adminRsvpNoBtn) {
-          adminRsvpNoBtn.addEventListener('click', function() {
-            if (adminRsvpAnswerInput) adminRsvpAnswerInput.value = 'no';
-          });
-        }
+        });
 
         // Close on outside click or Escape
         if (adminModal) {
@@ -505,3 +500,149 @@
     }
   });
 })();
+
+// Copy Emails functionality
+function openCopyEmailsModal() {
+    const modal = document.getElementById('copyEmailsModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        loadEmails(); // Load initial emails
+    }
+}
+
+function closeCopyEmailsModal() {
+    const modal = document.getElementById('copyEmailsModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+}
+
+function loadEmails() {
+    const eventId = new URLSearchParams(window.location.search).get('id');
+    const filterRadios = document.querySelectorAll('input[name="email_filter"]');
+    let filter = 'yes';
+    
+    for (const radio of filterRadios) {
+        if (radio.checked) {
+            filter = radio.value;
+            break;
+        }
+    }
+    
+    const emailsList = document.getElementById('emailsList');
+    if (emailsList) {
+        emailsList.value = 'Loading...';
+    }
+    
+    fetch(`/admin_event_emails.php?event_id=${eventId}&filter=${filter}`, {
+        headers: { 'Accept': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success && emailsList) {
+            emailsList.value = data.emails.join('\n');
+        } else {
+            if (emailsList) {
+                emailsList.value = 'Error loading emails: ' + (data.error || 'Unknown error');
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error loading emails:', error);
+        if (emailsList) {
+            emailsList.value = 'Error loading emails';
+        }
+    });
+}
+
+function copyEmailsToClipboard() {
+    const emailsList = document.getElementById('emailsList');
+    const copyStatus = document.getElementById('copyStatus');
+    
+    if (emailsList) {
+        emailsList.select();
+        emailsList.setSelectionRange(0, 99999); // For mobile devices
+        
+        try {
+            navigator.clipboard.writeText(emailsList.value).then(() => {
+                if (copyStatus) {
+                    copyStatus.style.display = 'inline';
+                    setTimeout(() => {
+                        copyStatus.style.display = 'none';
+                    }, 2000);
+                }
+            }).catch(() => {
+                // Fallback for older browsers
+                document.execCommand('copy');
+                if (copyStatus) {
+                    copyStatus.style.display = 'inline';
+                    setTimeout(() => {
+                        copyStatus.style.display = 'none';
+                    }, 2000);
+                }
+            });
+        } catch (err) {
+            console.error('Failed to copy emails:', err);
+        }
+    }
+}
+
+// Admin RSVP submission function
+function submitAdminRSVP(eventId) {
+    const form = document.getElementById('adminRSVPForm');
+    const formData = new FormData(form);
+    
+    fetch('admin_rsvp_edit.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Get the selected person's name for the success message
+            const selectedPersonName = document.getElementById('adminSelectedPersonName').textContent;
+            
+            // Show step 1 again with success message
+            const adminStep1 = document.getElementById('adminRsvpStep1');
+            const adminStep2 = document.getElementById('adminRsvpStep2');
+            
+            if (adminStep1) adminStep1.style.display = 'block';
+            if (adminStep2) adminStep2.style.display = 'none';
+            
+            // Clear the search field and results
+            const adminFamilySearch = document.getElementById('adminFamilySearch');
+            const adminFamilySearchResults = document.getElementById('adminFamilySearchResults');
+            
+            if (adminFamilySearch) adminFamilySearch.value = '';
+            if (adminFamilySearchResults) {
+                adminFamilySearchResults.innerHTML = '';
+                adminFamilySearchResults.style.display = 'none';
+            }
+            
+            // Show success message
+            const successDiv = document.createElement('div');
+            successDiv.className = 'alert alert-success';
+            successDiv.textContent = `You have successfully RSVP'd for ${selectedPersonName}`;
+            
+            // Insert success message at the top of step 1
+            if (adminStep1) {
+                adminStep1.insertBefore(successDiv, adminStep1.firstChild);
+                
+                // Remove success message after 5 seconds
+                setTimeout(() => {
+                    if (successDiv.parentNode) {
+                        successDiv.parentNode.removeChild(successDiv);
+                    }
+                }, 5000);
+            }
+        } else {
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while saving the RSVP');
+    });
+}
