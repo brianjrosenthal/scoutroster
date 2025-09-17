@@ -66,7 +66,7 @@ $_pubMaybeTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'maybe');
 $pubAdultsMaybe = (int)($_pubMaybeTotals['adults'] ?? 0);
 $pubKidsMaybe = (int)($_pubMaybeTotals['kids'] ?? 0);
 
-$rsvpCommentsByAdult = RSVPManagement::getCommentsByCreatorForEvent((int)$id);
+$rsvpCommentsByAdult = RSVPManagement::getCommentsByParentForEvent((int)$id);
 sort($youthNames);
 usort($adultEntries, function($a,$b){ return strcmp($a['name'], $b['name']); });
 
