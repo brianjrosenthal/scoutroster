@@ -108,13 +108,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
       echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
     }
     $date = trim((string)($_POST['medical_forms_expiration_date'] ?? ''));
+    $inPersonOptIn = !empty($_POST['medical_form_in_person_opt_in']) ? 1 : 0;
+    
     if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
     // Basic Y-m-d validation
     $dt = DateTime::createFromFormat('Y-m-d', $date);
     if (!$dt || $dt->format('Y-m-d') !== $date) {
       echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
     }
-    $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, ['medical_forms_expiration_date' => $date]);
+    $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, [
+      'medical_forms_expiration_date' => $date,
+      'medical_form_in_person_opt_in' => $inPersonOptIn
+    ]);
     if ($ok) {
       echo json_encode(['ok' => true]); exit;
     }
@@ -429,9 +434,21 @@ header_html('Edit Adult');
       <div>
         <div class="small">Medical Forms Expire</div>
         <div>
-          <?= h($u['medical_forms_expiration_date'] ?? '—') ?>
+          <?php
+            $medicalExpiration = $u['medical_forms_expiration_date'] ?? null;
+            $inPersonOptIn = !empty($u['medical_form_in_person_opt_in']);
+            
+            if ($inPersonOptIn && ($medicalExpiration === null || $medicalExpiration === '' || (new DateTime($medicalExpiration) < new DateTime()))) {
+              echo 'in person opt in';
+            } else {
+              echo h($medicalExpiration ?? '—');
+            }
+          ?>
           <?php if (\UserManagement::isApprover((int)($me['id'] ?? 0))): ?>
-            <a href="#" class="small" id="edit_medical_forms_link" data-current="<?= h($u['medical_forms_expiration_date'] ?? '') ?>" style="margin-left:6px;">Edit</a>
+            <a href="#" class="small" id="edit_medical_forms_link" 
+               data-current="<?= h($u['medical_forms_expiration_date'] ?? '') ?>"
+               data-opt-in="<?= !empty($u['medical_form_in_person_opt_in']) ? '1' : '0' ?>" 
+               style="margin-left:6px;">Edit</a>
           <?php endif; ?>
         </div>
       </div>
@@ -628,7 +645,11 @@ header_html('Edit Adult');
       <label>Medical Forms Expiration Date (YYYY-MM-DD)
         <input type="date" name="medical_forms_expiration_date" id="medical_forms_date" value="<?= h($medicalFormsDefault) ?>" required>
       </label>
-      <p class="small">Set when this adult's medical forms expire.</p>
+      <label class="inline">
+        <input type="checkbox" name="medical_form_in_person_opt_in" id="medical_forms_opt_in" value="1">
+        Will bring medical forms to events in person
+      </label>
+      <p class="small">Set when this adult's medical forms expire. If you check "Will bring medical forms to events in person", this person will be considered as having valid medical forms for event purposes regardless of the expiration date.</p>
       <div class="actions">
         <button class="button primary" type="submit">Set Expiration Date</button>
         <button class="button" type="button" id="medical_forms_cancel">Cancel</button>
@@ -654,7 +675,10 @@ header_html('Edit Adult');
     editLink.addEventListener('click', function(e){
       e.preventDefault();
       var cur = this.getAttribute('data-current') || '';
+      var optIn = this.getAttribute('data-opt-in') || '0';
       var dateInp = document.getElementById('medical_forms_date');
+      var optInCheckbox = document.getElementById('medical_forms_opt_in');
+      
       if (dateInp) {
         if (cur) {
           dateInp.value = cur;
@@ -663,6 +687,11 @@ header_html('Edit Adult');
           dateInp.value = '<?= h($medicalFormsDefault) ?>';
         }
       }
+      
+      if (optInCheckbox) {
+        optInCheckbox.checked = (optIn === '1');
+      }
+      
       open();
     });
   }

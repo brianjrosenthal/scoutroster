@@ -20,7 +20,12 @@ if ($eventId <= 0) {
 
 try {
     // Helper function to check if a person needs a medical form
-    function needsMedicalForm($medicalFormsExpirationDate) {
+    function needsMedicalForm($medicalFormsExpirationDate, $inPersonOptIn = false) {
+        // If they opted to bring forms in person, they don't need to provide one
+        if ($inPersonOptIn) {
+            return false;
+        }
+        
         if ($medicalFormsExpirationDate === null || $medicalFormsExpirationDate === '') {
             return true; // No date means they need one
         }
@@ -55,12 +60,12 @@ try {
             foreach ($rsvpYouthIds as $youthId) {
                 // Get youth data to check medical form
                 $pdo = pdo();
-                $youthStmt = $pdo->prepare("SELECT medical_forms_expiration_date FROM youth WHERE id = ?");
+                $youthStmt = $pdo->prepare("SELECT medical_forms_expiration_date, medical_form_in_person_opt_in FROM youth WHERE id = ?");
                 $youthStmt->execute([$youthId]);
                 $youthData = $youthStmt->fetch();
                 
                 // If this child who RSVP'd needs a medical form
-                if ($youthData && needsMedicalForm($youthData['medical_forms_expiration_date'] ?? null)) {
+                if ($youthData && needsMedicalForm($youthData['medical_forms_expiration_date'] ?? null, !empty($youthData['medical_form_in_person_opt_in']))) {
                     // Get all parents of this child and add to List A
                     $parents = ParentRelationships::listParentsForChild($youthId);
                     foreach ($parents as $parent) {
@@ -75,7 +80,7 @@ try {
                 
                 // Check if this adult who RSVP'd needs a medical form
                 $adultData = UserManagement::findFullById($adultId);
-                if ($adultData && needsMedicalForm($adultData['medical_forms_expiration_date'] ?? null)) {
+                if ($adultData && needsMedicalForm($adultData['medical_forms_expiration_date'] ?? null, !empty($adultData['medical_form_in_person_opt_in']))) {
                     // Get all children of this adult
                     $children = ParentRelationships::listChildrenForAdult($adultId);
                     

@@ -34,6 +34,7 @@ CREATE TABLE users (
   bsa_registration_expires_on DATE DEFAULT NULL,
   safeguarding_training_completed_on DATE DEFAULT NULL,
   medical_forms_expiration_date DATE DEFAULT NULL,
+  medical_form_in_person_opt_in TINYINT(1) NOT NULL DEFAULT 0,
 
   -- Medical/emergency contacts
   emergency_contact1_name  VARCHAR(100) DEFAULT NULL,
@@ -69,6 +70,7 @@ CREATE TABLE youth (
   bsa_registration_expires_date DATE DEFAULT NULL,
   date_paid_until DATE DEFAULT NULL,
   medical_forms_expiration_date DATE DEFAULT NULL,
+  medical_form_in_person_opt_in TINYINT(1) NOT NULL DEFAULT 0,
 
   -- Address (optional)
   street1 VARCHAR(255) DEFAULT NULL,
