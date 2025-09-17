@@ -6,9 +6,9 @@ Application::init();
 require_once __DIR__ . '/lib/Files.php';
 
 function echo_r($o) {                                                                                                                            |
-        echo('<pre>');                                                                                                                           |
-        echo(print_r($o, 1));                                                                                                                    |
-        echo('</pre>');                                                                                                                          |
+echo('<pre>');                                                                                                                           |
+echo(print_r($o, 1));                                                                                                                    |
+echo('</pre>');                                                                                                                          |
 }                                                                                                                                                |
       
 
