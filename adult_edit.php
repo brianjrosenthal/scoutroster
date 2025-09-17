@@ -110,11 +110,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
     $date = trim((string)($_POST['medical_forms_expiration_date'] ?? ''));
     $inPersonOptIn = !empty($_POST['medical_form_in_person_opt_in']) ? 1 : 0;
     
-    if ($date === '') { echo json_encode(['ok' => false, 'error' => 'Date is required']); exit; }
-    // Basic Y-m-d validation
-    $dt = DateTime::createFromFormat('Y-m-d', $date);
-    if (!$dt || $dt->format('Y-m-d') !== $date) {
-      echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+    // Date is only required if not opting for in-person forms
+    if (!$inPersonOptIn && $date === '') { 
+      echo json_encode(['ok' => false, 'error' => 'Date is required when not bringing forms in person']); 
+      exit; 
+    }
+    // Basic Y-m-d validation (only if date is provided)
+    if ($date !== '') {
+      $dt = DateTime::createFromFormat('Y-m-d', $date);
+      if (!$dt || $dt->format('Y-m-d') !== $date) {
+        echo json_encode(['ok' => false, 'error' => 'Date must be in YYYY-MM-DD format.']); exit;
+      }
     }
     $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, [
       'medical_forms_expiration_date' => $date,
@@ -690,10 +696,32 @@ header_html('Edit Adult');
       
       if (optInCheckbox) {
         optInCheckbox.checked = (optIn === '1');
+        // Toggle required attribute based on checkbox state
+        toggleDateRequired();
       }
       
       open();
     });
+  }
+
+  // Function to toggle the required attribute on the date field
+  function toggleDateRequired() {
+    var dateInp = document.getElementById('medical_forms_date');
+    var optInCheckbox = document.getElementById('medical_forms_opt_in');
+    
+    if (dateInp && optInCheckbox) {
+      if (optInCheckbox.checked) {
+        dateInp.removeAttribute('required');
+      } else {
+        dateInp.setAttribute('required', 'required');
+      }
+    }
+  }
+
+  // Listen for checkbox changes
+  var optInCheckbox = document.getElementById('medical_forms_opt_in');
+  if (optInCheckbox) {
+    optInCheckbox.addEventListener('change', toggleDateRequired);
   }
   if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
   if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });
