@@ -110,6 +110,28 @@ header_html('Event');
       <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
       <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
       <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
+      <?php
+        // Show Event Compliance only for Cubmaster, Treasurer, or Committee Chair
+        $showCompliance = false;
+        try {
+          $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+          $stPos->execute([(int)($me['id'] ?? 0)]);
+          $rowsPos = $stPos->fetchAll();
+          if (is_array($rowsPos)) {
+            foreach ($rowsPos as $pr) {
+              $p = trim((string)($pr['p'] ?? ''));
+              if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+                $showCompliance = true; 
+                break; 
+              }
+            }
+          }
+        } catch (Throwable $e) {
+          $showCompliance = false;
+        }
+        if ($showCompliance): ?>
+          <a class="button" href="/event_compliance.php?id=<?= (int)$e['id'] ?>">Event Compliance</a>
+        <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>
