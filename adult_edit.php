@@ -704,15 +704,32 @@ header_html('Edit Adult');
     });
   }
 
-  // Function to toggle the required attribute on the date field
+  // Store the original date value when checkbox is first checked
+  var storedDateValue = null;
+
+  // Function to toggle the required attribute and reset date field
   function toggleDateRequired() {
     var dateInp = document.getElementById('medical_forms_date');
     var optInCheckbox = document.getElementById('medical_forms_opt_in');
     
     if (dateInp && optInCheckbox) {
       if (optInCheckbox.checked) {
+        // Store current date value before clearing it
+        if (dateInp.value && storedDateValue === null) {
+          storedDateValue = dateInp.value;
+        }
+        // Clear the date field and remove required attribute
+        dateInp.value = '';
         dateInp.removeAttribute('required');
       } else {
+        // Restore the stored date value or use default
+        if (storedDateValue !== null) {
+          dateInp.value = storedDateValue;
+          storedDateValue = null; // Reset stored value
+        } else {
+          // Use the default one year from today if no stored value
+          dateInp.value = '<?= h($medicalFormsDefault) ?>';
+        }
         dateInp.setAttribute('required', 'required');
       }
     }
