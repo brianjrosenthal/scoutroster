@@ -346,6 +346,110 @@ final class RSVPManagement {
   }
 
   /**
+   * Map adult_id => comments for an event's RSVPs, but expand comments to all parents
+   * in the same family. This ensures that if one parent RSVPs with comments, all parents
+   * in that family will see those comments.
+   * 
+   * This function is intentionally verbose and may include redundant comments to ensure
+   * no parent misses important information from their family's RSVPs.
+   */
+  public static function getCommentsByParentForEvent(int $eventId): array {
+    $eventId = (int)$eventId;
+    if ($eventId <= 0) return [];
+
+    // Start with all RSVPs that have comments for this event
+    $st = self::pdo()->prepare("SELECT id, created_by_user_id, comments FROM rsvps WHERE event_id=? AND comments IS NOT NULL AND TRIM(comments) != ''");
+    $st->execute([$eventId]);
+    $rsvpsWithComments = $st->fetchAll();
+    
+    if (empty($rsvpsWithComments)) {
+      return [];
+    }
+
+    $commentsByParent = [];
+
+    foreach ($rsvpsWithComments as $rsvp) {
+      $rsvpId = (int)$rsvp['id'];
+      $creatorId = (int)$rsvp['created_by_user_id'];
+      $comments = trim((string)$rsvp['comments']);
+      
+      if ($comments === '') continue;
+
+      // Find all adults in this RSVP group
+      $stMembers = self::pdo()->prepare("
+        SELECT DISTINCT adult_id 
+        FROM rsvp_members 
+        WHERE rsvp_id = ? AND participant_type = 'adult' AND adult_id IS NOT NULL
+      ");
+      $stMembers->execute([$rsvpId]);
+      $rsvpAdults = [];
+      foreach ($stMembers->fetchAll() as $member) {
+        $adultId = (int)$member['adult_id'];
+        if ($adultId > 0) {
+          $rsvpAdults[] = $adultId;
+        }
+      }
+
+      // Always include the creator, even if they're not explicitly in rsvp_members
+      if (!in_array($creatorId, $rsvpAdults)) {
+        $rsvpAdults[] = $creatorId;
+      }
+
+      // For each adult in this RSVP, find all other parents who share children with them
+      $allRelatedParents = [];
+      foreach ($rsvpAdults as $adultId) {
+        $allRelatedParents[] = $adultId;
+        
+        // Find all youth this adult is a parent of
+        $stYouth = self::pdo()->prepare("
+          SELECT DISTINCT youth_id 
+          FROM parent_relationships 
+          WHERE adult_id = ?
+        ");
+        $stYouth->execute([$adultId]);
+        $youthIds = [];
+        foreach ($stYouth->fetchAll() as $youth) {
+          $youthIds[] = (int)$youth['youth_id'];
+        }
+
+        // For each youth, find all other parents
+        if (!empty($youthIds)) {
+          $placeholders = str_repeat('?,', count($youthIds) - 1) . '?';
+          $stOtherParents = self::pdo()->prepare("
+            SELECT DISTINCT adult_id 
+            FROM parent_relationships 
+            WHERE youth_id IN ($placeholders) AND adult_id != ?
+          ");
+          $stOtherParents->execute(array_merge($youthIds, [$adultId]));
+          foreach ($stOtherParents->fetchAll() as $parent) {
+            $parentId = (int)$parent['adult_id'];
+            if ($parentId > 0 && !in_array($parentId, $allRelatedParents)) {
+              $allRelatedParents[] = $parentId;
+            }
+          }
+        }
+      }
+
+      // Add comments for all related parents
+      foreach ($allRelatedParents as $parentId) {
+        if ($parentId > 0) {
+          // If this parent already has comments, append with a separator
+          if (isset($commentsByParent[$parentId])) {
+            $existingComments = trim($commentsByParent[$parentId]);
+            if ($existingComments !== $comments) {
+              $commentsByParent[$parentId] = $existingComments . "\n\n" . $comments;
+            }
+          } else {
+            $commentsByParent[$parentId] = $comments;
+          }
+        }
+      }
+    }
+
+    return $commentsByParent;
+  }
+
+  /**
    * Adult entries for an event by answer: array of ['id' => adult_id, 'name' => 'Last, First']
    * Sorted case-insensitively.
    */

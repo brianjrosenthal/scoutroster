@@ -5,6 +5,12 @@ require_once __DIR__ . '/lib/Application.php';
 Application::init();
 require_once __DIR__ . '/lib/Files.php';
 
+function echo_r($o) {
+  echo('<pre>');
+  echo(print_r($o, 1));
+  echo('</pre>');
+}
+
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
