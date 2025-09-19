@@ -696,7 +696,9 @@ header_html('Edit Adult');
       
       if (optInCheckbox) {
         optInCheckbox.checked = (optIn === '1');
-        // Toggle required attribute based on checkbox state
+        // Reset storedDateValue when modal opens to ensure proper behavior
+        storedDateValue = null;
+        // Toggle required attribute and clear date field based on checkbox state
         toggleDateRequired();
       }
       
