@@ -670,7 +670,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       
       if (optInCheckbox) {
         optInCheckbox.checked = (optIn === '1');
-        // Toggle required attribute based on checkbox state
+        // Reset storedDateValue when modal opens to ensure proper behavior
+        storedDateValue = null;
+        // Toggle required attribute and clear date field based on checkbox state
         toggleDateRequired();
       }
       
@@ -678,15 +680,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     });
   }
 
-  // Function to toggle the required attribute on the date field
+  // Store the original date value when checkbox is first checked
+  var storedDateValue = null;
+
+  // Function to toggle the required attribute and reset date field
   function toggleDateRequired() {
     var dateInp = document.getElementById('medical_forms_date');
     var optInCheckbox = document.getElementById('medical_forms_opt_in');
     
     if (dateInp && optInCheckbox) {
       if (optInCheckbox.checked) {
+        // Store current date value before clearing it
+        if (dateInp.value && storedDateValue === null) {
+          storedDateValue = dateInp.value;
+        }
+        // Clear the date field and remove required attribute
+        dateInp.value = '';
         dateInp.removeAttribute('required');
       } else {
+        // Restore the stored date value or use default
+        if (storedDateValue !== null) {
+          dateInp.value = storedDateValue;
+          storedDateValue = null; // Reset stored value
+        } else {
+          // Use the default one year from today if no stored value
+          dateInp.value = '<?= h($medicalFormsDefault) ?>';
+        }
         dateInp.setAttribute('required', 'required');
       }
     }
