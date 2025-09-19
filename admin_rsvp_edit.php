@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['ajax']) && !empty($_GE
       }
     } else {
       // Youth selected - find their parents
-      $parents = ParentRelationships::listParentsForYouth($personId);
+      $parents = ParentRelationships::listParentsForChild($personId);
       if (empty($parents)) {
         throw new Exception('No parents found for this child');
       }
@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['ajax']) && !empty($_GE
       // Get all co-parents
       $allAdultIds = [];
       foreach ($familyYouth as $child) {
-        $childParents = ParentRelationships::listParentsForYouth((int)$child['id']);
+        $childParents = ParentRelationships::listParentsForChild((int)$child['id']);
         foreach ($childParents as $parent) {
           $allAdultIds[(int)$parent['id']] = $parent;
         }
@@ -78,8 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && !empty($_GET['ajax']) && !empty($_GE
       throw new Exception('Could not determine family context');
     }
     
-    // Look for existing RSVP using the same logic as regular users
-    $existingRsvp = RSVPManagement::findMyRsvpForEvent($eventId, $contextAdultId);
+    // Look for existing RSVP using the new family-aware logic
+    if ($personType === 'adult') {
+      $existingRsvp = RSVPManagement::getRSVPForFamilyByAdultID($eventId, $personId);
+    } else {
+      $existingRsvp = RSVPManagement::getRSVPForFamilyByYouthID($eventId, $personId);
+    }
     
     $selectedAdults = [];
     $selectedYouth = [];

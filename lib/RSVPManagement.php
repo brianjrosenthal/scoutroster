@@ -54,6 +54,92 @@ final class RSVPManagement {
   }
 
   /**
+   * Find the family RSVP for an event by adult ID.
+   * Gets all children of the adult, then all co-parents of these children,
+   * and looks for existing RSVPs created by any of these co-parents.
+   * If multiple exist, prefers the one created by the original adult.
+   */
+  public static function getRSVPForFamilyByAdultID(int $eventId, int $adultId): ?array {
+    require_once __DIR__ . '/ParentRelationships.php';
+    
+    $eventId = (int)$eventId; 
+    $adultId = (int)$adultId;
+    if ($eventId <= 0 || $adultId <= 0) return null;
+
+    // Get all children of this adult
+    $children = ParentRelationships::listChildrenForAdult($adultId);
+    
+    // Get all co-parents of these children
+    $coParents = ParentRelationships::listCoParentsForAdult($adultId);
+    
+    // Build list of all potential RSVP creators (original adult + co-parents)
+    $potentialCreators = [$adultId];
+    foreach ($coParents as $coParent) {
+      $potentialCreators[] = (int)$coParent['id'];
+    }
+    
+    if (empty($potentialCreators)) return null;
+    
+    // Look for RSVPs created by any of these adults
+    $placeholders = str_repeat('?,', count($potentialCreators) - 1) . '?';
+    $st = self::pdo()->prepare("
+      SELECT * FROM rsvps 
+      WHERE event_id = ? AND created_by_user_id IN ($placeholders)
+      ORDER BY CASE WHEN created_by_user_id = ? THEN 0 ELSE 1 END
+      LIMIT 1
+    ");
+    
+    $params = [$eventId];
+    $params = array_merge($params, $potentialCreators);
+    $params[] = $adultId; // For the ORDER BY preference
+    
+    $st->execute($params);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  /**
+   * Find the family RSVP for an event by youth ID.
+   * Gets all parents of the youth and looks for existing RSVPs 
+   * created by any of these parents.
+   */
+  public static function getRSVPForFamilyByYouthID(int $eventId, int $youthId): ?array {
+    require_once __DIR__ . '/ParentRelationships.php';
+    
+    $eventId = (int)$eventId; 
+    $youthId = (int)$youthId;
+    if ($eventId <= 0 || $youthId <= 0) return null;
+
+    // Get all parents of this youth
+    $parents = ParentRelationships::listParentsForChild($youthId);
+    
+    if (empty($parents)) return null;
+    
+    // Build list of potential RSVP creators (all parents)
+    $potentialCreators = [];
+    foreach ($parents as $parent) {
+      $potentialCreators[] = (int)$parent['id'];
+    }
+    
+    if (empty($potentialCreators)) return null;
+    
+    // Look for RSVPs created by any of these parents
+    $placeholders = str_repeat('?,', count($potentialCreators) - 1) . '?';
+    $st = self::pdo()->prepare("
+      SELECT * FROM rsvps 
+      WHERE event_id = ? AND created_by_user_id IN ($placeholders)
+      LIMIT 1
+    ");
+    
+    $params = [$eventId];
+    $params = array_merge($params, $potentialCreators);
+    
+    $st->execute($params);
+    $row = $st->fetch();
+    return $row ?: null;
+  }
+
+  /**
    * Return member IDs by type for a given RSVP group.
    * Returns: ['adult_ids' => int[], 'youth_ids' => int[]]
    */
