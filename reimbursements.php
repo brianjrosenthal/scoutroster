@@ -168,7 +168,7 @@ header_html('Expense Reimbursements');
 
 <div class="card" style="margin-top:16px;">
   <h3>Submit a new reimbursement</h3>
-  <form method="post" enctype="multipart/form-data" class="stack">
+  <form method="post" enctype="multipart/form-data" class="stack" id="newReimbursementForm">
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="create">
     <?php if ($isApprover): ?>
@@ -243,7 +243,7 @@ header_html('Expense Reimbursements');
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
     </label>
     <div class="actions">
-      <button class="primary">Submit Request</button>
+      <button class="primary" id="submitReimbursementBtn">Submit Request</button>
     </div>
     <p class="small">Allowed file types: pdf, jpg, jpeg, png, heic, webp. Max size 15 MB.</p>
   </form>
@@ -335,5 +335,24 @@ header_html('Expense Reimbursements');
   </script>
   <?php endif; ?>
 </div>
+
+<script>
+(function(){
+  // Add double-click protection to reimbursement submission form
+  var reimbursementForm = document.getElementById('newReimbursementForm');
+  var submitBtn = document.getElementById('submitReimbursementBtn');
+  
+  if (reimbursementForm && submitBtn) {
+    reimbursementForm.addEventListener('submit', function(e) {
+      if (submitBtn.disabled) {
+        e.preventDefault();
+        return;
+      }
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+    });
+  }
+})();
+</script>
 
 <?php footer_html(); ?>
