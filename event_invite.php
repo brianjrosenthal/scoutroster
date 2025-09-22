@@ -208,8 +208,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
  */
 $guestsTotal = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'yes');
 
-$adultNames = RSVPManagement::listAdultNamesByAnswer((int)$eventId, 'yes');
+$adultEntries = RSVPManagement::listAdultEntriesByAnswer((int)$eventId, 'yes');
 $youthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'yes');
+
+// Public RSVPs (logged-out) - list YES only
+$publicRsvps = RsvpsLoggedOutManagement::listByAnswer((int)$eventId, 'yes');
+
+// Public YES totals
+$_pubYesTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$eventId, 'yes');
+$pubAdultsYes = (int)($_pubYesTotals['adults'] ?? 0);
+$pubKidsYes = (int)($_pubYesTotals['kids'] ?? 0);
+
+$rsvpCommentsByAdult = RSVPManagement::getCommentsByParentForEvent((int)$eventId);
+sort($youthNames);
+usort($adultEntries, function($a,$b){ return strcmp($a['name'], $b['name']); });
+
+// Counts (YES)
+$youthCount = count($youthNames);
+$adultCount = count($adultEntries);
+$adultCountCombined = $adultCount + $pubAdultsYes;
+$youthCountCombined = $youthCount + $pubKidsYes;
 
 $_maybeCounts = RSVPManagement::countDistinctParticipantsByAnswer((int)$eventId, 'maybe');
 $maybeAdultsIn = (int)($_maybeCounts['adults'] ?? 0);
@@ -392,61 +410,6 @@ header_html('Event Invite');
   </script>
 
 <?php endif; ?>
-<?php if (false): ?>
-  <div class="card">
-    <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
-    <?php
-      $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
-      $displayName = $name !== '' ? $name : 'Guest';
-    ?>
-    <p><strong>Hello <?= h($displayName) ?>!</strong>  Please select who will attend:</p>
-    <form method="post" class="stack">
-      <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
-      <input type="hidden" name="uid" value="<?= (int)$uid ?>">
-      <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-      <input type="hidden" name="sig" value="<?= h($sig) ?>">
-
-      <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
-        <div>
-          <h3>Adults</h3>
-          <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$uid ?>" <?= in_array((int)$uid, $selectedAdults, true) ? 'checked' : '' ?>> <?= h($name !== '' ? $name : 'You') ?></label>
-          <?php foreach ($coParents as $a): ?>
-            <?php $aname = trim(($a['first_name'] ?? '').' '.($a['last_name'] ?? '')); ?>
-            <label class="inline"><input type="checkbox" name="adults[]" value="<?= (int)$a['id'] ?>" <?= in_array((int)$a['id'], $selectedAdults, true) ? 'checked' : '' ?>> <?= h($aname) ?></label>
-          <?php endforeach; ?>
-        </div>
-
-        <div>
-          <h3>Children</h3>
-          <?php if (empty($children)): ?>
-            <p class="small">No children on file for you.</p>
-          <?php else: ?>
-            <?php foreach ($children as $c): ?>
-              <?php $cname = trim(($c['first_name'] ?? '').' '.($c['last_name'] ?? '')); ?>
-              <label class="inline"><input type="checkbox" name="youth[]" value="<?= (int)$c['id'] ?>" <?= in_array((int)$c['id'], $selectedYouth, true) ? 'checked' : '' ?>> <?= h($cname) ?></label>
-            <?php endforeach; ?>
-          <?php endif; ?>
-        </div>
-
-        <div>
-          <h3>Guests</h3>
-          <label class="inline">Other guests
-            <input type="number" name="n_guests" value="<?= (int)$nGuests ?>" min="0" style="max-width:130px;">
-          </label>
-        </div>
-      </div>
-
-      <h3>Comments</h3>
-      <label>
-        <textarea name="comments" rows="3"><?= h($comments) ?></textarea>
-      </label>
-
-      <div class="actions">
-        <button class="primary">Save RSVP</button>
-      </div>
-    </form>
-  </div>
-<?php endif; ?>
 
 <div class="card">
   <?php
@@ -482,6 +445,68 @@ header_html('Event Invite');
 
 
 <?php if ($eviteUrl === ''): ?>
+
+<!-- Current RSVPs -->
+<div class="card">
+  <h3>Current RSVPs</h3>
+  <p class="small">
+    Adults: <?= (int)$adultCountCombined ?> &nbsp;&nbsp; | &nbsp;&nbsp;
+    Cub Scouts: <?= (int)$youthCountCombined ?><?= !empty($event['max_cub_scouts']) ? ' / '.(int)$event['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
+    Other Guests: <?= (int)$guestsTotal ?>
+    <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
+      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
+    <?php endif; ?>
+  </p>
+
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
+    <div>
+      <h4>Adults</h4>
+      <?php if (empty($adultEntries)): ?>
+        <p class="small">No adults yet.</p>
+      <?php else: ?>
+        <ul>
+          <?php foreach ($adultEntries as $a): ?>
+            <li>
+              <?= h($a['name']) ?>
+              <?php if (!empty($rsvpCommentsByAdult[(int)$a['id']] ?? '')): ?>
+                <div class="small" style="font-style:italic;"><?= nl2br(h($rsvpCommentsByAdult[(int)$a['id']])) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div>
+    <div>
+      <h4>Cub Scouts</h4>
+      <?php if (empty($youthNames)): ?>
+        <p class="small">No cub scouts yet.</p>
+      <?php else: ?>
+        <ul>
+          <?php foreach ($youthNames as $n): ?><li><?=h($n)?></li><?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div>
+    <div>
+      <h4>Public RSVPs</h4>
+      <?php if (empty($publicRsvps)): ?>
+        <p class="small">No public RSVPs yet.</p>
+      <?php else: ?>
+        <ul>
+          <?php foreach ($publicRsvps as $pr): ?>
+            <li>
+              <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
+              — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
+              <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
+              <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
+                <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
 
 <!-- Event Volunteers -->
 <div class="card">
@@ -615,61 +640,6 @@ header_html('Event Invite');
     })();
   </script>
 <?php endif; ?>
-
-<?php endif; ?>
-
-<?php if ($eviteUrl === ''): ?>
-<div class="card">
-  <h3>Current RSVPs</h3>
-  <p class="small">
-    Adults: <?= (int)count($adultNames) ?> &nbsp;&nbsp; | &nbsp;&nbsp;
-    Cub Scouts: <?= (int)count($youthNames) ?><?= !empty($event['max_cub_scouts']) ? ' / '.(int)$event['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
-    Other Guests: <?= (int)$guestsTotal ?>
-    <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP’d maybe)</em>
-    <?php endif; ?>
-  </p>
-
-  <?php if (!empty($maybeAdultNames) || !empty($maybeYouthNames) || !empty($publicMaybe)): ?>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
-      <div>
-        <h4>Adults <em>(Maybe)</em></h4>
-        <?php if (empty($maybeAdultNames)): ?>
-          <p class="small">No adults marked maybe.</p>
-        <?php else: ?>
-          <ul><?php foreach ($maybeAdultNames as $n): ?><li><?= h($n) ?></li><?php endforeach; ?></ul>
-        <?php endif; ?>
-      </div>
-      <div>
-        <h4>Cub Scouts <em>(Maybe)</em></h4>
-        <?php if (empty($maybeYouthNames)): ?>
-          <p class="small">No cub scouts marked maybe.</p>
-        <?php else: ?>
-          <ul><?php foreach ($maybeYouthNames as $n): ?><li><?= h($n) ?></li><?php endforeach; ?></ul>
-        <?php endif; ?>
-      </div>
-      <div>
-        <h4>Public RSVPs <em>(Maybe)</em></h4>
-        <?php if (empty($publicMaybe)): ?>
-          <p class="small">No public maybe RSVPs.</p>
-        <?php else: ?>
-          <ul>
-            <?php foreach ($publicMaybe as $pr): ?>
-              <li>
-                <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
-                — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
-                <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
-                <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
-                  <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
-                <?php endif; ?>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-        <?php endif; ?>
-      </div>
-    </div>
-  <?php endif; ?>
-</div>
 
 <?php endif; ?>
 
