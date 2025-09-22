@@ -357,8 +357,9 @@ header_html('Send Event Invitations');
 
 <div class="card">
   <h3>Event Details</h3>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTime((string)$event['starts_at'])) ?><?php if(!empty($event['ends_at'])): ?> – <?= h(Settings::formatDateTime((string)$event['ends_at'])) ?><?php endif; ?></p>
+  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></p>
   <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?= h((string)$event['location']) ?></p><?php endif; ?>
+  <?php if (!empty($event['description'])): ?><p><strong>Description:</strong> <?= Text::renderMarkup(trim((string)$event['description'])) ?></p><?php endif; ?>
 </div>
 
 <?php if ($isAdmin): ?>
