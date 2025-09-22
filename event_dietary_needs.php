@@ -186,7 +186,7 @@ header_html('Event Dietary Needs');
       <ul>
         <?php foreach ($dietaryCounts as $need => $count): ?>
           <?php if ($count > 0): ?>
-            <li><strong><?= h($need) ?>:</strong> <?= $count ?> people</li>
+            <li><strong><?= h($need) ?>:</strong> <?= $count ?> <?= $count === 1 ? 'person' : 'people' ?></li>
           <?php endif; ?>
         <?php endforeach; ?>
       </ul>

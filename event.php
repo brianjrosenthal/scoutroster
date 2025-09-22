@@ -100,38 +100,42 @@ header_html('Event');
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <a class="button" href="/events.php">Back to Events</a>
     <?php if ($isAdmin): ?>
-      <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
-      <?php if ($allowPublic): ?>
-        <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
-      <?php endif; ?>
-      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
-    <?php endif; ?>
-    <?php if ($isAdmin && $eviteUrl === ''): ?>
-      <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
-      <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
-      <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
-      <?php
-        // Show Event Compliance only for Cubmaster, Treasurer, or Committee Chair
-        $showCompliance = false;
-        try {
-          $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
-          $stPos->execute([(int)($me['id'] ?? 0)]);
-          $rowsPos = $stPos->fetchAll();
-          if (is_array($rowsPos)) {
-            foreach ($rowsPos as $pr) {
-              $p = trim((string)($pr['p'] ?? ''));
-              if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
-                $showCompliance = true; 
-                break; 
-              }
-            }
-          }
-        } catch (Throwable $e) {
-          $showCompliance = false;
-        }
-        if ($showCompliance): ?>
-          <a class="button" href="/event_compliance.php?id=<?= (int)$e['id'] ?>">Event Compliance</a>
+      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: 16px;">
+        <span style="font-weight: bold; color: #666;">Admin Only:</span>
+        <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
+        <?php if ($allowPublic): ?>
+          <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
         <?php endif; ?>
+        <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
+        <?php if ($eviteUrl === ''): ?>
+          <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
+          <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
+          <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
+          <a class="button" href="/event_dietary_needs.php?id=<?= (int)$e['id'] ?>">Dietary Needs</a>
+          <?php
+            // Show Event Compliance only for Cubmaster, Treasurer, or Committee Chair
+            $showCompliance = false;
+            try {
+              $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+              $stPos->execute([(int)($me['id'] ?? 0)]);
+              $rowsPos = $stPos->fetchAll();
+              if (is_array($rowsPos)) {
+                foreach ($rowsPos as $pr) {
+                  $p = trim((string)($pr['p'] ?? ''));
+                  if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+                    $showCompliance = true; 
+                    break; 
+                  }
+                }
+              }
+            } catch (Throwable $e) {
+              $showCompliance = false;
+            }
+            if ($showCompliance): ?>
+              <a class="button" href="/event_compliance.php?id=<?= (int)$e['id'] ?>">Event Compliance</a>
+            <?php endif; ?>
+        <?php endif; ?>
+      </div>
     <?php endif; ?>
   </div>
 </div>
