@@ -225,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
     </div>'
     . ($desc !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-      <div><strong>About:</strong></div>
+      <div><strong>Description:</strong></div>
       <div>'. Text::renderMarkup($desc) .'</div>
     </div>') : '')
     . '<div style="text-align:center;margin:0 0 12px;">
@@ -306,7 +306,7 @@ header_html('Send Event Invitations');
           <input type="text" id="userTypeahead" placeholder="Type name or email" autocomplete="off" value="<?= h($prefill) ?>">
           <input type="hidden" id="userId" name="adult_id" value="<?= (int)$adultSel ?>">
           <div id="userTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
-          <button class="button small" type="button" id="clearUserBtn">Clear</button>
+          <button class="button" type="button" id="clearUserBtn">Clear</button>
         </div>
         <span class="small">(Only used when selecting "One adult")</span>
       </div>
