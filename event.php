@@ -100,45 +100,104 @@ header_html('Event');
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <a class="button" href="/events.php">Back to Events</a>
     <?php if ($isAdmin): ?>
-      <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: 16px;">
-        <span style="font-weight: bold; color: #666;">Admin Only:</span>
-        <a class="button" href="/admin_events.php?id=<?= (int)$e['id'] ?>">Edit Event</a>
-        <?php if ($allowPublic): ?>
-          <a class="button" href="/event_public.php?event_id=<?= (int)$e['id'] ?>">Public RSVP Link</a>
-        <?php endif; ?>
-        <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>">Invite</a>
-        <?php if ($eviteUrl === ''): ?>
-          <button class="button" id="adminCopyEmailsBtn">Copy Emails</button>
-          <button class="button" id="adminManageRsvpBtn">Manage RSVPs</button>
-          <button class="button" id="adminExportAttendeesBtn">Export Attendees</button>
-          <a class="button" href="/event_dietary_needs.php?id=<?= (int)$e['id'] ?>">Dietary Needs</a>
-          <?php
-            // Show Event Compliance only for Cubmaster, Treasurer, or Committee Chair
-            $showCompliance = false;
-            try {
-              $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
-              $stPos->execute([(int)($me['id'] ?? 0)]);
-              $rowsPos = $stPos->fetchAll();
-              if (is_array($rowsPos)) {
-                foreach ($rowsPos as $pr) {
-                  $p = trim((string)($pr['p'] ?? ''));
-                  if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
-                    $showCompliance = true; 
-                    break; 
+      <div style="position: relative;">
+        <button class="button" id="adminLinksBtn" style="display: flex; align-items: center; gap: 4px;">
+          Admin Links
+          <span style="font-size: 12px;">▼</span>
+        </button>
+        <div id="adminLinksDropdown" style="
+          display: none;
+          position: absolute;
+          top: 100%;
+          right: 0;
+          background: white;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+          z-index: 1000;
+          min-width: 180px;
+          margin-top: 4px;
+        ">
+          <a href="/admin_events.php?id=<?= (int)$e['id'] ?>" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Edit Event</a>
+          <?php if ($allowPublic): ?>
+            <a href="/event_public.php?event_id=<?= (int)$e['id'] ?>" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Public RSVP Link</a>
+          <?php endif; ?>
+          <a href="/admin_event_invite.php?event_id=<?= (int)$e['id'] ?>" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Invite</a>
+          <?php if ($eviteUrl === ''): ?>
+            <a href="#" id="adminCopyEmailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Emails</a>
+            <a href="#" id="adminManageRsvpBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Manage RSVPs</a>
+            <a href="#" id="adminExportAttendeesBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Export Attendees</a>
+            <a href="/event_dietary_needs.php?id=<?= (int)$e['id'] ?>" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Dietary Needs</a>
+            <?php
+              // Show Event Compliance only for Cubmaster, Treasurer, or Committee Chair
+              $showCompliance = false;
+              try {
+                $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos->execute([(int)($me['id'] ?? 0)]);
+                $rowsPos = $stPos->fetchAll();
+                if (is_array($rowsPos)) {
+                  foreach ($rowsPos as $pr) {
+                    $p = trim((string)($pr['p'] ?? ''));
+                    if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+                      $showCompliance = true; 
+                      break; 
+                    }
                   }
                 }
+              } catch (Throwable $e) {
+                $showCompliance = false;
               }
-            } catch (Throwable $e) {
-              $showCompliance = false;
-            }
-            if ($showCompliance): ?>
-              <a class="button" href="/event_compliance.php?id=<?= (int)$e['id'] ?>">Event Compliance</a>
-            <?php endif; ?>
-        <?php endif; ?>
+              if ($showCompliance): ?>
+                <a href="/event_compliance.php?id=<?= (int)$e['id'] ?>" style="display: block; padding: 8px 12px; text-decoration: none; color: #333;">Event Compliance</a>
+              <?php endif; ?>
+          <?php endif; ?>
+        </div>
       </div>
     <?php endif; ?>
   </div>
 </div>
+
+<script>
+(function(){
+  // Admin Links Dropdown
+  const adminLinksBtn = document.getElementById('adminLinksBtn');
+  const adminLinksDropdown = document.getElementById('adminLinksDropdown');
+  
+  if (adminLinksBtn && adminLinksDropdown) {
+    adminLinksBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const isVisible = adminLinksDropdown.style.display === 'block';
+      adminLinksDropdown.style.display = isVisible ? 'none' : 'block';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!adminLinksBtn.contains(e.target) && !adminLinksDropdown.contains(e.target)) {
+        adminLinksDropdown.style.display = 'none';
+      }
+    });
+    
+    // Close dropdown when pressing Escape
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') {
+        adminLinksDropdown.style.display = 'none';
+      }
+    });
+    
+    // Add hover effects
+    const dropdownLinks = adminLinksDropdown.querySelectorAll('a');
+    dropdownLinks.forEach(link => {
+      link.addEventListener('mouseenter', function() {
+        this.style.backgroundColor = '#f5f5f5';
+      });
+      link.addEventListener('mouseleave', function() {
+        this.style.backgroundColor = 'white';
+      });
+    });
+  }
+})();
+</script>
 
 <?php if ($flashSaved): ?>
   <p class="flash">Your RSVP has been saved.</p>
