@@ -119,6 +119,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
   }
 }
 
+/** Handle POST (update dietary preferences via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'update_dietary')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    // Check permissions - admin or parent of this youth
+    $canEdit = $isAdmin || $isParentOfThis;
+    if (!$canEdit) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
+    }
+    
+    $ctx = UserContext::getLoggedInUserContext();
+    $fields = [
+      'dietary_vegetarian' => !empty($_POST['dietary_vegetarian']) ? 1 : 0,
+      'dietary_vegan' => !empty($_POST['dietary_vegan']) ? 1 : 0,
+      'dietary_lactose_free' => !empty($_POST['dietary_lactose_free']) ? 1 : 0,
+      'dietary_no_pork_shellfish' => !empty($_POST['dietary_no_pork_shellfish']) ? 1 : 0,
+      'dietary_nut_allergy' => !empty($_POST['dietary_nut_allergy']) ? 1 : 0,
+      'dietary_gluten_free' => !empty($_POST['dietary_gluten_free']) ? 1 : 0,
+      'dietary_other' => trim($_POST['dietary_other'] ?? '') ?: null,
+    ];
+    
+    $ok = YouthManagement::update($ctx, $id, $fields);
+    if ($ok) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to update dietary preferences.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed: ' . $e->getMessage()]); exit;
+  }
+}
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
