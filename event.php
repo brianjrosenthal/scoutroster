@@ -188,7 +188,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   <?php if ($imgUrl !== ''): ?>
     <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
-  <p><strong>When:</strong> <?=h(Settings::formatDateTime($e['starts_at']))?><?php if(!empty($e['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($e['ends_at']))?><?php endif; ?></p>
+  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange($e['starts_at'], !empty($e['ends_at']) ? $e['ends_at'] : null)) ?></p>
   <?php
     $locName = trim((string)($e['location'] ?? ''));
     $locAddr = trim((string)($e['location_address'] ?? ''));
