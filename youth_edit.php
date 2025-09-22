@@ -1119,11 +1119,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
       
       fetch('/youth_edit.php?id=<?= (int)$id ?>', { method:'POST', body: submitData, credentials:'same-origin' })
-        .then(function(res){ 
-          if (res.ok) {
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid server response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
             window.location.reload();
           } else {
-            throw new Error('Server error');
+            showErr((json && json.error) ? json.error : 'Operation failed.');
           }
         })
         .catch(function(){ showErr('Network error.'); });
