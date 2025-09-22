@@ -152,7 +152,7 @@ header_html($pageTitle);
       <a class="button" href="/event.php?id=<?= (int)$editing['id'] ?>">Back to Event</a>
       <?= EventUIManager::renderAdminMenu((int)$editing['id'], 'edit') ?>
     <?php else: ?>
-      <a class="button" href="/admin_events.php">Back to Events</a>
+      <a class="button" href="/events.php">Back to Events</a>
     <?php endif; ?>
   </div>
 </div>
@@ -218,7 +218,7 @@ header_html($pageTitle);
     </label>
     <div class="actions">
       <button class="primary" type="submit"><?= $editing ? 'Save' : 'Create' ?></button>
-      <a class="button" href="<?= $editing ? '/event.php?id='.(int)$editing['id'] : '/admin_events.php' ?>">Cancel</a>
+      <a class="button" href="<?= $editing ? '/event.php?id='.(int)$editing['id'] : '/events.php' ?>">Cancel</a>
     </div>
   </form>
 </div>

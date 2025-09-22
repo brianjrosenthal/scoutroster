@@ -13,7 +13,7 @@ require_once __DIR__ . '/settings.php';
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
   header_html('Invitations');
   echo '<h2>Invitations</h2><div class="card"><p class="error">INVITE_HMAC_KEY is not configured. Edit config.local.php.</p></div>';
-  echo '<div class="card"><a class="button" href="/admin_events.php">Back</a></div>';
+  echo '<div class="card"><a class="button" href="/events.php">Back</a></div>';
   footer_html();
   exit;
 }
@@ -335,7 +335,7 @@ header_html('Send Event Invitations');
     <div class="actions">
       <button class="primary" id="sendInvitationsBtn">Send Invitations</button>
       <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
-      <a class="button" href="/admin_events.php">Manage Events</a>
+      <a class="button" href="/events.php">Manage Events</a>
     </div>
   </form>
 </div>

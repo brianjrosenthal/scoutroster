@@ -81,7 +81,7 @@ function header_html(string $title) {
   // Admin bar (second row) toggled by the "Admin" link
   if ($u && !empty($u['is_admin'])) {
     echo '<div id="adminBar" class="admin-bar hidden">';
-    echo $link('/admin_events.php','Manage Events');
+    echo $link('/events.php','Manage Events');
     echo $link('/admin_adults.php','Manage Adults');
     echo $link('/admin_imports.php','Import Data');
     echo $link('/admin_mailing_list.php','Mailing List');

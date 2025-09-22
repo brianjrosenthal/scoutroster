@@ -56,7 +56,7 @@ header_html('Manage Events');
     <h3><?= $view === 'past' ? 'Previous Events' : 'Upcoming Events' ?></h3>
     <div class="actions">
       <?php if ($view === 'past'): ?>
-        <a class="button" href="/admin_events.php">View Upcoming</a>
+        <a class="button" href="/events.php">View Upcoming</a>
       <?php else: ?>
         <a class="button" href="/admin_events.php?view=past">View Previous</a>
       <?php endif; ?>
