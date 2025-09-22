@@ -643,6 +643,4 @@ header_html('Event Invite');
 
 <?php endif; ?>
 
-<?php endif; ?>
-
 <?php footer_html(); ?>
