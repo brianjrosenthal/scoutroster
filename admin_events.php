@@ -17,7 +17,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       try {
         $ctx = UserContext::getLoggedInUserContext();
         EventManagement::delete($ctx, $id);
-        header('Location: /admin_events.php'); exit;
+        header('Location: /events.php'); exit;
       } catch (Throwable $e) {
         $err = 'Failed to delete event.';
       }

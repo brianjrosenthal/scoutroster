@@ -162,7 +162,7 @@ class EventUIManager {
             if (confirm("Are you sure you want to delete this event? This action cannot be undone.")) {
                 const form = document.createElement("form");
                 form.method = "POST";
-                form.action = "/admin_events.php";
+                form.action = "/admin_event_delete.php";
                 form.style.display = "none";
                 
                 const csrfInput = document.createElement("input");

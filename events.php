@@ -9,7 +9,20 @@ require_login();
 $u = current_user();
 $isAdmin = !empty($u['is_admin']);
 
-$events = EventManagement::listUpcoming(500);
+/**
+ * Load events by view:
+ * - upcoming (default): starts_at >= NOW(), ordered ascending (closest first)
+ * - past: starts_at < NOW(), ordered descending (most recent first)
+ */
+$view = $_GET['view'] ?? 'upcoming';
+if ($view !== 'past') $view = 'upcoming';
+
+$events = [];
+if ($view === 'upcoming') {
+  $events = EventManagement::listUpcoming(500);
+} else {
+  $events = EventManagement::listPast(500);
+}
 
 // Helper to render start/end per spec
 function renderEventWhen(string $startsAt, ?string $endsAt): string {
@@ -41,17 +54,24 @@ function truncatePlain(string $text, int $limit = 200): string {
   return rtrim($slice) . '…';
 }
 
-header_html('Upcoming Events');
+header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
 ?>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-  <h2 style="margin: 0;">Upcoming Events</h2>
-  <?php if ($isAdmin): ?>
-    <a class="button" href="/admin_event_edit.php">Add Event</a>
-  <?php endif; ?>
+  <h2 style="margin: 0;"><?= $view === 'past' ? 'Previous Events' : 'Upcoming Events' ?></h2>
+  <div style="display: flex; gap: 8px; align-items: center;">
+    <?php if ($view === 'past'): ?>
+      <a class="button" href="/events.php">View Upcoming</a>
+    <?php else: ?>
+      <a class="button" href="/events.php?view=past">View Previous</a>
+    <?php endif; ?>
+    <?php if ($isAdmin): ?>
+      <a class="button" href="/admin_event_edit.php">Add Event</a>
+    <?php endif; ?>
+  </div>
 </div>
 
 <?php if (empty($events)): ?>
-  <p class="small">No upcoming events.</p>
+  <p class="small"><?= $view === 'past' ? 'No previous events.' : 'No upcoming events.' ?></p>
 <?php else: ?>
   <div class="grid">
     <?php foreach ($events as $e): ?>
