@@ -450,6 +450,7 @@ class EventUIManager {
                 document.getElementById("adminRsvpStep1").style.display = "block";
                 document.getElementById("adminRsvpStep2").style.display = "none";
                 document.getElementById("adminFamilySearch").value = "";
+                document.getElementById("adminFamilySearchResults").style.display = "none";
             }
         });
     }
@@ -461,6 +462,166 @@ class EventUIManager {
                 modal.classList.add("hidden");
                 modal.setAttribute("aria-hidden", "true");
             }
+        });
+    }
+
+    // Family search functionality for Manage RSVP modal
+    const familySearchInput = document.getElementById("adminFamilySearch");
+    const familySearchResults = document.getElementById("adminFamilySearchResults");
+    const rsvpBackBtn = document.getElementById("adminRsvpBackBtn");
+
+    if (familySearchInput && familySearchResults) {
+        let searchTimeout = null;
+
+        familySearchInput.addEventListener("input", function() {
+            const query = this.value.trim();
+            
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+
+            if (query.length < 2) {
+                familySearchResults.style.display = "none";
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch("/admin_family_search.php?q=" + encodeURIComponent(query) + "&limit=20", {
+                    headers: { "Accept": "application/json" }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok && data.items) {
+                        displayFamilySearchResults(data.items);
+                    } else {
+                        familySearchResults.innerHTML = "<div class=\\"search-result\\">No results found</div>";
+                        familySearchResults.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    console.error("Family search error:", error);
+                    familySearchResults.innerHTML = "<div class=\\"search-result\\">Search failed</div>";
+                    familySearchResults.style.display = "block";
+                });
+            }, 300);
+        });
+
+        function displayFamilySearchResults(items) {
+            if (items.length === 0) {
+                familySearchResults.innerHTML = "<div class=\\"search-result\\">No results found</div>";
+            } else {
+                let html = "";
+                items.forEach(item => {
+                    html += `<div class="search-result" data-person-type="${item.type}" data-person-id="${item.id}" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">${item.label}</div>`;
+                });
+                familySearchResults.innerHTML = html;
+
+                // Add click handlers to results
+                familySearchResults.querySelectorAll(".search-result").forEach(result => {
+                    result.addEventListener("click", function() {
+                        const personType = this.getAttribute("data-person-type");
+                        const personId = this.getAttribute("data-person-id");
+                        if (personType && personId) {
+                            loadFamilyRsvpData(personType, personId);
+                        }
+                    });
+                });
+            }
+            familySearchResults.style.display = "block";
+        }
+
+        function loadFamilyRsvpData(personType, personId) {
+            // Hide search results and show loading
+            familySearchResults.style.display = "none";
+            
+            fetch(`/admin_rsvp_edit.php?ajax=1&event_id=' . $eventId . '&person_type=${personType}&person_id=${personId}`, {
+                headers: { "Accept": "application/json" }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.ok) {
+                    populateRsvpForm(data);
+                    // Switch to step 2
+                    document.getElementById("adminRsvpStep1").style.display = "none";
+                    document.getElementById("adminRsvpStep2").style.display = "block";
+                } else {
+                    alert("Error loading family data: " + (data.error || "Unknown error"));
+                }
+            })
+            .catch(error => {
+                console.error("Error loading family RSVP data:", error);
+                alert("Error loading family data");
+            });
+        }
+
+        function populateRsvpForm(data) {
+            // Set context adult ID
+            document.getElementById("adminContextAdultId").value = data.context_adult_id || "";
+            
+            // Set selected person name (use first adult or first youth)
+            let selectedName = "Unknown";
+            if (data.family_adults && data.family_adults.length > 0) {
+                const adult = data.family_adults[0];
+                selectedName = `${adult.first_name || ""} ${adult.last_name || ""}`.trim();
+            } else if (data.family_youth && data.family_youth.length > 0) {
+                const youth = data.family_youth[0];
+                selectedName = `${youth.first_name || ""} ${youth.last_name || ""}`.trim();
+            }
+            document.getElementById("adminSelectedPersonName").textContent = selectedName;
+
+            // Set answer radio buttons
+            const answerRadios = document.querySelectorAll("input[name=\\"answer_radio\\"]");
+            answerRadios.forEach(radio => {
+                radio.checked = radio.value === (data.answer || "yes");
+            });
+            document.getElementById("adminRsvpAnswerInput").value = data.answer || "yes";
+
+            // Populate adults list
+            const adultsList = document.getElementById("adminAdultsList");
+            if (adultsList && data.family_adults) {
+                let adultsHtml = "";
+                data.family_adults.forEach(adult => {
+                    const checked = data.selected_adults && data.selected_adults.includes(adult.id) ? "checked" : "";
+                    const name = `${adult.first_name || ""} ${adult.last_name || ""}`.trim();
+                    adultsHtml += `<label class="inline"><input type="checkbox" name="adults[]" value="${adult.id}" ${checked}> ${name}</label>`;
+                });
+                adultsList.innerHTML = adultsHtml;
+            }
+
+            // Populate youth list
+            const youthList = document.getElementById("adminYouthList");
+            if (youthList && data.family_youth) {
+                let youthHtml = "";
+                data.family_youth.forEach(youth => {
+                    const checked = data.selected_youth && data.selected_youth.includes(youth.id) ? "checked" : "";
+                    const name = `${youth.first_name || ""} ${youth.last_name || ""}`.trim();
+                    youthHtml += `<label class="inline"><input type="checkbox" name="youth[]" value="${youth.id}" ${checked}> ${name}</label>`;
+                });
+                youthList.innerHTML = youthHtml;
+            }
+
+            // Set other fields
+            document.getElementById("adminNGuests").value = data.n_guests || 0;
+            document.getElementById("adminComments").value = data.comments || "";
+
+            // Update answer input when radio buttons change
+            answerRadios.forEach(radio => {
+                radio.addEventListener("change", function() {
+                    if (this.checked) {
+                        document.getElementById("adminRsvpAnswerInput").value = this.value;
+                    }
+                });
+            });
+        }
+    }
+
+    if (rsvpBackBtn) {
+        rsvpBackBtn.addEventListener("click", function() {
+            // Switch back to step 1
+            document.getElementById("adminRsvpStep1").style.display = "block";
+            document.getElementById("adminRsvpStep2").style.display = "none";
+            document.getElementById("adminFamilySearch").value = "";
+            document.getElementById("adminFamilySearchResults").style.display = "none";
         });
     }
 
