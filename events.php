@@ -43,11 +43,12 @@ function truncatePlain(string $text, int $limit = 200): string {
 
 header_html('Upcoming Events');
 ?>
-<h2>Upcoming Events</h2>
-
-<?php if ($isAdmin): ?>
-  <p><a class="button" href="/admin_events.php?show=add">Add Event</a></p>
-<?php endif; ?>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;">Upcoming Events</h2>
+  <?php if ($isAdmin): ?>
+    <a class="button" href="/admin_event_edit.php">Add Event</a>
+  <?php endif; ?>
+</div>
 
 <?php if (empty($events)): ?>
   <p class="small">No upcoming events.</p>
