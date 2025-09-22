@@ -75,5 +75,10 @@ To make it easier to transition from year to year, instead of storing "grade" fo
 ## Naming
 It is very important to me that functions and methods be named well.  The name of a method should express its intent.  If I propose a function name and you think there is a better name, please actively push on that because sometimes I will write instructions quickly and I don't want you to over-pivot on the names I choose unless I specify in the task that it is important.
 
+## Modal Dialog Implementation Pattern
+When implementing modal dialogs that require server-side data or processing, follow this separation of concerns pattern: (1) **Modal UI**: Include modal HTML and JavaScript in the main page via UI manager classes (e.g., EventUIManager) so users get consistent modal experiences across all relevant pages. (2) **AJAX Endpoints**: Create dedicated PHP endpoints specifically for modal functionality (e.g., `admin_event_emails.php`, `event_attendees_export.php`) that return JSON responses. These endpoints should contain only the server-side logic needed by the modal, not full page rendering. (3) **JavaScript Integration**: Modal JavaScript should make AJAX calls to these dedicated endpoints rather than posting back to the current page. This keeps modal logic separate from page-specific logic, allows modals to work consistently across multiple pages, and makes the codebase more maintainable. The modal JavaScript handles success/error responses, updates modal content, and provides user feedback. Direct page links (like "Edit Event" or "Manage Volunteers") should still link directly to their respective pages without modals.
+
 ## Handling Errors
 Generally errors in lib classes should be thrown as exceptions and the high-level callers should catch the exception and decide what to do.  Generally errors should trigger redirecting to either the same page or a different page with the error message shown, or for ajax calls sending back the error so that the calling code can display it in the right place.
+
+Also - errors should not be swallowed!!! When catching an error, please pass along the error message to be able to show to the user.

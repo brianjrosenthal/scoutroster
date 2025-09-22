@@ -5,7 +5,9 @@ require_admin();
 require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/EventUIManager.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
+require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/settings.php';
 
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
@@ -184,8 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $icsDownloadLink = $baseUrl . '/event_ics.php?event_id='.(int)$eventId . ($organizer !== '' ? ('&organizer='.rawurlencode($organizer)) : '');
 
     // Email HTML template
-    $whenText = Settings::formatDateTime((string)$event['starts_at'])
-      . (!empty($event['ends_at']) ? (' – ' . Settings::formatDateTime((string)$event['ends_at'])) : '');
+    $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
     $locName = trim((string)($event['location'] ?? ''));
     $locAddr = trim((string)($event['location_address'] ?? ''));
     $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
@@ -223,8 +224,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
       ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
-    </div>
-    <div style="text-align:center;margin:0 0 12px;">
+    </div>'
+    . ($desc !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+      <div><strong>Description:</strong></div>
+      <div>'. Text::renderMarkup($desc) .'</div>
+    </div>') : '')
+    . '<div style="text-align:center;margin:0 0 12px;">
       <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>
       <a href="'. $safeOutlook .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Outlook</a>
       <a href="'. $safeIcs .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Download .ics</a>
@@ -249,9 +254,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
   }
 }
 
+$me = current_user();
+$isAdmin = !empty($me['is_admin']);
+
 header_html('Send Event Invitations');
 ?>
-<h2>Send Invitations - <?= h($event['name']) ?></h2>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;">Send Invitations: <?= h($event['name']) ?></h2>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
+    <?= EventUIManager::renderAdminMenu((int)$eventId, 'invite') ?>
+  </div>
+</div>
 
 <div class="card">
   <p class="small" style="margin-top:0;">Compose and send personalized RSVP invitations for this event. Each email includes a one-click RSVP link and an attached calendar invite (.ics).</p>
@@ -302,7 +317,7 @@ header_html('Send Event Invitations');
           <input type="text" id="userTypeahead" placeholder="Type name or email" autocomplete="off" value="<?= h($prefill) ?>">
           <input type="hidden" id="userId" name="adult_id" value="<?= (int)$adultSel ?>">
           <div id="userTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
-          <button class="button small" type="button" id="clearUserBtn">Clear</button>
+          <button class="button" type="button" id="clearUserBtn">Clear</button>
         </div>
         <span class="small">(Only used when selecting "One adult")</span>
       </div>
@@ -342,8 +357,14 @@ header_html('Send Event Invitations');
 
 <div class="card">
   <h3>Event Details</h3>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTime((string)$event['starts_at'])) ?><?php if(!empty($event['ends_at'])): ?> – <?= h(Settings::formatDateTime((string)$event['ends_at'])) ?><?php endif; ?></p>
+  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></p>
   <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?= h((string)$event['location']) ?></p><?php endif; ?>
+  <?php if (!empty($event['description'])): ?><p><strong>Description:</strong> <?= Text::renderMarkup(trim((string)$event['description'])) ?></p><?php endif; ?>
 </div>
+
+<?php if ($isAdmin): ?>
+  <?= EventUIManager::renderAdminModals((int)$eventId) ?>
+  <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
+<?php endif; ?>
 
 <?php footer_html(); ?>

@@ -103,3 +103,6 @@ header nav .nav-right{margin-left:auto}
 .admin-bar{background:#222;color:#fff;padding:6px 16px;display:flex;align-items:center;gap:12px;justify-content:flex-end;flex-wrap:wrap}
 .admin-bar a{color:#fff;text-decoration:none}
 .hidden{display:none}
+
+/* Email token authentication status */
+.email-auth-status{color:#ccc;font-size:12px;font-style:italic}

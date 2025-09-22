@@ -41,9 +41,9 @@ class Settings {
   public static function formatDateTime(?string $sqlDateTime): string {
     if (!$sqlDateTime) return '';
     try {
-      $dt = new DateTime($sqlDateTime); // treat as server default tz
       $tz = new DateTimeZone(self::timezoneId());
-      $dt->setTimezone($tz);
+      // Interpret stored datetime in the configured timezone for consistent display
+      $dt = new DateTime($sqlDateTime, $tz);
       return $dt->format('Y-m-d H:i T');
     } catch (Throwable $e) {
       return $sqlDateTime;
@@ -99,5 +99,38 @@ class Settings {
   // Site title helper (falls back to APP_NAME)
   public static function siteTitle(): string {
     return self::get('site_title', defined('APP_NAME') ? APP_NAME : 'Cub Scouts');
+  }
+
+  // Formats a start/end into "YYYY-MM-DD h:mm AM/PM – h:mm AM/PM" when same day,
+  // or "YYYY-MM-DD h:mm AM/PM – YYYY-MM-DD h:mm AM/PM" when different days.
+  // Uses the configured timezone, without repeating the timezone abbreviation.
+  public static function formatDateTimeRange(?string $startSql, ?string $endSql = null): string {
+    if (!$startSql) return '';
+    try {
+      $tz = new DateTimeZone(self::timezoneId());
+
+      $s = new DateTime($startSql, $tz);
+
+      $fmtTime = function (DateTime $dt): string {
+        return $dt->format('g:i A'); // 12-hour with minutes, uppercase AM/PM
+      };
+
+      $dateStr = $s->format('Y-m-d');
+
+      if ($endSql) {
+        $e = new DateTime($endSql, $tz);
+
+        $sameDay = $s->format('Y-m-d') === $e->format('Y-m-d');
+        if ($sameDay) {
+          return sprintf('%s %s – %s', $dateStr, $fmtTime($s), $fmtTime($e));
+        } else {
+          return sprintf('%s %s – %s %s', $dateStr, $fmtTime($s), $e->format('Y-m-d'), $fmtTime($e));
+        }
+      }
+
+      return sprintf('%s %s', $dateStr, $fmtTime($s));
+    } catch (Throwable $e) {
+      return (string)$startSql;
+    }
   }
 }

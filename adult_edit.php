@@ -99,6 +99,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'invi
   }
 }
 
+/** Handle POST (update dietary preferences via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'update_dietary_preferences')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    // Check permissions: admin or self
+    if (!$canEditAll && ((int)($me['id'] ?? 0) !== (int)$id)) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
+    }
+    
+    $fields = [
+      'dietary_vegetarian' => !empty($_POST['dietary_vegetarian']) ? 1 : 0,
+      'dietary_vegan' => !empty($_POST['dietary_vegan']) ? 1 : 0,
+      'dietary_lactose_free' => !empty($_POST['dietary_lactose_free']) ? 1 : 0,
+      'dietary_no_pork_shellfish' => !empty($_POST['dietary_no_pork_shellfish']) ? 1 : 0,
+      'dietary_nut_allergy' => !empty($_POST['dietary_nut_allergy']) ? 1 : 0,
+      'dietary_other' => trim($_POST['dietary_other'] ?? '') ?: null,
+    ];
+    
+    $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, $fields, false);
+    if ($ok) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to update dietary preferences.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed']); exit;
+  }
+}
+
 /** Handle POST (mark medical forms expiration via modal) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark_medical_forms_expiration')) {
   require_csrf();
@@ -476,6 +505,26 @@ header_html('Edit Adult');
       </label>
     </div>
 
+    <h3>Dietary Preferences</h3>
+    <?php
+      // Build dietary preferences display
+      $dietaryPrefs = [];
+      if (!empty($u['dietary_vegetarian'])) $dietaryPrefs[] = 'Vegetarian';
+      if (!empty($u['dietary_vegan'])) $dietaryPrefs[] = 'Vegan';
+      if (!empty($u['dietary_lactose_free'])) $dietaryPrefs[] = 'Lactose-Free';
+      if (!empty($u['dietary_no_pork_shellfish'])) $dietaryPrefs[] = 'No pork or shellfish';
+      if (!empty($u['dietary_nut_allergy'])) $dietaryPrefs[] = 'Nut allergy';
+      if (!empty($u['dietary_other'])) $dietaryPrefs[] = trim($u['dietary_other']);
+      
+      $dietaryDisplay = empty($dietaryPrefs) ? 'None' : implode(', ', $dietaryPrefs);
+      $canEditDietary = $canEditAll || ((int)($me['id'] ?? 0) === (int)$id);
+    ?>
+    <p><strong>Dietary Preferences:</strong> <?= h($dietaryDisplay) ?>
+      <?php if ($canEditDietary): ?>
+        <a href="#" id="editDietaryPrefsLink" class="small" style="margin-left:6px;">edit</a>
+      <?php endif; ?>
+    </p>
+
     <div class="actions">
       <?php if ($canEditAll): ?>
         <button class="primary" type="submit">Save</button>
@@ -767,6 +816,56 @@ header_html('Edit Adult');
 </script>
 <?php endif; ?>
 
+<!-- Dietary Preferences Modal -->
+<?php $canEditDietaryModal = $canEditAll || ((int)($me['id'] ?? 0) === (int)$id); ?>
+<?php if ($canEditDietaryModal): ?>
+<div id="dietaryPrefsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="dietaryPrefsModalClose" aria-label="Close">&times;</button>
+    <h3>Edit Dietary Preferences</h3>
+    <div id="dietaryPrefsErr" class="error small" style="display:none;"></div>
+    <form id="dietaryPrefsForm" class="stack" method="post">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="update_dietary_preferences">
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_vegetarian" value="1" <?= !empty($u['dietary_vegetarian']) ? 'checked' : '' ?>>
+        Vegetarian
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_vegan" value="1" <?= !empty($u['dietary_vegan']) ? 'checked' : '' ?>>
+        Vegan
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_lactose_free" value="1" <?= !empty($u['dietary_lactose_free']) ? 'checked' : '' ?>>
+        Lactose-Free
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_no_pork_shellfish" value="1" <?= !empty($u['dietary_no_pork_shellfish']) ? 'checked' : '' ?>>
+        No pork or shellfish
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_nut_allergy" value="1" <?= !empty($u['dietary_nut_allergy']) ? 'checked' : '' ?>>
+        Nut allergy
+      </label>
+      
+      <label>Other:
+        <input type="text" name="dietary_other" value="<?= h($u['dietary_other'] ?? '') ?>" placeholder="Describe other dietary needs">
+      </label>
+      
+      <div class="actions">
+        <button class="button primary" type="submit">Save Dietary Preferences</button>
+        <button class="button" type="button" id="dietaryPrefsCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function(){
   // Add double-click protection to invite form
@@ -781,6 +880,49 @@ header_html('Edit Adult');
       }
       inviteBtn.disabled = true;
       inviteBtn.textContent = 'Sending invitation...';
+    });
+  }
+
+  // Dietary Preferences Modal
+  var dietaryModal = document.getElementById('dietaryPrefsModal');
+  var dietaryCloseBtn = document.getElementById('dietaryPrefsModalClose');
+  var dietaryCancelBtn = document.getElementById('dietaryPrefsCancel');
+  var dietaryForm = document.getElementById('dietaryPrefsForm');
+  var dietaryErr = document.getElementById('dietaryPrefsErr');
+  var dietaryEditLink = document.getElementById('editDietaryPrefsLink');
+
+  function showDietaryErr(msg){ if(dietaryErr){ dietaryErr.style.display=''; dietaryErr.textContent = msg || 'Operation failed.'; } }
+  function clearDietaryErr(){ if(dietaryErr){ dietaryErr.style.display='none'; dietaryErr.textContent=''; } }
+  function openDietaryModal(){ if(dietaryModal){ dietaryModal.classList.remove('hidden'); dietaryModal.setAttribute('aria-hidden','false'); clearDietaryErr(); } }
+  function closeDietaryModal(){ if(dietaryModal){ dietaryModal.classList.add('hidden'); dietaryModal.setAttribute('aria-hidden','true'); } }
+
+  if (dietaryEditLink) {
+    dietaryEditLink.addEventListener('click', function(e){
+      e.preventDefault();
+      openDietaryModal();
+    });
+  }
+
+  if (dietaryCloseBtn) dietaryCloseBtn.addEventListener('click', function(){ closeDietaryModal(); });
+  if (dietaryCancelBtn) dietaryCancelBtn.addEventListener('click', function(){ closeDietaryModal(); });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDietaryModal(); });
+  if (dietaryModal) dietaryModal.addEventListener('click', function(e){ if (e.target === dietaryModal) closeDietaryModal(); });
+
+  if (dietaryForm) {
+    dietaryForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearDietaryErr();
+      var fd = new FormData(dietaryForm);
+      fetch(window.location.href, { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json().catch(function(){ throw new Error('Invalid server response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            window.location.reload();
+          } else {
+            showDietaryErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showDietaryErr('Network error.'); });
     });
   }
 })();

@@ -3,12 +3,15 @@ require_once __DIR__ . '/partials.php';
 require_admin();
 require_once __DIR__ . '/lib/Volunteers.php';
 require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/lib/EventUIManager.php';
+require_once __DIR__ . '/lib/Text.php';
+require_once __DIR__ . '/settings.php';
 
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
 // Load event (for title / validation)
-$event = EventManagement::findBasicById($eventId);
+$event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 $msg = null;
@@ -62,9 +65,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // GET: show a tiny management page (useful if not using modal)
 $roles = Volunteers::rolesWithCounts($eventId);
 
+$me = current_user();
+$isAdmin = !empty($me['is_admin']);
+
 header_html('Manage Volunteer Roles');
 ?>
-<h2>Manage Volunteers &mdash; <?= h($event['name']) ?></h2>
+
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;">Manage Volunteers: <?= h($event['name']) ?></h2>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
+    <?= EventUIManager::renderAdminMenu((int)$eventId, 'volunteers') ?>
+  </div>
+</div>
+
 <?php if ($msg): ?><p class="flash"><?= h($msg) ?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?= h($err) ?></p><?php endif; ?>
 
@@ -130,5 +144,11 @@ function addRoleRow(){
   c.appendChild(row);
 }
 </script>
+
+
+<?php if ($isAdmin): ?>
+  <?= EventUIManager::renderAdminModals((int)$eventId) ?>
+  <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
+<?php endif; ?>
 
 <?php footer_html(); ?>

@@ -23,6 +23,11 @@ function header_html(string $title) {
     return $active ? '<strong>'.$a.'</strong>' : $a;
   };
 
+  // Check for email token authentication context (set by event_invite.php)
+  global $emailTokenAuth, $emailTokenUserName;
+  $isEmailTokenAuth = !empty($emailTokenAuth);
+  $tokenUserName = $emailTokenUserName ?? '';
+
   // Build nav (left/right groups). Remove Change Password. Move My Profile to the far right next to Logout.
   $navLeft = [];
   $navRight = [];
@@ -52,6 +57,10 @@ function header_html(string $title) {
     
   } else {
     $navLeft[] = $link('/login.php','Login');
+    // Show email token authentication status if present
+    if ($isEmailTokenAuth && $tokenUserName !== '') {
+      $navRight[] = '<span class="email-auth-status">Authenticated via email as '.h($tokenUserName).'</span>';
+    }
   }
   $navHtml = '<span class="nav-left">'.implode(' ', $navLeft).'</span>'
            . '<span class="nav-right">'.implode(' ', $navRight).'</span>';

@@ -364,7 +364,9 @@ class YouthManagement {
     // Common fields parents can update
     $allowedCommon = [
       'first_name','last_name','suffix','preferred_name','gender','birthdate','school','shirt_size',
-      'street1','street2','city','state','zip','sibling'
+      'street1','street2','city','state','zip','sibling',
+      'dietary_vegetarian','dietary_vegan','dietary_lactose_free','dietary_no_pork_shellfish',
+      'dietary_nut_allergy','dietary_gluten_free','dietary_other'
     ];
     // Admin-only fields
     $allowedAdmin = ['bsa_registration_number','grade','grade_label'];

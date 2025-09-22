@@ -401,7 +401,8 @@ class UserManagement {
       'suppress_email_directory','suppress_phone_directory',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
       'medical_forms_expiration_date','medical_form_in_person_opt_in',
-      'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone'
+      'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone',
+      'dietary_vegetarian','dietary_vegan','dietary_lactose_free','dietary_no_pork_shellfish','dietary_nut_allergy','dietary_gluten_free','dietary_other'
     ];
     if ($allowAdminFlag && $ctx->admin && array_key_exists('is_admin', $fields)) {
       $allowed[] = 'is_admin';
@@ -422,7 +423,9 @@ class UserManagement {
       } elseif ($key === 'is_admin') {
         $set[] = 'is_admin = ?';
         $params[] = self::boolInt($fields['is_admin']);
-      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory' || $key === 'medical_form_in_person_opt_in') {
+      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory' || $key === 'medical_form_in_person_opt_in' || 
+                $key === 'dietary_vegetarian' || $key === 'dietary_vegan' || $key === 'dietary_lactose_free' || 
+                $key === 'dietary_no_pork_shellfish' || $key === 'dietary_nut_allergy') {
         $set[] = "$key = ?";
         $params[] = self::boolInt($fields[$key] ?? 0);
       } else {

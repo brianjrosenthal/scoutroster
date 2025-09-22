@@ -44,10 +44,20 @@ $validationError = validate_invite($uid, $eventId, $sig);
 if ($validationError) {
   header_html('Event Invite');
   echo '<h2>Event Invite</h2>';
-  echo '<div class="card"><p class="error">'.h($validationError).'</p></div>';
-  echo '<div class="card"><a class="button" href="/events.php">View Events</a></div>';
+  echo '<div class="card"><p class="error">You have clicked on a link to view an event, but the link is invalid. Click on the button to log in, or if you do not yet have an account but are a member of Pack 440, go through the "Forgot Password" flow to set up your account.</p></div>';
+  echo '<div class="card"><a class="button" href="/login.php">Log In</a> <a class="button" href="/forgot_password.php">Forgot Password</a></div>';
   footer_html();
   exit;
+}
+
+// Check for user mismatch and auto-logout if needed
+$currentUser = current_user();
+$userMismatchLogout = false;
+if ($currentUser && (int)$currentUser['id'] !== (int)$uid) {
+  // Log out the current user since they're accessing someone else's invite
+  session_destroy();
+  $userMismatchLogout = true;
+  // Continue processing as logged-out user with token auth
 }
 
 /* Load event */
@@ -63,15 +73,20 @@ if (!$event) {
 
 $eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));
 
-// Disallow after event starts
+ // Disallow after event ends (token invalid after event)
 try {
   $tz = new DateTimeZone(Settings::timezoneId());
-  $startsAt = new DateTime($event['starts_at'], $tz);
+  if (!empty($event['ends_at'])) {
+    $endRef = new DateTime($event['ends_at'], $tz);
+  } else {
+    $endRef = new DateTime($event['starts_at'], $tz);
+    $endRef->modify('+1 hour');
+  }
   $nowTz = new DateTime('now', $tz);
-  if ($nowTz >= $startsAt) {
+  if ($nowTz >= $endRef) {
     header_html('Event Invite');
     echo '<h2>'.h($event['name']).'</h2>';
-    echo '<div class="card"><p class="error">This event has already started.</p></div>';
+    echo '<div class="card"><p class="error">This event has ended.</p></div>';
     echo '<div class="card"><a class="button" href="/event.php?id='.(int)$eventId.'">View Event</a></div>';
     footer_html();
     exit;
@@ -90,6 +105,11 @@ if (!$invitee) {
   footer_html();
   exit;
 }
+
+// Set global variables for email token authentication display in header
+global $emailTokenAuth, $emailTokenUserName;
+$emailTokenAuth = true;
+$emailTokenUserName = trim(($invitee['first_name'] ?? '') . ' ' . ($invitee['last_name'] ?? ''));
 
 // Build selectable participants for the invitee
 
@@ -225,6 +245,12 @@ $showVolunteerModal = ($saved && $lastAnswerYes && $openVolunteerRoles);
 header_html('Event Invite');
 ?>
 <h2>RSVP: <?= h($event['name']) ?></h2>
+
+<?php if ($userMismatchLogout): ?>
+  <div class="card">
+    <p class="flash">You were logged in as a different user. You have been logged out to view this personalized event invitation.</p>
+  </div>
+<?php endif; ?>
 
 <?php if ($saved): ?>
   <div class="card">
@@ -429,7 +455,7 @@ header_html('Event Invite');
   ?>
     <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
-  <p><strong>When:</strong> <?=h(Settings::formatDateTime($event['starts_at']))?><?php if(!empty($event['ends_at'])): ?> &ndash; <?=h(Settings::formatDateTime($event['ends_at']))?><?php endif; ?></p>
+  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange($event['starts_at'], !empty($event['ends_at']) ? $event['ends_at'] : null)) ?></p>
   <?php
     $locName = trim((string)($event['location'] ?? ''));
     $locAddr = trim((string)($event['location_address'] ?? ''));
@@ -540,6 +566,15 @@ header_html('Event Invite');
             $amIn = false;
             foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$uid) { $amIn = true; break; } }
           ?>
+          <?php if (!empty($r['volunteers'])): ?>
+            <ul style="margin:6px 0 0 16px;">
+              <?php foreach ($r['volunteers'] as $v): ?>
+                <li><?= h($v['name']) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php else: ?>
+            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
+          <?php endif; ?>
           <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
             <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
             <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">

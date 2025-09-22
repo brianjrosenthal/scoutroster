@@ -1,6 +1,8 @@
 <?php
 require_once __DIR__ . '/partials.php';
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/EventManagement.php';
+require_once __DIR__ . '/settings.php';
 
 // Accept POST only
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -67,6 +69,31 @@ if ($inviteUid > 0 && $inviteSig !== '') {
     }
     $actingUserId = (int)$me['id'];
   } else {
+    // Check token expiration against event end time (or +1h from start if no end)
+    $ev = EventManagement::findById((int)$eventId);
+    if (!$ev) {
+      $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('Event not found.');
+      header('Location: '.$redirectUrl);
+      exit;
+    }
+    try {
+      $tz = new DateTimeZone(Settings::timezoneId());
+      if (!empty($ev['ends_at'])) {
+        $endRef = new DateTime($ev['ends_at'], $tz);
+      } else {
+        $endRef = new DateTime($ev['starts_at'], $tz);
+        $endRef->modify('+1 hour');
+      }
+      $nowTz = new DateTime('now', $tz);
+      if ($nowTz >= $endRef) {
+        $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
+        header('Location: '.$redirectUrl);
+        exit;
+      }
+    } catch (Throwable $e) {
+      // If parsing fails, proceed
+    }
+
     $actingUserId = (int)$inviteUid;
     $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig);
   }

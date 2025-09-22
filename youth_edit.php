@@ -119,6 +119,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
   }
 }
 
+/** Handle POST (update dietary preferences via modal) */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'update_dietary')) {
+  require_csrf();
+  header('Content-Type: application/json');
+  try {
+    // Check permissions - admin or parent of this youth
+    $canEdit = $isAdmin || $isParentOfThis;
+    if (!$canEdit) {
+      echo json_encode(['ok' => false, 'error' => 'Not authorized']); exit;
+    }
+    
+    $ctx = UserContext::getLoggedInUserContext();
+    $fields = [
+      'dietary_vegetarian' => !empty($_POST['dietary_vegetarian']) ? 1 : 0,
+      'dietary_vegan' => !empty($_POST['dietary_vegan']) ? 1 : 0,
+      'dietary_lactose_free' => !empty($_POST['dietary_lactose_free']) ? 1 : 0,
+      'dietary_no_pork_shellfish' => !empty($_POST['dietary_no_pork_shellfish']) ? 1 : 0,
+      'dietary_nut_allergy' => !empty($_POST['dietary_nut_allergy']) ? 1 : 0,
+      'dietary_gluten_free' => !empty($_POST['dietary_gluten_free']) ? 1 : 0,
+      'dietary_other' => trim($_POST['dietary_other'] ?? '') ?: null,
+    ];
+    
+    $ok = YouthManagement::update($ctx, $id, $fields);
+    if ($ok) {
+      echo json_encode(['ok' => true]); exit;
+    }
+    echo json_encode(['ok' => false, 'error' => 'Unable to update dietary preferences.']); exit;
+  } catch (Throwable $e) {
+    echo json_encode(['ok' => false, 'error' => 'Operation failed: ' . $e->getMessage()]); exit;
+  }
+}
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
@@ -481,6 +513,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <a class="button" href="/youth.php">Cancel</a>
     </div>
   </form>
+</div>
+
+<div class="card">
+  <h3>Dietary Preferences</h3>
+  <?php
+    $dietaryPrefs = [];
+    if (!empty($y['dietary_vegetarian'])) $dietaryPrefs[] = 'Vegetarian';
+    if (!empty($y['dietary_vegan'])) $dietaryPrefs[] = 'Vegan';
+    if (!empty($y['dietary_lactose_free'])) $dietaryPrefs[] = 'Lactose-Free';
+    if (!empty($y['dietary_no_pork_shellfish'])) $dietaryPrefs[] = 'No pork or shellfish';
+    if (!empty($y['dietary_nut_allergy'])) $dietaryPrefs[] = 'Nut allergy';
+    if (!empty($y['dietary_gluten_free'])) $dietaryPrefs[] = 'Gluten Free';
+    if (!empty($y['dietary_other'])) $dietaryPrefs[] = trim($y['dietary_other']);
+    
+    $canEditDietary = $isAdmin || $isParentOfThis;
+  ?>
+  <p>
+    <strong>Dietary Preferences:</strong> 
+    <?= !empty($dietaryPrefs) ? h(implode(', ', $dietaryPrefs)) : 'None' ?>
+    <?php if ($canEditDietary): ?>
+      <a href="#" id="editDietaryBtn" class="small" style="margin-left: 8px;">edit</a>
+    <?php endif; ?>
+  </p>
 </div>
 
 <div class="card" style="margin-top:16px;">
@@ -966,6 +1021,114 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           }
           showErr('Network error.'); 
         });
+    });
+  }
+})();
+</script>
+<?php endif; ?>
+
+<!-- Dietary Preferences Modal -->
+<?php if ($canEditDietary): ?>
+<div id="dietaryModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:420px;">
+    <button class="close" type="button" id="dietaryModalClose" aria-label="Close">&times;</button>
+    <h3>Edit Dietary Preferences</h3>
+    <div id="dietaryErr" class="error small" style="display:none;"></div>
+    <form id="dietaryForm" class="stack" method="post" action="/youth_edit.php?id=<?= (int)$id ?>">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="update_dietary">
+      
+      <div class="stack">
+        <label class="inline">
+          <input type="checkbox" name="dietary_vegetarian" value="1" <?= !empty($y['dietary_vegetarian']) ? 'checked' : '' ?>>
+          Vegetarian
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="dietary_vegan" value="1" <?= !empty($y['dietary_vegan']) ? 'checked' : '' ?>>
+          Vegan
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="dietary_lactose_free" value="1" <?= !empty($y['dietary_lactose_free']) ? 'checked' : '' ?>>
+          Lactose-Free
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="dietary_no_pork_shellfish" value="1" <?= !empty($y['dietary_no_pork_shellfish']) ? 'checked' : '' ?>>
+          No pork or shellfish
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="dietary_nut_allergy" value="1" <?= !empty($y['dietary_nut_allergy']) ? 'checked' : '' ?>>
+          Nut allergy
+        </label>
+        <label class="inline">
+          <input type="checkbox" name="dietary_gluten_free" value="1" <?= !empty($y['dietary_gluten_free']) ? 'checked' : '' ?>>
+          Gluten Free
+        </label>
+        <label>Other dietary needs:
+          <input type="text" name="dietary_other" value="<?= h($y['dietary_other'] ?? '') ?>" placeholder="Please specify">
+        </label>
+      </div>
+      
+      <div class="actions">
+        <button class="button primary" type="submit">Save</button>
+        <button class="button" type="button" id="dietaryCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function(){
+  var editBtn = document.getElementById('editDietaryBtn');
+  var modal = document.getElementById('dietaryModal');
+  var closeBtn = document.getElementById('dietaryModalClose');
+  var cancelBtn = document.getElementById('dietaryCancel');
+  var form = document.getElementById('dietaryForm');
+  var err = document.getElementById('dietaryErr');
+
+  function showErr(msg){ if(err){ err.style.display=''; err.textContent = msg || 'Operation failed.'; } }
+  function clearErr(){ if(err){ err.style.display='none'; err.textContent=''; } }
+  function open(){ if(modal){ modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); clearErr(); } }
+  function close(){ if(modal){ modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } }
+
+  if (editBtn) editBtn.addEventListener('click', function(e){ e.preventDefault(); open(); });
+  if (closeBtn) closeBtn.addEventListener('click', function(){ close(); });
+  if (cancelBtn) cancelBtn.addEventListener('click', function(){ close(); });
+  if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) close(); });
+
+  if (form) {
+    form.addEventListener('submit', function(e){
+      e.preventDefault();
+      clearErr();
+      
+      var fd = new FormData(form);
+      // Convert form data to update format for YouthManagement
+      var updateData = {};
+      updateData.dietary_vegetarian = fd.has('dietary_vegetarian') ? 1 : 0;
+      updateData.dietary_vegan = fd.has('dietary_vegan') ? 1 : 0;
+      updateData.dietary_lactose_free = fd.has('dietary_lactose_free') ? 1 : 0;
+      updateData.dietary_no_pork_shellfish = fd.has('dietary_no_pork_shellfish') ? 1 : 0;
+      updateData.dietary_nut_allergy = fd.has('dietary_nut_allergy') ? 1 : 0;
+      updateData.dietary_gluten_free = fd.has('dietary_gluten_free') ? 1 : 0;
+      updateData.dietary_other = fd.get('dietary_other') || '';
+      
+      // Create new FormData with proper format
+      var submitData = new FormData();
+      submitData.set('csrf', fd.get('csrf'));
+      submitData.set('action', 'update_dietary');
+      for (var key in updateData) {
+        submitData.set(key, updateData[key]);
+      }
+      
+      fetch('/youth_edit.php?id=<?= (int)$id ?>', { method:'POST', body: submitData, credentials:'same-origin' })
+        .then(function(res){ return res.json().catch(function(){ throw new Error('Invalid server response'); }); })
+        .then(function(json){
+          if (json && json.ok) {
+            window.location.reload();
+          } else {
+            showErr((json && json.error) ? json.error : 'Operation failed.');
+          }
+        })
+        .catch(function(){ showErr('Network error.'); });
     });
   }
 })();
