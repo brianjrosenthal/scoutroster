@@ -333,7 +333,7 @@ header_html('Send Event Invitations');
 
 
     <div class="actions">
-      <button class="primary">Send Invitations</button>
+      <button class="primary" id="sendInvitationsBtn">Send Invitations</button>
       <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
       <a class="button" href="/admin_events.php">Manage Events</a>
     </div>
@@ -366,5 +366,71 @@ header_html('Send Event Invitations');
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
   <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
 <?php endif; ?>
+
+<script>
+(function() {
+    const form = document.querySelector('form[method="post"]');
+    const sendBtn = document.getElementById('sendInvitationsBtn');
+    let isSubmitting = false;
+    
+    if (form && sendBtn) {
+        // Add form submit handler
+        form.addEventListener('submit', function(e) {
+            // If already submitting, prevent the submission
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+            
+            // Mark as submitting
+            isSubmitting = true;
+            
+            // Update button appearance and text
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending Invitations...';
+            sendBtn.style.opacity = '0.6';
+            sendBtn.style.cursor = 'not-allowed';
+            
+            // Add a loading indicator (optional)
+            const loadingSpinner = document.createElement('span');
+            loadingSpinner.innerHTML = ' ⏳';
+            loadingSpinner.style.marginLeft = '4px';
+            sendBtn.appendChild(loadingSpinner);
+            
+            // Allow the form to submit normally
+            return true;
+        });
+        
+        // Add click handler as backup protection
+        sendBtn.addEventListener('click', function(e) {
+            if (isSubmitting) {
+                e.preventDefault();
+                return false;
+            }
+        });
+        
+        // Re-enable button if there's an error (page doesn't redirect)
+        // This handles cases where server-side validation fails
+        <?php if ($error): ?>
+        // If there's an error, reset the button state
+        setTimeout(function() {
+            if (sendBtn) {
+                isSubmitting = false;
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Send Invitations';
+                sendBtn.style.opacity = '1';
+                sendBtn.style.cursor = 'pointer';
+                
+                // Remove any loading spinner
+                const spinner = sendBtn.querySelector('span');
+                if (spinner) {
+                    spinner.remove();
+                }
+            }
+        }, 100);
+        <?php endif; ?>
+    }
+})();
+</script>
 
 <?php footer_html(); ?>
