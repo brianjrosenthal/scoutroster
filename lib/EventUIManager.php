@@ -67,7 +67,8 @@ class EventUIManager {
                 min-width: 180px;
                 margin-top: 4px;
             ">
-                <a href="/admin_event_edit.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'edit' ? ' background-color: #f5f5f5;' : '') . '">Edit Event</a>';
+                <a href="/admin_event_edit.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'edit' ? ' background-color: #f5f5f5;' : '') . '">Edit Event</a>
+                <a href="/admin_event_edit.php" style="display: block; padding: 8px 12px; text-decoration: none; color: #0b5ed7; border-bottom: 1px solid #ddd;">Create New Event</a>';
         
         if ($allowPublic) {
             $html .= '
