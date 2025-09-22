@@ -50,14 +50,12 @@ if ($validationError) {
   exit;
 }
 
-// Check for user mismatch and auto-logout if needed
+// Check for user mismatch and prioritize logged-in user
 $currentUser = current_user();
-$userMismatchLogout = false;
 if ($currentUser && (int)$currentUser['id'] !== (int)$uid) {
-  // Log out the current user since they're accessing someone else's invite
-  session_destroy();
-  $userMismatchLogout = true;
-  // Continue processing as logged-out user with token auth
+  // Prioritize the logged-in user over the email token
+  $uid = (int)$currentUser['id'];
+  // Continue processing as the logged-in user
 }
 
 /* Load event */
@@ -147,8 +145,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
     require_csrf();
 
-    // Re-validate HMAC and expiry
-    $validationError = validate_invite($uid, $eventId, $sig);
+    // Re-validate HMAC and expiry using original token values
+    $originalUid = isset($_POST['uid']) ? (int)$_POST['uid'] : $uid;
+    $validationError = validate_invite($originalUid, $eventId, $sig);
     if ($validationError) throw new RuntimeException($validationError);
 
     $adults = $_POST['adults'] ?? [];
@@ -264,11 +263,6 @@ header_html('Event Invite');
 ?>
 <h2>RSVP: <?= h($event['name']) ?></h2>
 
-<?php if ($userMismatchLogout): ?>
-  <div class="card">
-    <p class="flash">You were logged in as a different user. You have been logged out to view this personalized event invitation.</p>
-  </div>
-<?php endif; ?>
 
 <?php if ($saved): ?>
   <div class="card">
