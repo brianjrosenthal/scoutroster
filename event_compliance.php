@@ -57,6 +57,8 @@ function getEventComplianceData(int $eventId): array {
       u.first_name as adult_first_name,
       u.last_name as adult_last_name,
       u.email as adult_email,
+      u.phone_home as adult_phone_home,
+      u.phone_cell as adult_phone_cell,
       u.medical_forms_expiration_date as adult_medical_expiration,
       u.medical_form_in_person_opt_in as adult_medical_opt_in,
       -- Youth fields
@@ -117,6 +119,8 @@ function getEventComplianceData(int $eventId): array {
         'first_name' => $row['adult_first_name'],
         'last_name' => $row['adult_last_name'],
         'email' => $row['adult_email'],
+        'phone_home' => $row['adult_phone_home'],
+        'phone_cell' => $row['adult_phone_cell'],
         'needs_medical_form' => $needsMedicalForm,
         'needs_dues_renewal' => false, // Adults don't need dues renewal
       ];
@@ -170,11 +174,13 @@ function getEventComplianceData(int $eventId): array {
         }
       }
       
-      // Get parent email for youth (find first parent)
+      // Get parent email and phone for youth (find first parent)
       $parentEmail = '';
+      $parentPhoneHome = '';
+      $parentPhoneCell = '';
       try {
         $parentStmt = $pdo->prepare("
-          SELECT u.email 
+          SELECT u.email, u.phone_home, u.phone_cell
           FROM parent_relationships pr 
           JOIN users u ON u.id = pr.adult_id 
           WHERE pr.youth_id = ? AND u.email IS NOT NULL 
@@ -185,9 +191,11 @@ function getEventComplianceData(int $eventId): array {
         $parentRow = $parentStmt->fetch();
         if ($parentRow) {
           $parentEmail = $parentRow['email'];
+          $parentPhoneHome = $parentRow['phone_home'];
+          $parentPhoneCell = $parentRow['phone_cell'];
         }
       } catch (Throwable $e) {
-        // Ignore error, leave email empty
+        // Ignore error, leave email and phone empty
       }
       
       $complianceData[] = [
@@ -196,6 +204,8 @@ function getEventComplianceData(int $eventId): array {
         'first_name' => $row['youth_first_name'],
         'last_name' => $row['youth_last_name'],
         'email' => $parentEmail,
+        'phone_home' => $parentPhoneHome,
+        'phone_cell' => $parentPhoneCell,
         'needs_medical_form' => $needsMedicalForm,
         'needs_dues_renewal' => $needsDuesRenewal,
       ];
@@ -234,6 +244,7 @@ header_html('Event Compliance');
             <th style="padding: 12px; text-align: left; border-right: 1px solid #ddd;">Last Name</th>
             <th style="padding: 12px; text-align: left; border-right: 1px solid #ddd;">First Name</th>
             <th style="padding: 12px; text-align: left; border-right: 1px solid #ddd;">Email</th>
+            <th style="padding: 12px; text-align: left; border-right: 1px solid #ddd;">Phone</th>
             <th style="padding: 12px; text-align: center; border-right: 1px solid #ddd;">Needs Medical Form</th>
             <th style="padding: 12px; text-align: center;">Needs Dues Renewal</th>
           </tr>
@@ -261,6 +272,16 @@ header_html('Event Compliance');
                   <a href="mailto:<?= h($person['email']) ?>"><?= h($person['email']) ?></a>
                 <?php else: ?>
                   <span style="color: #999; font-style: italic;">No email</span>
+                <?php endif; ?>
+              </td>
+              <td style="padding: 8px; border-right: 1px solid #eee;">
+                <?php 
+                  $phones = array_filter([$person['phone_cell'] ?? '', $person['phone_home'] ?? '']);
+                  if (!empty($phones)): 
+                ?>
+                  <?= h(implode(', ', $phones)) ?>
+                <?php else: ?>
+                  <span style="color: #999; font-style: italic;">No phone</span>
                 <?php endif; ?>
               </td>
               <td style="padding: 8px; text-align: center; border-right: 1px solid #eee;">

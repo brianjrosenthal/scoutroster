@@ -210,6 +210,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = implode(' ', $errors);
       }
     }
+  } elseif ($action === 'update_dietary_preferences') {
+    // Update dietary preferences via AJAX
+    header('Content-Type: application/json');
+    try {
+      $ctx = UserContext::getLoggedInUserContext();
+      $fields = [
+        'dietary_vegetarian' => !empty($_POST['dietary_vegetarian']) ? 1 : 0,
+        'dietary_vegan' => !empty($_POST['dietary_vegan']) ? 1 : 0,
+        'dietary_lactose_free' => !empty($_POST['dietary_lactose_free']) ? 1 : 0,
+        'dietary_no_pork_shellfish' => !empty($_POST['dietary_no_pork_shellfish']) ? 1 : 0,
+        'dietary_nut_allergy' => !empty($_POST['dietary_nut_allergy']) ? 1 : 0,
+        'dietary_other' => trim($_POST['dietary_other'] ?? '') ?: null,
+      ];
+      
+      $ok = UserManagement::updateProfile($ctx, (int)$me['id'], $fields, false);
+      if ($ok) {
+        echo json_encode(['ok' => true]);
+      } else {
+        echo json_encode(['ok' => false, 'error' => 'Failed to update dietary preferences.']);
+      }
+    } catch (Throwable $e) {
+      echo json_encode(['ok' => false, 'error' => 'Error updating dietary preferences.']);
+    }
+    exit;
   } elseif ($action === 'add_parent') {
     // Link another parent to a child (existing or invite)
     $yid = (int)($_POST['youth_id'] ?? 0);
@@ -413,6 +437,22 @@ header_html('My Profile');
   </form>
 </div>
 
+<div class="card">
+  <h3>Dietary Preferences</h3>
+  <?php
+    // Build dietary preferences display
+    $dietaryPrefs = [];
+    if (!empty($me['dietary_vegetarian'])) $dietaryPrefs[] = 'Vegetarian';
+    if (!empty($me['dietary_vegan'])) $dietaryPrefs[] = 'Vegan';
+    if (!empty($me['dietary_lactose_free'])) $dietaryPrefs[] = 'Lactose-Free';
+    if (!empty($me['dietary_no_pork_shellfish'])) $dietaryPrefs[] = 'No pork or shellfish';
+    if (!empty($me['dietary_nut_allergy'])) $dietaryPrefs[] = 'Nut allergy';
+    if (!empty($me['dietary_other'])) $dietaryPrefs[] = trim($me['dietary_other']);
+    
+    $dietaryDisplay = empty($dietaryPrefs) ? 'None' : implode(', ', $dietaryPrefs);
+  ?>
+  <p><strong>Dietary Preferences:</strong> <?= h($dietaryDisplay) ?> <a href="#" id="editDietaryPrefsLink" class="small">edit</a></p>
+</div>
 
 <div class="card">
   <h3>My Children</h3>
@@ -618,6 +658,54 @@ header_html('My Profile');
     </div>
   </form>
 </div>
+
+<!-- Dietary Preferences Modal -->
+<div id="dietaryPrefsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="dietaryPrefsModalClose" aria-label="Close">&times;</button>
+    <h3>Edit Dietary Preferences</h3>
+    <div id="dietaryPrefsErr" class="error small" style="display:none;"></div>
+    <form id="dietaryPrefsForm" class="stack" method="post">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="update_dietary_preferences">
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_vegetarian" value="1" <?= !empty($me['dietary_vegetarian']) ? 'checked' : '' ?>>
+        Vegetarian
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_vegan" value="1" <?= !empty($me['dietary_vegan']) ? 'checked' : '' ?>>
+        Vegan
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_lactose_free" value="1" <?= !empty($me['dietary_lactose_free']) ? 'checked' : '' ?>>
+        Lactose-Free
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_no_pork_shellfish" value="1" <?= !empty($me['dietary_no_pork_shellfish']) ? 'checked' : '' ?>>
+        No pork or shellfish
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_nut_allergy" value="1" <?= !empty($me['dietary_nut_allergy']) ? 'checked' : '' ?>>
+        Nut allergy
+      </label>
+      
+      <label>Other:
+        <input type="text" name="dietary_other" value="<?= h($me['dietary_other'] ?? '') ?>" placeholder="Describe other dietary needs">
+      </label>
+      
+      <div class="actions">
+        <button class="button primary" type="submit">Save Dietary Preferences</button>
+        <button class="button" type="button" id="dietaryPrefsCancel">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <script>
   (function(){
     var btn = document.getElementById('addChildToggleBtn');
@@ -644,6 +732,49 @@ header_html('My Profile');
         }
         profilePhotoBtn.disabled = true;
         profilePhotoBtn.textContent = 'Uploading...';
+      });
+    }
+
+    // Dietary Preferences Modal
+    var dietaryModal = document.getElementById('dietaryPrefsModal');
+    var dietaryCloseBtn = document.getElementById('dietaryPrefsModalClose');
+    var dietaryCancelBtn = document.getElementById('dietaryPrefsCancel');
+    var dietaryForm = document.getElementById('dietaryPrefsForm');
+    var dietaryErr = document.getElementById('dietaryPrefsErr');
+    var dietaryEditLink = document.getElementById('editDietaryPrefsLink');
+
+    function showDietaryErr(msg){ if(dietaryErr){ dietaryErr.style.display=''; dietaryErr.textContent = msg || 'Operation failed.'; } }
+    function clearDietaryErr(){ if(dietaryErr){ dietaryErr.style.display='none'; dietaryErr.textContent=''; } }
+    function openDietaryModal(){ if(dietaryModal){ dietaryModal.classList.remove('hidden'); dietaryModal.setAttribute('aria-hidden','false'); clearDietaryErr(); } }
+    function closeDietaryModal(){ if(dietaryModal){ dietaryModal.classList.add('hidden'); dietaryModal.setAttribute('aria-hidden','true'); } }
+
+    if (dietaryEditLink) {
+      dietaryEditLink.addEventListener('click', function(e){
+        e.preventDefault();
+        openDietaryModal();
+      });
+    }
+
+    if (dietaryCloseBtn) dietaryCloseBtn.addEventListener('click', function(){ closeDietaryModal(); });
+    if (dietaryCancelBtn) dietaryCancelBtn.addEventListener('click', function(){ closeDietaryModal(); });
+    document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeDietaryModal(); });
+    if (dietaryModal) dietaryModal.addEventListener('click', function(e){ if (e.target === dietaryModal) closeDietaryModal(); });
+
+    if (dietaryForm) {
+      dietaryForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        clearDietaryErr();
+        var fd = new FormData(dietaryForm);
+        fetch(window.location.href, { method: 'POST', body: fd, credentials: 'same-origin' })
+          .then(function(r){ return r.json().catch(function(){ throw new Error('Invalid server response'); }); })
+          .then(function(json){
+            if (json && json.ok) {
+              window.location.reload();
+            } else {
+              showDietaryErr((json && json.error) ? json.error : 'Operation failed.');
+            }
+          })
+          .catch(function(){ showDietaryErr('Network error.'); });
       });
     }
   })();

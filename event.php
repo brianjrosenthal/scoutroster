@@ -283,9 +283,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   <h3>Event Volunteers</h3>
   <?php if (empty($roles)): ?>
     <p class="small">No volunteer roles have been defined for this event.</p>
-    <?php if ($isAdmin): ?>
-      <p class="small"><a class="button" href="/admin_event_volunteers.php?event_id=<?= (int)$e['id'] ?>">Manage Volunteers</a></p>
-    <?php endif; ?>
+      <?php if ($isAdmin): ?>
+        <a class="button" href="/event_compliance.php?id=<?= (int)$e['id'] ?>">Medical Forms Compliance</a>
+        <a class="button" href="/event_dietary_needs.php?id=<?= (int)$e['id'] ?>">Dietary Needs</a>
+      <?php endif; ?>
   <?php else: ?>
     <div class="volunteers">
       <?php foreach ($roles as $r): ?>
