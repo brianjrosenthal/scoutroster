@@ -221,6 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'dietary_lactose_free' => !empty($_POST['dietary_lactose_free']) ? 1 : 0,
         'dietary_no_pork_shellfish' => !empty($_POST['dietary_no_pork_shellfish']) ? 1 : 0,
         'dietary_nut_allergy' => !empty($_POST['dietary_nut_allergy']) ? 1 : 0,
+        'dietary_gluten_free' => !empty($_POST['dietary_gluten_free']) ? 1 : 0,
         'dietary_other' => trim($_POST['dietary_other'] ?? '') ?: null,
       ];
       
@@ -447,6 +448,7 @@ header_html('My Profile');
     if (!empty($me['dietary_lactose_free'])) $dietaryPrefs[] = 'Lactose-Free';
     if (!empty($me['dietary_no_pork_shellfish'])) $dietaryPrefs[] = 'No pork or shellfish';
     if (!empty($me['dietary_nut_allergy'])) $dietaryPrefs[] = 'Nut allergy';
+    if (!empty($me['dietary_gluten_free'])) $dietaryPrefs[] = 'Gluten Free';
     if (!empty($me['dietary_other'])) $dietaryPrefs[] = trim($me['dietary_other']);
     
     $dietaryDisplay = empty($dietaryPrefs) ? 'None' : implode(', ', $dietaryPrefs);
@@ -692,6 +694,11 @@ header_html('My Profile');
       <label class="inline">
         <input type="checkbox" name="dietary_nut_allergy" value="1" <?= !empty($me['dietary_nut_allergy']) ? 'checked' : '' ?>>
         Nut allergy
+      </label>
+      
+      <label class="inline">
+        <input type="checkbox" name="dietary_gluten_free" value="1" <?= !empty($me['dietary_gluten_free']) ? 'checked' : '' ?>>
+        Gluten Free
       </label>
       
       <label>Other:

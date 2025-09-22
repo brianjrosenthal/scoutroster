@@ -44,10 +44,17 @@ function getEventDietaryNeedsData(int $eventId): array {
       u.dietary_no_pork_shellfish,
       u.dietary_nut_allergy,
       u.dietary_other,
-      -- Youth fields (no dietary preferences for youth yet)
+      -- Youth fields
       y.first_name as youth_first_name,
       y.last_name as youth_last_name,
-      y.class_of as youth_class_of
+      y.class_of as youth_class_of,
+      y.dietary_vegetarian as youth_dietary_vegetarian,
+      y.dietary_vegan as youth_dietary_vegan,
+      y.dietary_lactose_free as youth_dietary_lactose_free,
+      y.dietary_no_pork_shellfish as youth_dietary_no_pork_shellfish,
+      y.dietary_nut_allergy as youth_dietary_nut_allergy,
+      y.dietary_gluten_free as youth_dietary_gluten_free,
+      y.dietary_other as youth_dietary_other
     FROM rsvps r
     JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
     LEFT JOIN users u ON u.id = rm.adult_id AND rm.participant_type = 'adult'
@@ -91,7 +98,16 @@ function getEventDietaryNeedsData(int $eventId): array {
       ];
       
     } elseif (!$isAdult && $row['youth_id']) {
-      // Process youth (no dietary preferences yet, but include for completeness)
+      // Process youth dietary preferences
+      $dietaryNeeds = [];
+      if (!empty($row['youth_dietary_vegetarian'])) $dietaryNeeds[] = 'Vegetarian';
+      if (!empty($row['youth_dietary_vegan'])) $dietaryNeeds[] = 'Vegan';
+      if (!empty($row['youth_dietary_lactose_free'])) $dietaryNeeds[] = 'Lactose-Free';
+      if (!empty($row['youth_dietary_no_pork_shellfish'])) $dietaryNeeds[] = 'No pork or shellfish';
+      if (!empty($row['youth_dietary_nut_allergy'])) $dietaryNeeds[] = 'Nut allergy';
+      if (!empty($row['youth_dietary_gluten_free'])) $dietaryNeeds[] = 'Gluten Free';
+      if (!empty($row['youth_dietary_other'])) $dietaryNeeds[] = trim($row['youth_dietary_other']);
+      
       $dietaryData[] = [
         'rsvp_id' => (int)$row['rsvp_id'],
         'type' => 'youth',
@@ -100,8 +116,8 @@ function getEventDietaryNeedsData(int $eventId): array {
         'email' => '', // Youth don't have direct email
         'phone_home' => '',
         'phone_cell' => '',
-        'dietary_needs' => [], // Youth dietary preferences not implemented yet
-        'has_dietary_needs' => false,
+        'dietary_needs' => $dietaryNeeds,
+        'has_dietary_needs' => !empty($dietaryNeeds),
       ];
     }
   }
@@ -126,6 +142,7 @@ $dietaryCounts = [
   'Lactose-Free' => 0,
   'No pork or shellfish' => 0,
   'Nut allergy' => 0,
+  'Gluten Free' => 0,
   'Other' => 0,
 ];
 

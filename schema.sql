@@ -48,6 +48,7 @@ CREATE TABLE users (
   dietary_lactose_free TINYINT(1) NOT NULL DEFAULT 0,
   dietary_no_pork_shellfish TINYINT(1) NOT NULL DEFAULT 0,
   dietary_nut_allergy TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_gluten_free TINYINT(1) NOT NULL DEFAULT 0,
   dietary_other TEXT DEFAULT NULL,
 
   -- Email verification + password resets
@@ -89,6 +90,15 @@ CREATE TABLE youth (
 
   class_of INT NOT NULL,     -- grade computed from class_of
   sibling TINYINT(1) NOT NULL DEFAULT 0,
+
+  -- Dietary preferences
+  dietary_vegetarian TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_vegan TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_lactose_free TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_no_pork_shellfish TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_nut_allergy TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_gluten_free TINYINT(1) NOT NULL DEFAULT 0,
+  dietary_other TEXT DEFAULT NULL,
 
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
