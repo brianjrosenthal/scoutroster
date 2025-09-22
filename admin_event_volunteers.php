@@ -17,6 +17,11 @@ if (!$event) { http_response_code(404); exit('Event not found'); }
 $msg = null;
 $err = null;
 
+// Check for success message
+if (isset($_GET['saved']) && $_GET['saved'] === '1') {
+  $msg = 'Volunteer roles saved successfully.';
+}
+
 // Save roles payload
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
@@ -55,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     Volunteers::saveRoles($eventId, $roles);
-    header('Location: /admin_events.php?id='.(int)$eventId.'&volunteers_saved=1');
+    header('Location: /admin_event_volunteers.php?event_id='.(int)$eventId.'&saved=1');
     exit;
   } catch (Throwable $e) {
     $err = $e->getMessage() ?: 'Failed to save volunteer roles.';
@@ -122,7 +127,7 @@ header_html('Manage Volunteer Roles');
     <div class="actions">
       <button class="button" type="button" onclick="addRoleRow()">Add Role</button>
       <button class="primary" type="submit">Save Roles</button>
-      <a class="button" href="/admin_events.php?id=<?= (int)$eventId ?>">Back</a>
+      <a class="button" href="/events.php?id=<?= (int)$eventId ?>">Back</a>
     </div>
   </form>
 </div>
