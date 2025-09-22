@@ -77,3 +77,5 @@ It is very important to me that functions and methods be named well.  The name o
 
 ## Handling Errors
 Generally errors in lib classes should be thrown as exceptions and the high-level callers should catch the exception and decide what to do.  Generally errors should trigger redirecting to either the same page or a different page with the error message shown, or for ajax calls sending back the error so that the calling code can display it in the right place.
+
+Also - errors should not be swallowed!!! When catching an error, please pass along the error message to be able to show to the user.

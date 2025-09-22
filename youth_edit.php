@@ -1114,6 +1114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       // Create new FormData with proper format
       var submitData = new FormData();
       submitData.set('csrf', fd.get('csrf'));
+      submitData.set('action', 'update_dietary');
       for (var key in updateData) {
         submitData.set(key, updateData[key]);
       }
