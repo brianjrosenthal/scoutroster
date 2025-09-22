@@ -68,10 +68,89 @@ $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $baseUrl = $scheme . '://' . $host;
 
-// POST send
+// POST handling
 $sentResults = null;
 $error = null;
+$previewRecipients = null;
+$previewData = null;
 
+// Helper function to detect environment
+function detectEnvironment($host) {
+  $host = strtolower($host);
+  if (strpos($host, 'localhost') !== false || strpos($host, '127.0.0.1') !== false || strpos($host, '.local') !== false) {
+    return ['type' => 'local', 'label' => '🏠 LOCAL DEVELOPMENT', 'class' => 'env-local'];
+  }
+  if (strpos($host, 'dev.') === 0 || strpos($host, 'staging.') === 0 || strpos($host, 'test.') === 0) {
+    return ['type' => 'dev', 'label' => '⚠️ DEVELOPMENT SITE', 'class' => 'env-dev'];
+  }
+  return ['type' => 'prod', 'label' => '✅ PRODUCTION SITE', 'class' => 'env-prod'];
+}
+
+// Handle preview step
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'preview') {
+  try {
+    require_csrf();
+
+    $audience = $_POST['audience'] ?? 'all_adults';
+    $gradeLbl = trim((string)($_POST['grade'] ?? ''));
+    $oneAdultId = (int)($_POST['adult_id'] ?? 0);
+    $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
+    $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
+
+    if ($subject === '') $subject = $subjectDefault;
+    if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
+      throw new RuntimeException('Organizer email is invalid.');
+    }
+
+    // Build recipients (same logic as send)
+    $recipients = [];
+    if ($audience === 'all_adults') {
+      $recipients = UserManagement::listAdultsWithAnyEmail();
+    } elseif ($audience === 'registered_families') {
+      $recipients = UserManagement::listAdultsWithRegisteredChildrenEmails();
+    } elseif ($audience === 'by_grade') {
+      $classOf = UserManagement::computeClassOfFromGradeLabel($gradeLbl);
+      if ($classOf === null) throw new RuntimeException('Grade is required for "families by grade".');
+      $recipients = UserManagement::listAdultsByChildClassOfEmails((int)$classOf);
+    } elseif ($audience === 'one_adult') {
+      if ($oneAdultId <= 0) throw new RuntimeException('Please choose an adult.');
+      $row = UserManagement::findBasicForEmailingById($oneAdultId);
+      if ($row && !empty($row['email'])) $recipients = [$row];
+    } else {
+      throw new RuntimeException('Invalid audience.');
+    }
+
+    // Dedupe by email and skip blanks
+    $byEmail = [];
+    $finalRecipients = [];
+    foreach ($recipients as $r) {
+      $email = strtolower(trim((string)($r['email'] ?? '')));
+      if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
+      if (isset($byEmail[$email])) continue;
+      $byEmail[$email] = true;
+      $finalRecipients[] = $r;
+    }
+    if (empty($finalRecipients)) {
+      throw new RuntimeException('No recipients with valid email addresses.');
+    }
+
+    // Store preview data
+    $previewRecipients = $finalRecipients;
+    $previewData = [
+      'audience' => $audience,
+      'grade' => $gradeLbl,
+      'adult_id' => $oneAdultId,
+      'subject' => $subject,
+      'organizer' => $organizer,
+      'count' => count($finalRecipients)
+    ];
+
+  } catch (Throwable $e) {
+    $error = $e->getMessage() ?: 'Failed to generate recipient list.';
+  }
+}
+
+// Handle actual send
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
   try {
     require_csrf();
@@ -268,14 +347,109 @@ header_html('Send Event Invitations');
   </div>
 </div>
 
-<div class="card">
-  <p class="small" style="margin-top:0;">Compose and send personalized RSVP invitations for this event. Each email includes a one-click RSVP link and an attached calendar invite (.ics).</p>
-  <form method="post" class="stack">
-    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-    <input type="hidden" name="action" value="send">
-    <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+<?php if ($previewRecipients): ?>
+  <!-- Confirmation Page -->
+  <?php $env = detectEnvironment($host); ?>
+  <style>
+    .env-warning {
+      padding: 12px 16px;
+      margin-bottom: 20px;
+      border-radius: 6px;
+      text-align: center;
+      font-weight: bold;
+      font-size: 16px;
+    }
+    .env-prod { background-color: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+    .env-dev { background-color: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+    .env-local { background-color: #fff3cd; color: #856404; border: 2px solid #ffeaa7; }
+    .recipients-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+    }
+    .recipients-table th,
+    .recipients-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    .recipients-table th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+    .recipients-table tbody tr:hover {
+      background-color: #f8f9fa;
+    }
+  </style>
+  
+  <div class="env-warning <?= h($env['class']) ?>">
+    SENDING FROM: <?= h($baseUrl) ?> - <?= h($env['label']) ?>
+  </div>
+  
+  <div class="card">
+    <h3>⚠️ Confirm Email Send</h3>
+    <div style="background-color: #f8f9fa; padding: 16px; border-radius: 6px; margin-bottom: 16px;">
+      <p><strong>You are about to send:</strong></p>
+      <ul style="margin: 8px 0;">
+        <li><strong>Subject:</strong> <?= h($previewData['subject']) ?></li>
+        <li><strong>To:</strong> <?= (int)$previewData['count'] ?> recipients</li>
+        <?php if (!empty($previewData['organizer'])): ?>
+          <li><strong>Organizer:</strong> <?= h($previewData['organizer']) ?></li>
+        <?php endif; ?>
+      </ul>
+    </div>
+    
+    <h4>Recipients (<?= count($previewRecipients) ?>)</h4>
+    <div style="max-height: 400px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px;">
+      <table class="recipients-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($previewRecipients as $recipient): ?>
+            <tr>
+              <td>
+                <?php 
+                  $name = trim(($recipient['first_name'] ?? '') . ' ' . ($recipient['last_name'] ?? ''));
+                  echo h($name ?: 'Unknown');
+                ?>
+              </td>
+              <td><?= h($recipient['email']) ?></td>
+            </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    
+    <form method="post" style="margin-top: 20px;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="send">
+      <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+      <input type="hidden" name="audience" value="<?= h($previewData['audience']) ?>">
+      <input type="hidden" name="grade" value="<?= h($previewData['grade']) ?>">
+      <input type="hidden" name="adult_id" value="<?= (int)$previewData['adult_id'] ?>">
+      <input type="hidden" name="subject" value="<?= h($previewData['subject']) ?>">
+      <input type="hidden" name="organizer" value="<?= h($previewData['organizer']) ?>">
+      
+      <div class="actions">
+        <button class="primary" id="confirmSendBtn" style="background-color: #dc2626;">Confirm & Send <?= (int)$previewData['count'] ?> Invitations</button>
+        <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$eventId ?>">← Go Back to Edit</a>
+      </div>
+    </form>
+  </div>
+<?php else: ?>
+  <!-- Initial Form -->
+  <div class="card">
+    <p class="small" style="margin-top:0;">Compose and send personalized RSVP invitations for this event. Each email includes a one-click RSVP link and an attached calendar invite (.ics).</p>
+    <form method="post" class="stack">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="action" value="preview">
+      <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
 
-    <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
+      <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
 
     <fieldset>
       <legend>Audience</legend>
@@ -333,12 +507,13 @@ header_html('Send Event Invitations');
 
 
     <div class="actions">
-      <button class="primary" id="sendInvitationsBtn">Send Invitations</button>
+      <button class="primary" id="previewRecipientsBtn">Preview Recipients</button>
       <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
       <a class="button" href="/events.php">Manage Events</a>
     </div>
   </form>
 </div>
+<?php endif; ?>
 
 <?php if ($sentResults): ?>
   <div class="card">
@@ -369,67 +544,106 @@ header_html('Send Event Invitations');
 
 <script>
 (function() {
-    const form = document.querySelector('form[method="post"]');
-    const sendBtn = document.getElementById('sendInvitationsBtn');
+    // Handle both preview and confirmation buttons
+    const previewBtn = document.getElementById('previewRecipientsBtn');
+    const confirmBtn = document.getElementById('confirmSendBtn');
     let isSubmitting = false;
     
-    if (form && sendBtn) {
-        // Add form submit handler
-        form.addEventListener('submit', function(e) {
-            // If already submitting, prevent the submission
-            if (isSubmitting) {
-                e.preventDefault();
-                return false;
-            }
-            
-            // Mark as submitting
-            isSubmitting = true;
-            
-            // Update button appearance and text
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Sending Invitations...';
-            sendBtn.style.opacity = '0.6';
-            sendBtn.style.cursor = 'not-allowed';
-            
-            // Add a loading indicator (optional)
-            const loadingSpinner = document.createElement('span');
-            loadingSpinner.innerHTML = ' ⏳';
-            loadingSpinner.style.marginLeft = '4px';
-            sendBtn.appendChild(loadingSpinner);
-            
-            // Allow the form to submit normally
-            return true;
-        });
-        
-        // Add click handler as backup protection
-        sendBtn.addEventListener('click', function(e) {
-            if (isSubmitting) {
-                e.preventDefault();
-                return false;
-            }
-        });
-        
-        // Re-enable button if there's an error (page doesn't redirect)
-        // This handles cases where server-side validation fails
-        <?php if ($error): ?>
-        // If there's an error, reset the button state
-        setTimeout(function() {
-            if (sendBtn) {
-                isSubmitting = false;
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send Invitations';
-                sendBtn.style.opacity = '1';
-                sendBtn.style.cursor = 'pointer';
-                
-                // Remove any loading spinner
-                const spinner = sendBtn.querySelector('span');
-                if (spinner) {
-                    spinner.remove();
+    // Preview button handler
+    if (previewBtn) {
+        const previewForm = previewBtn.closest('form');
+        if (previewForm) {
+            previewForm.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
                 }
-            }
-        }, 100);
-        <?php endif; ?>
+                
+                isSubmitting = true;
+                previewBtn.disabled = true;
+                previewBtn.textContent = 'Loading Recipients...';
+                previewBtn.style.opacity = '0.6';
+                previewBtn.style.cursor = 'not-allowed';
+                
+                const loadingSpinner = document.createElement('span');
+                loadingSpinner.innerHTML = ' ⏳';
+                loadingSpinner.style.marginLeft = '4px';
+                previewBtn.appendChild(loadingSpinner);
+                
+                return true;
+            });
+            
+            previewBtn.addEventListener('click', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        }
     }
+    
+    // Confirmation button handler
+    if (confirmBtn) {
+        const confirmForm = confirmBtn.closest('form');
+        if (confirmForm) {
+            confirmForm.addEventListener('submit', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+                
+                isSubmitting = true;
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Sending Invitations...';
+                confirmBtn.style.opacity = '0.6';
+                confirmBtn.style.cursor = 'not-allowed';
+                
+                const loadingSpinner = document.createElement('span');
+                loadingSpinner.innerHTML = ' ⏳';
+                loadingSpinner.style.marginLeft = '4px';
+                confirmBtn.appendChild(loadingSpinner);
+                
+                return true;
+            });
+            
+            confirmBtn.addEventListener('click', function(e) {
+                if (isSubmitting) {
+                    e.preventDefault();
+                    return false;
+                }
+            });
+        }
+    }
+    
+    // Re-enable button if there's an error (page doesn't redirect)
+    <?php if ($error): ?>
+    setTimeout(function() {
+        if (previewBtn) {
+            isSubmitting = false;
+            previewBtn.disabled = false;
+            previewBtn.textContent = 'Preview Recipients';
+            previewBtn.style.opacity = '1';
+            previewBtn.style.cursor = 'pointer';
+            
+            const spinner = previewBtn.querySelector('span');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+        if (confirmBtn) {
+            isSubmitting = false;
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = confirmBtn.textContent.replace('Sending Invitations...', 'Confirm & Send');
+            confirmBtn.style.opacity = '1';
+            confirmBtn.style.cursor = 'pointer';
+            
+            const spinner = confirmBtn.querySelector('span');
+            if (spinner) {
+                spinner.remove();
+            }
+        }
+    }, 100);
+    <?php endif; ?>
 })();
 </script>
 
