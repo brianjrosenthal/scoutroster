@@ -36,6 +36,36 @@ if ($editingId > 0) {
   if (!$editing) { $editingId = 0; }
 }
 
+// Set default dates for new events (Sunday after next Sunday, 3pm-5pm)
+$defaultStartsAt = '';
+$defaultEndsAt = '';
+if ($editingId === 0) {
+  $now = new DateTime();
+  
+  // Find next Sunday
+  $nextSunday = clone $now;
+  $daysUntilSunday = (7 - $now->format('w')) % 7;
+  if ($daysUntilSunday === 0) {
+    // If today is Sunday, get next Sunday
+    $daysUntilSunday = 7;
+  }
+  $nextSunday->add(new DateInterval('P' . $daysUntilSunday . 'D'));
+  
+  // Add 7 more days to get "the Sunday after next Sunday"
+  $targetSunday = clone $nextSunday;
+  $targetSunday->add(new DateInterval('P7D'));
+  
+  // Set times: 3pm start, 5pm end
+  $startDateTime = clone $targetSunday;
+  $startDateTime->setTime(15, 0, 0); // 3pm
+  
+  $endDateTime = clone $targetSunday;
+  $endDateTime->setTime(17, 0, 0); // 5pm
+  
+  $defaultStartsAt = $startDateTime->format('Y-m-d H:i:s');
+  $defaultEndsAt = $endDateTime->format('Y-m-d H:i:s');
+}
+
 // Handle create/update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
@@ -170,10 +200,10 @@ header_html($pageTitle);
     </label>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Starts at
-        <input type="datetime-local" name="starts_at" value="<?=h(to_datetime_local_value($editing['starts_at'] ?? null))?>" required>
+        <input type="datetime-local" name="starts_at" value="<?=h(to_datetime_local_value($editing['starts_at'] ?? $defaultStartsAt))?>" required>
       </label>
       <label>Ends at
-        <input type="datetime-local" name="ends_at" value="<?=h(to_datetime_local_value($editing['ends_at'] ?? null))?>">
+        <input type="datetime-local" name="ends_at" value="<?=h(to_datetime_local_value($editing['ends_at'] ?? $defaultEndsAt))?>">
       </label>
     </div>
     <label>
