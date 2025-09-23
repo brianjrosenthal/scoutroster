@@ -1198,15 +1198,27 @@ header_html('Send Event Invitations');
         const baseUrl = '<?= addslashes($baseUrl) ?>';
         const eventId = <?= (int)$eventId ?>;
         
-        // Get current form values for preview
+        // Get current form values for preview - handle both form page and preview page scenarios
         const currentEmailType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
+        
+        // Check if we're on the preview page (previewData exists) or the form page
+        <?php if ($previewData): ?>
+        // We're on the preview page - use PHP previewData
+        const currentDescription = '<?= addslashes($previewData['description']) ?>';
+        const currentEmailTypeFromData = '<?= addslashes($previewData['email_type']) ?>';
+        // Use the email type from preview data since form fields don't exist on preview page
+        const effectiveEmailType = currentEmailTypeFromData;
+        <?php else: ?>
+        // We're on the form page - get from textarea
         const currentDescription = document.querySelector('textarea[name="description"]')?.value || '';
+        const effectiveEmailType = currentEmailType;
+        <?php endif; ?>
         
         // Generate introduction text based on email type and mock RSVP status
         let introText = '';
-        if (currentEmailType === 'invitation') {
+        if (effectiveEmailType === 'invitation') {
             introText = "You're Invited to...";
-        } else if (currentEmailType === 'reminder') {
+        } else if (effectiveEmailType === 'reminder') {
             introText = selectedRsvpStatus === 'yes' ? 'Reminder:' : 'Reminder to RSVP for...';
         }
         
