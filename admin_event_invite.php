@@ -8,6 +8,7 @@ require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/EventUIManager.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
 require_once __DIR__ . '/lib/Text.php';
+require_once __DIR__ . '/lib/EventInvitationTracking.php';
 require_once __DIR__ . '/settings.php';
 
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
@@ -176,14 +177,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
       throw new RuntimeException('No recipients with valid email addresses.');
     }
 
+    // Apply suppression policy
+    $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours';
+    $suppressedCount = 0;
+    $filteredRecipients = [];
+    
+    foreach ($finalRecipients as $r) {
+      $userId = (int)$r['id'];
+      if (EventInvitationTracking::shouldSuppressInvitation($eventId, $userId, $suppressPolicy)) {
+        $suppressedCount++;
+      } else {
+        $filteredRecipients[] = $r;
+      }
+    }
+
+    if (empty($filteredRecipients)) {
+      throw new RuntimeException('No recipients after applying suppression policy. All users have already been invited according to your selected policy.');
+    }
+
     // Store preview data
-    $previewRecipients = $finalRecipients;
+    $previewRecipients = $filteredRecipients;
     $previewData = [
       'filters' => $filters,
       'subject' => $subject,
       'organizer' => $organizer,
       'description' => $description,
-      'count' => count($finalRecipients)
+      'suppress_policy' => $suppressPolicy,
+      'count' => count($filteredRecipients),
+      'suppressed_count' => $suppressedCount
     ];
 
   } catch (Throwable $e) {
@@ -191,14 +212,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
   }
 }
 
-// Handle actual send
+// Handle actual send - Real-time email sending with tracking
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
+  // Start output buffering for real-time display
+  ob_start();
+  
   try {
     require_csrf();
 
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
     $description = trim((string)($_POST['description'] ?? ''));
+    $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours';
 
     if ($subject === '') $subject = $subjectDefault;
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
@@ -241,6 +266,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     }
     if (empty($finalRecipients)) {
       throw new RuntimeException('No recipients with valid email addresses.');
+    }
+
+    // Apply suppression policy
+    $suppressedCount = 0;
+    $filteredRecipients = [];
+    
+    foreach ($finalRecipients as $r) {
+      $userId = (int)$r['id'];
+      if (EventInvitationTracking::shouldSuppressInvitation($eventId, $userId, $suppressPolicy)) {
+        $suppressedCount++;
+      } else {
+        $filteredRecipients[] = $r;
+      }
+    }
+
+    if (empty($filteredRecipients)) {
+      throw new RuntimeException('No recipients after applying suppression policy. All users have already been invited according to your selected policy.');
     }
 
     // Build ICS (same for all recipients)
@@ -316,14 +358,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
     $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
 
+    // Real-time email sending with tracking
     $sent = 0;
     $fail = 0;
-    $details = [];
+    $skipped = 0;
 
-    foreach ($finalRecipients as $r) {
+    foreach ($filteredRecipients as $r) {
       $uid = (int)$r['id'];
       $email = trim((string)$r['email']);
       $name  = trim(((string)($r['first_name'] ?? '')).' '.((string)($r['last_name'] ?? '')));
+      
+      // Output real-time progress
+      echo "Sending email to " . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . "... ";
+      ob_flush();
+      flush();
+      
       $sig = invite_signature_build($uid, $eventId);
       $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
 
@@ -363,17 +412,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
   </div>';
 
       $ok = @send_email_with_ics($email, $subject, $html, $icsContent, 'event_'.$eventId.'.ics', $name !== '' ? $name : $email);
-      if ($ok) { $sent++; $details[] = $email; } else { $fail++; $details[] = $email.' (failed)'; }
+      
+      if ($ok) { 
+        $sent++;
+        echo "complete.<br>\n";
+        
+        // Record the invitation in tracking table
+        try {
+          EventInvitationTracking::recordInvitationSent($eventId, $uid);
+        } catch (Throwable $trackingError) {
+          // Don't fail the whole process if tracking fails, but log it
+          error_log("Failed to record invitation tracking for user $uid, event $eventId: " . $trackingError->getMessage());
+        }
+      } else { 
+        $fail++;
+        echo "failed.<br>\n";
+      }
+      
+      ob_flush();
+      flush();
     }
 
-    $sentResults = [
-      'count' => count($finalRecipients),
-      'sent'  => $sent,
-      'failed'=> $fail,
-      'recipients' => $details
-    ];
+    // Final summary
+    echo "<br><strong>Summary:</strong><br>\n";
+    echo "Total recipients: " . count($filteredRecipients) . "<br>\n";
+    echo "Successfully sent: $sent<br>\n";
+    echo "Failed: $fail<br>\n";
+    if ($suppressedCount > 0) {
+      echo "Suppressed (already invited): $suppressedCount<br>\n";
+    }
+    echo "<br><a href=\"/admin_event_invite.php?event_id=" . (int)$eventId . "\" class=\"button\">← Back to Event Invitations</a><br>\n";
+    echo "<a href=\"/event.php?id=" . (int)$eventId . "\" class=\"button\">Back to Event</a><br>\n";
+    
+    ob_flush();
+    flush();
+    exit; // Exit here to prevent normal page rendering
+    
   } catch (Throwable $e) {
+    ob_clean(); // Clear any output buffer
     $error = $e->getMessage() ?: 'Failed to send invitations.';
+    // Don't exit here, let normal error handling take over
   }
 }
 
@@ -479,6 +557,7 @@ header_html('Send Event Invitations');
       <!-- Pass through filter data -->
       <input type="hidden" name="registration_status" value="<?= h($previewData['filters']['registration_status']) ?>">
       <input type="hidden" name="rsvp_status" value="<?= h($previewData['filters']['rsvp_status']) ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($previewData['suppress_policy']) ?>">
       <?php foreach ($previewData['filters']['grades'] as $grade): ?>
         <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
       <?php endforeach; ?>
@@ -548,6 +627,17 @@ header_html('Send Event Invitations');
         <div style="margin-left: 16px;">
           <label class="inline"><input type="radio" name="rsvp_status" value="all" <?= $rsvpStatus==='all'?'checked':'' ?>> All</label>
           <label class="inline"><input type="radio" name="rsvp_status" value="not_rsvped" <?= $rsvpStatus==='not_rsvped'?'checked':'' ?>> People who have not RSVP'd</label>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label><strong>Suppress duplicate policy:</strong></label>
+        <div style="margin-left: 16px;">
+          <?php $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
+          <label class="inline"><input type="radio" name="suppress_policy" value="last_24_hours" <?= $suppressPolicy==='last_24_hours'?'checked':'' ?>> Don't send if invited in last 24 hours</label>
+          <label class="inline"><input type="radio" name="suppress_policy" value="ever_invited" <?= $suppressPolicy==='ever_invited'?'checked':'' ?>> Don't send if ever invited</label>
+          <label class="inline"><input type="radio" name="suppress_policy" value="none" <?= $suppressPolicy==='none'?'checked':'' ?>> No suppression policy</label>
+          <span class="small">Choose how to handle users who have already been invited to this event</span>
         </div>
       </div>
 

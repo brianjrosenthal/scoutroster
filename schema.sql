@@ -488,3 +488,19 @@ CREATE INDEX idx_emails_sent_created_at ON emails_sent(created_at);
 CREATE INDEX idx_emails_sent_user_id ON emails_sent(sent_by_user_id);
 CREATE INDEX idx_emails_sent_to_email ON emails_sent(to_email);
 CREATE INDEX idx_emails_sent_success ON emails_sent(success);
+
+-- Event invitations tracking to prevent duplicate invitations
+CREATE TABLE event_invitations_sent (
+  event_id INT NOT NULL,
+  user_id INT NOT NULL,
+  n INT NOT NULL DEFAULT 1,
+  last_sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (event_id, user_id),
+  CONSTRAINT fk_eis_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_eis_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_eis_event ON event_invitations_sent(event_id);
+CREATE INDEX idx_eis_user ON event_invitations_sent(user_id);
+CREATE INDEX idx_eis_last_sent ON event_invitations_sent(last_sent_at);
