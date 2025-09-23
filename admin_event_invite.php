@@ -473,11 +473,19 @@ header_html('Send Event Invitations');
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="action" value="send">
       <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-      <input type="hidden" name="audience" value="<?= h($previewData['audience']) ?>">
-      <input type="hidden" name="grade" value="<?= h($previewData['grade']) ?>">
-      <input type="hidden" name="adult_id" value="<?= (int)$previewData['adult_id'] ?>">
       <input type="hidden" name="subject" value="<?= h($previewData['subject']) ?>">
       <input type="hidden" name="organizer" value="<?= h($previewData['organizer']) ?>">
+      <input type="hidden" name="description" value="<?= h($previewData['description']) ?>">
+      
+      <!-- Pass through filter data -->
+      <input type="hidden" name="registration_status" value="<?= h($previewData['filters']['registration_status']) ?>">
+      <input type="hidden" name="rsvp_status" value="<?= h($previewData['filters']['rsvp_status']) ?>">
+      <?php foreach ($previewData['filters']['grades'] as $grade): ?>
+        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
+      <?php endforeach; ?>
+      <?php foreach ($previewData['filters']['specific_adult_ids'] as $adultId): ?>
+        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
+      <?php endforeach; ?>
       
       <div class="actions">
         <button class="primary" id="confirmSendBtn" style="background-color: #dc2626;">Confirm & Send <?= (int)$previewData['count'] ?> Invitations</button>
@@ -749,7 +757,7 @@ header_html('Send Event Invitations');
             }
             
             searchTimeout = setTimeout(() => {
-                fetch('/admin_adults.php?ajax=search&q=' + encodeURIComponent(query))
+                fetch('/ajax_search_adults.php?q=' + encodeURIComponent(query))
                     .then(response => response.json())
                     .then(data => {
                         adultResults.innerHTML = '';
