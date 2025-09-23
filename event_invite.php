@@ -582,7 +582,7 @@ header_html('Event Invite');
               $amIn = false;
               foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$uid) { $amIn = true; break; } }
             ?>
-            <form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">
+            <form method="post" action="/volunteer_actions.php" class="inline volunteer-form" style="margin-top:6px;">
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
               <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
@@ -808,5 +808,166 @@ header_html('Event Invite');
 <?php endif; ?>
 
 <?php endif; ?>
+
+<script>
+(function(){
+  // AJAX handling for main volunteer section forms
+  const volunteerSection = document.querySelector('.volunteers');
+  
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[c];
+    });
+  }
+  
+  function updateVolunteerSection(roles, currentUserId) {
+    if (!volunteerSection) return;
+    
+    let html = '';
+    roles.forEach(role => {
+      const volunteers = role.volunteers || [];
+      const isSignedUp = volunteers.some(v => parseInt(v.user_id, 10) === currentUserId);
+      const openCount = parseInt(role.open_count, 10) || 0;
+      const isUnlimited = !!role.is_unlimited;
+      
+      html += `<div class="role" style="margin-bottom:10px;">
+        <div>
+          <strong>${escapeHtml(role.title || '')}</strong>`;
+      
+      if (isUnlimited) {
+        html += ' <span class="remaining small">(no limit)</span>';
+      } else if (openCount > 0) {
+        html += ` <span class="remaining small">(${openCount} people still needed)</span>`;
+      } else {
+        html += ' <span class="filled small">Filled</span>';
+      }
+      
+      html += '</div>';
+      
+      if (volunteers.length > 0) {
+        html += '<ul style="margin:6px 0 0 16px;">';
+        volunteers.forEach(volunteer => {
+          html += `<li>${escapeHtml(volunteer.name || '')}</li>`;
+        });
+        html += '</ul>';
+      } else {
+        html += '<p class="small" style="margin:4px 0 0 0;">No one yet.</p>';
+      }
+      
+      // Only show volunteer buttons if user has RSVP'd Yes
+      if (<?= $inviteeHasYes ? 'true' : 'false' ?>) {
+        html += `<form method="post" action="/volunteer_actions.php" class="inline volunteer-form" style="margin-top:6px;">
+          <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+          <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+          <input type="hidden" name="role_id" value="${role.id}">
+          <input type="hidden" name="uid" value="<?= (int)$uid ?>">
+          <input type="hidden" name="sig" value="<?= h($sig) ?>">`;
+        
+        if (isSignedUp) {
+          html += `<input type="hidden" name="action" value="remove">
+            <button class="button">Cancel</button>`;
+        } else if (isUnlimited || openCount > 0) {
+          html += `<input type="hidden" name="action" value="signup">
+            <button class="button primary">Sign up</button>`;
+        } else {
+          html += '<button class="button" disabled>Filled</button>';
+        }
+        
+        html += '</form>';
+      }
+      
+      html += '</div>';
+    });
+    
+    volunteerSection.innerHTML = html;
+    
+    // Re-attach event listeners to new forms
+    attachVolunteerFormListeners();
+  }
+  
+  function showVolunteerError(message) {
+    // Find the volunteer section and add error message
+    const volunteerCard = volunteerSection?.closest('.card');
+    if (volunteerCard) {
+      // Remove any existing error messages
+      const existingError = volunteerCard.querySelector('.volunteer-error');
+      if (existingError) {
+        existingError.remove();
+      }
+      
+      // Add new error message
+      const errorDiv = document.createElement('div');
+      errorDiv.className = 'volunteer-error error small';
+      errorDiv.style.marginTop = '8px';
+      errorDiv.textContent = message || 'Volunteer action failed.';
+      
+      const h3 = volunteerCard.querySelector('h3');
+      if (h3) {
+        h3.parentNode.insertBefore(errorDiv, h3.nextSibling);
+      }
+      
+      // Auto-remove error after 5 seconds
+      setTimeout(() => {
+        if (errorDiv.parentNode) {
+          errorDiv.remove();
+        }
+      }, 5000);
+    }
+  }
+  
+  function attachVolunteerFormListeners() {
+    const volunteerForms = document.querySelectorAll('.volunteer-form');
+    
+    volunteerForms.forEach(form => {
+      form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        formData.set('ajax', '1');
+        
+        // Disable the button to prevent double-clicks
+        const button = this.querySelector('button[type="submit"], button:not([type])');
+        const originalText = button ? button.textContent : '';
+        if (button) {
+          button.disabled = true;
+          button.textContent = 'Processing...';
+        }
+        
+        fetch('/volunteer_actions.php', {
+          method: 'POST',
+          body: formData,
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.ok) {
+            // Update the volunteer section with new data
+            updateVolunteerSection(data.roles || [], <?= (int)$uid ?>);
+          } else {
+            showVolunteerError(data.error || 'Volunteer action failed.');
+            // Re-enable button on error
+            if (button) {
+              button.disabled = false;
+              button.textContent = originalText;
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Volunteer action error:', error);
+          showVolunteerError('Network error occurred.');
+          // Re-enable button on error
+          if (button) {
+            button.disabled = false;
+            button.textContent = originalText;
+          }
+        });
+      });
+    });
+  }
+  
+  // Initial attachment of event listeners
+  attachVolunteerFormListeners();
+})();
+</script>
 
 <?php footer_html(); ?>
