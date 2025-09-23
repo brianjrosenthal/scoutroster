@@ -397,6 +397,10 @@ header_html('Event Invite');
       if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value='no'; openModal(); });
       if (editBtn) editBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
 
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
+      if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+
       <?php if ($error): ?>
         openModal();
       <?php endif; ?>
@@ -627,9 +631,133 @@ header_html('Event Invite');
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
       if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); closeModal(); });
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
         openModal();
       <?php endif; ?>
+
+      // AJAX handling for volunteer actions to keep modal open and refresh roles
+      const rolesWrap = modal ? modal.querySelector('.modal-content') : null;
+
+      function esc(s) {
+        return String(s).replace(/[&<>"']/g, function(c){
+          return {'&':'&','<':'<','>':'>','"':'"', "'":'&#39;'}[c];
+        });
+      }
+
+      function renderRoles(json) {
+        if (!rolesWrap) return;
+        var roles = json.roles || [];
+        var uid = parseInt(json.user_id, 10);
+        var eventId = parseInt(json.event_id, 10);
+        var csrf = json.csrf || '';
+        var sig = '<?= h($sig) ?>';
+        
+        // Find the content area after the h3
+        var h3 = rolesWrap.querySelector('h3');
+        if (!h3) return;
+        
+        // Remove all content after h3 except actions div
+        var actionsDiv = rolesWrap.querySelector('.actions');
+        var currentNode = h3.nextSibling;
+        while (currentNode && currentNode !== actionsDiv) {
+          var nextNode = currentNode.nextSibling;
+          if (currentNode.nodeType === 1 && !currentNode.classList.contains('actions')) {
+            currentNode.remove();
+          } else if (currentNode.nodeType === 3) {
+            currentNode.remove();
+          }
+          currentNode = nextNode;
+        }
+        
+        // Build new roles HTML
+        var html = '';
+        for (var i=0;i<roles.length;i++) {
+          var r = roles[i] || {};
+          var volunteers = r.volunteers || [];
+          var signed = false;
+          for (var j=0;j<volunteers.length;j++) {
+            var v = volunteers[j] || {};
+            if (parseInt(v.user_id, 10) === uid) { signed = true; break; }
+          }
+          var open = parseInt(r.open_count, 10) || 0;
+          var unlimited = !!r.is_unlimited;
+          
+          html += '<div class="role" style="margin-bottom:8px;">'
+                +   '<div>'
+                +     '<strong>'+esc(r.title||'')+'</strong> '
+                +     (unlimited ? '<span class="remaining">(no limit)</span>' : (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>'))
+                +   '</div>';
+          
+          if (volunteers.length > 0) {
+            html += '<ul style="margin:6px 0 0 16px;">';
+            for (var k=0;k<volunteers.length;k++) {
+              var vn = volunteers[k] || {};
+              html += '<li>'+esc(vn.name||'')+'</li>';
+            }
+            html += '</ul>';
+          } else {
+            html += '<p class="small" style="margin:4px 0 0 0;">No one yet.</p>';
+          }
+          
+          html += '<form method="post" action="/volunteer_actions.php" class="inline" style="margin-top:6px;">'
+                +   '<input type="hidden" name="csrf" value="'+esc(csrf)+'">'
+                +   '<input type="hidden" name="event_id" value="'+eventId+'">'
+                +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
+                +   '<input type="hidden" name="uid" value="'+uid+'">'
+                +   '<input type="hidden" name="sig" value="'+esc(sig)+'">';
+          
+          if (signed) {
+            html += '<input type="hidden" name="action" value="remove">'
+                  + '<button class="button">Cancel</button>';
+          } else if (unlimited || open > 0) {
+            html += '<input type="hidden" name="action" value="signup">'
+                  + '<button class="button primary">Sign up</button>';
+          } else {
+            html += '<button class="button" disabled>Filled</button>';
+          }
+          
+          html += '</form></div>';
+        }
+        
+        // Insert new content before actions div
+        var tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        while (tempDiv.firstChild) {
+          rolesWrap.insertBefore(tempDiv.firstChild, actionsDiv);
+        }
+      }
+
+      function showError(msg) {
+        if (!rolesWrap) return;
+        const p = document.createElement('p');
+        p.className = 'error small';
+        p.textContent = msg || 'Action failed.';
+        const h3 = rolesWrap.querySelector('h3');
+        if (h3 && h3.nextSibling) {
+          rolesWrap.insertBefore(p, h3.nextSibling);
+        } else {
+          rolesWrap.appendChild(p);
+        }
+      }
+
+      if (modal) {
+        modal.addEventListener('submit', function(e){
+          const form = e.target.closest('form');
+          if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+          e.preventDefault();
+          const fd = new FormData(form);
+          fd.set('ajax','1');
+          fetch('/volunteer_actions.php', { method:'POST', body: fd, credentials:'same-origin' })
+            .then(function(res){ return res.json(); })
+            .then(function(json){
+              if (json && json.ok) { renderRoles(json); }
+              else { showError((json && json.error) ? json.error : 'Action failed.'); }
+            })
+            .catch(function(){ showError('Network error.'); });
+        });
+      }
+
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
     })();
   </script>
