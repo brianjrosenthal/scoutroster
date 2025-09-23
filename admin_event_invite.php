@@ -703,7 +703,7 @@ header_html('Send Event Invitations');
       <div style="margin-bottom: 16px;">
         <label><strong>Grade:</strong></label>
         <div style="margin-left: 16px;">
-          <label class="inline"><input type="checkbox" name="grades[]" value="0" <?= in_array(0, $selectedGrades)?'checked':'' ?>> K</label><?php for($i=1;$i<=5;$i++): ?><label class="inline"><input type="checkbox" name="grades[]" value="<?= $i ?>" <?= in_array($i, $selectedGrades)?'checked':'' ?>> <?= $i ?></label><?php endfor; ?>
+          <label style="display: inline-block;"><input type="checkbox" name="grades[]" value="0" <?= in_array(0, $selectedGrades)?'checked':'' ?>> K</label><?php for($i=1;$i<=5;$i++): ?><label style="display: inline-block;"><input type="checkbox" name="grades[]" value="<?= $i ?>" <?= in_array($i, $selectedGrades)?'checked':'' ?>> <?= $i ?></label><?php endfor; ?>
           <br><span class="small">(Select multiple grades to include families with children in any of those grades)</span>
         </div>
       </div>
