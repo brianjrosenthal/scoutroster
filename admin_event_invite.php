@@ -98,7 +98,7 @@ function generateRsvpButtonHtml(int $eventId, int $userId, string $deepLink): st
   if ($rsvpStatus) {
     // User has RSVP'd - show plain text status + separate "View Details" button
     $statusText = ucfirst($rsvpStatus); // 'yes' -> 'Yes', 'maybe' -> 'Maybe', 'no' -> 'No'
-    return '<p style="margin:0 0 4px;color:#222;font-size:16px;">You RSVP\'d '. htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') .'</p>
+    return '<p style="margin:0 0 4px;color:#222;font-size:16px;font-weight: bold;">You RSVP\'d '. htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') .'</p>
             <p style="margin:0 0 16px;">
               <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View Details</a>
             </p>';
