@@ -27,6 +27,83 @@ $event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 // Helpers
+function getEmailIntroduction(string $emailType, int $eventId, int $userId): string {
+  if ($emailType === 'none') {
+    return '';
+  }
+  
+  if ($emailType === 'invitation') {
+    return "You're Invited to...";
+  }
+  
+  if ($emailType === 'reminder') {
+    // Check if user has RSVP'd to this event
+    try {
+      $pdo = pdo();
+      $stmt = $pdo->prepare('SELECT COUNT(*) FROM rsvps WHERE event_id = ? AND user_id = ?');
+      $stmt->execute([$eventId, $userId]);
+      $hasRsvped = $stmt->fetchColumn() > 0;
+      
+      return $hasRsvped ? 'Reminder:' : 'Reminder to RSVP for...';
+    } catch (Throwable $e) {
+      // If we can't check RSVP status, default to generic reminder
+      return 'Reminder:';
+    }
+  }
+  
+  return '';
+}
+
+function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, string $deepLink, string $whenText, string $whereHtml, string $description, string $googleLink, string $outlookLink, string $icsDownloadLink, string $emailType = 'none', int $eventId = 0, int $userId = 0, bool $includeCalendarLinks = true): string {
+  $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
+  $safeEvent = htmlspecialchars((string)$event['name'], ENT_QUOTES, 'UTF-8');
+  $safeWhen = htmlspecialchars($whenText, ENT_QUOTES, 'UTF-8');
+  $safeDeep = htmlspecialchars($deepLink, ENT_QUOTES, 'UTF-8');
+  $safeGoogle = htmlspecialchars($googleLink, ENT_QUOTES, 'UTF-8');
+  $safeOutlook = htmlspecialchars($outlookLink, ENT_QUOTES, 'UTF-8');
+  $safeIcs = htmlspecialchars($icsDownloadLink, ENT_QUOTES, 'UTF-8');
+  
+  // Get introduction text
+  $introduction = getEmailIntroduction($emailType, $eventId, $userId);
+  $introHtml = '';
+  if ($introduction !== '') {
+    $safeIntro = htmlspecialchars($introduction, ENT_QUOTES, 'UTF-8');
+    $introHtml = '<p style="margin:0 0 8px;color:#666;font-size:14px;">'. $safeIntro .'</p>';
+  }
+  
+  $calendarLinksHtml = '';
+  if ($includeCalendarLinks) {
+    $calendarLinksHtml = '<div style="text-align:center;margin:0 0 12px;">
+      <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>
+      <a href="'. $safeOutlook .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Outlook</a>
+      <a href="'. $safeIcs .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Download .ics</a>
+    </div>';
+  }
+  
+  return '
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
+    <div style="text-align:center;">
+      '. $introHtml .'
+      <h2 style="margin:0 0 8px;">'. $safeEvent .'</h2>
+      <p style="margin:0 0 16px;color:#444;">'. $safeSite .'</p>
+      <p style="margin:0 0 16px;">
+        <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
+      </p>
+    </div>
+    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
+      <div><strong>When:</strong> '. $safeWhen .'</div>'.
+      ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
+    </div>'
+    . ($description !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+      <div>'. Text::renderMarkup($description) .'</div>
+    </div>') : '')
+    . $calendarLinksHtml
+    . '<p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
+      If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a>
+    </p>
+  </div>';
+}
+
 function b64url_encode_str(string $bin): string {
   return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
 }
@@ -133,6 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
     $description = trim((string)($_POST['description'] ?? ''));
+    $emailType = $_POST['email_type'] ?? 'none';
 
     if ($subject === '') $subject = $subjectDefault;
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
@@ -202,6 +280,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
       'subject' => $subject,
       'organizer' => $organizer,
       'description' => $description,
+      'email_type' => $emailType,
       'suppress_policy' => $suppressPolicy,
       'count' => count($filteredRecipients),
       'suppressed_count' => $suppressedCount
@@ -223,6 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
     $description = trim((string)($_POST['description'] ?? ''));
+    $emailType = $_POST['email_type'] ?? 'none';
     $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours';
 
     if ($subject === '') $subject = $subjectDefault;
@@ -376,41 +456,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $sig = invite_signature_build($uid, $eventId);
       $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
 
-      $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
-      $safeEvent = htmlspecialchars((string)$event['name'], ENT_QUOTES, 'UTF-8');
-      $safeWhen = htmlspecialchars($whenText, ENT_QUOTES, 'UTF-8');
-      // whereHtml already safely escaped with nl2br(htmlspecialchars(...))
-      $safeDeep = htmlspecialchars($deepLink, ENT_QUOTES, 'UTF-8');
-      $safeGoogle = htmlspecialchars($googleLink, ENT_QUOTES, 'UTF-8');
-      $safeOutlook = htmlspecialchars($outlookLink, ENT_QUOTES, 'UTF-8');
-      $safeIcs = htmlspecialchars($icsDownloadLink, ENT_QUOTES, 'UTF-8');
-
-
-      $html = '
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
-    <div style="text-align:center;">
-      <h2 style="margin:0 0 8px;">'. $safeEvent .'</h2>
-      <p style="margin:0 0 16px;color:#444;">'. htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') .'</p>
-      <p style="margin:0 0 16px;">
-        <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
-      </p>
-    </div>
-    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
-      <div><strong>When:</strong> '. $safeWhen .'</div>'.
-      ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
-    </div>'
-    . ($description !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-      <div>'. Text::renderMarkup($description) .'</div>
-    </div>') : '')
-    . '<div style="text-align:center;margin:0 0 12px;">
-      <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>
-      <a href="'. $safeOutlook .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Outlook</a>
-      <a href="'. $safeIcs .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Download .ics</a>
-    </div>
-    <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-      If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a>
-    </p>
-  </div>';
+      // Use shared email template function
+      $html = generateEmailHTML($event, $siteTitle, $baseUrl, $deepLink, $whenText, $whereHtml, $description, $googleLink, $outlookLink, $icsDownloadLink, $emailType, $eventId, $uid, true);
 
       $ok = @send_email_with_ics($email, $subject, $html, $icsContent, 'event_'.$eventId.'.ics', $name !== '' ? $name : $email);
       
@@ -554,6 +601,7 @@ header_html('Send Event Invitations');
       <input type="hidden" name="subject" value="<?= h($previewData['subject']) ?>">
       <input type="hidden" name="organizer" value="<?= h($previewData['organizer']) ?>">
       <input type="hidden" name="description" value="<?= h($previewData['description']) ?>">
+      <input type="hidden" name="email_type" value="<?= h($previewData['email_type']) ?>">
       
       <!-- Pass through filter data -->
       <input type="hidden" name="registration_status" value="<?= h($previewData['filters']['registration_status']) ?>">
@@ -673,6 +721,17 @@ header_html('Send Event Invitations');
       </div>
     </fieldset>
 
+    <div style="margin-bottom: 16px;">
+      <label><strong>Email Type:</strong></label>
+      <div style="margin-left: 16px;">
+        <?php $emailType = $_POST['email_type'] ?? 'none'; ?>
+        <label class="inline"><input type="radio" name="email_type" value="none" <?= $emailType==='none'?'checked':'' ?>> No introduction (default)</label>
+        <label class="inline"><input type="radio" name="email_type" value="invitation" <?= $emailType==='invitation'?'checked':'' ?>> Initial invitation ("You're Invited to...")</label>
+        <label class="inline"><input type="radio" name="email_type" value="reminder" <?= $emailType==='reminder'?'checked':'' ?>> Reminder (context-aware based on RSVP status)</label>
+        <span class="small">Choose the type of introduction text to appear above the event title</span>
+      </div>
+    </div>
+
     <label>Subject
       <input type="text" name="subject" value="<?= h($_POST['subject'] ?? $subjectDefault) ?>">
     </label>
@@ -718,29 +777,31 @@ header_html('Send Event Invitations');
   </div>
 <?php endif; ?>
 
-<?php if ($previewData): ?>
 <div class="card">
   <h3>Email Preview</h3>
-  <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
-    <div><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></div>
-    <?php if (!empty($event['location'])): ?>
-      <div><strong>Where:</strong> <?= h((string)$event['location']) ?></div>
-    <?php endif; ?>
-  </div>
-  <?php if (!empty($previewData['description'])): ?>
-    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-      <?= Text::renderMarkup($previewData['description']) ?>
-    </div>
-  <?php endif; ?>
+  <?php
+    // Generate preview using the same template as actual emails
+    $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
+    $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
+    
+    $previewDescription = $previewData ? $previewData['description'] : '';
+    $previewEmailType = $previewData ? $previewData['email_type'] : 'none';
+    
+    // Use placeholder links for preview
+    $previewDeepLink = $baseUrl . '/event.php?id=' . (int)$eventId;
+    $googleLink = '#';
+    $outlookLink = '#';
+    $icsDownloadLink = '#';
+    
+    // Generate preview HTML without calendar links
+    $previewHtml = generateEmailHTML($event, $siteTitle, $baseUrl, $previewDeepLink, $whenText, $whereHtml, $previewDescription, $googleLink, $outlookLink, $icsDownloadLink, $previewEmailType, $eventId, 0, false);
+    
+    echo $previewHtml;
+  ?>
 </div>
-<?php else: ?>
-<div class="card">
-  <h3>Email Preview</h3>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></p>
-  <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?= h((string)$event['location']) ?></p><?php endif; ?>
-  <?php if (!empty($event['description'])): ?><p><strong>Description:</strong> <?= Text::renderMarkup(trim((string)$event['description'])) ?></p><?php endif; ?>
-</div>
-<?php endif; ?>
 
 <?php if ($isAdmin): ?>
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
