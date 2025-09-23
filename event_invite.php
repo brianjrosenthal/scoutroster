@@ -630,7 +630,11 @@ header_html('Event Invite');
       const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); window.location.reload(); });
+      if (laterBtn) laterBtn.addEventListener('click', function(e){ 
+        e.preventDefault(); 
+        closeModal(); 
+        window.location.reload(); 
+      });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
         openModal();
