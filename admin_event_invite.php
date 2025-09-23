@@ -627,12 +627,29 @@ header_html('Send Event Invitations');
   </div>
 <?php endif; ?>
 
+<?php if ($previewData): ?>
+<div class="card">
+  <h3>Email Preview</h3>
+  <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
+    <div><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></div>
+    <?php if (!empty($event['location'])): ?>
+      <div><strong>Where:</strong> <?= h((string)$event['location']) ?></div>
+    <?php endif; ?>
+  </div>
+  <?php if (!empty($previewData['description'])): ?>
+    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+      <?= Text::renderMarkup($previewData['description']) ?>
+    </div>
+  <?php endif; ?>
+</div>
+<?php else: ?>
 <div class="card">
   <h3>Email Preview</h3>
   <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></p>
   <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?= h((string)$event['location']) ?></p><?php endif; ?>
   <?php if (!empty($event['description'])): ?><p><strong>Description:</strong> <?= Text::renderMarkup(trim((string)$event['description'])) ?></p><?php endif; ?>
 </div>
+<?php endif; ?>
 
 <?php if ($isAdmin): ?>
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
