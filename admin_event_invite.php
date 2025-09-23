@@ -1213,7 +1213,7 @@ header_html('Send Event Invitations');
         // Generate button HTML based on mock RSVP status
         let buttonHtml = '';
         if (selectedRsvpStatus === 'yes') {
-            buttonHtml = `<p style="margin:0 0 4px;color:#222;font-size:16px;">You RSVP'd Yes</p>
+            buttonHtml = `<p style="margin:0 0 4px;color:#222;font-size:16px;font-weight: bold;">You RSVP'd Yes</p>
                          <p style="margin:0 0 16px;">
                            <a href="${baseUrl}/event.php?id=${eventId}" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View Details</a>
                          </p>`;
