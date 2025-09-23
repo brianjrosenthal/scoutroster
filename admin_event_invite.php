@@ -349,9 +349,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
       ($whereHtml !== '' ? '<div><strong>Where:</strong> '. $whereHtml .'</div>' : '') .'
     </div>'
-    . ($desc !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-      <div><strong>Description:</strong></div>
-      <div>'. Text::renderMarkup($desc) .'</div>
+    . ($description !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+      <div>'. Text::renderMarkup($description) .'</div>
     </div>') : '')
     . '<div style="text-align:center;margin:0 0 12px;">
       <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>
@@ -592,16 +591,16 @@ header_html('Send Event Invitations');
     </label>
 
     <?php
-      // Default description with current event description formatted as markup
-      $defaultDescription = '';
+      // Default body content with markdown formatting
+      $defaultBody = '';
       if (!empty($event['description'])) {
-        $defaultDescription = trim((string)$event['description']);
+        $defaultBody = '**Description:** ' . trim((string)$event['description']);
       }
-      $currentDescription = $_POST['description'] ?? $defaultDescription;
+      $currentBody = $_POST['description'] ?? $defaultBody;
     ?>
-    <label>Description (will be included in the email)
-      <textarea name="description" rows="6" placeholder="Enter custom description for this invitation..."><?= h($currentDescription) ?></textarea>
-      <span class="small">This description will appear in the email. Leave blank to use the event's default description. Supports basic markup.</span>
+    <label>Email Body (appears below the When/Where box)
+      <textarea name="description" rows="6" placeholder="Enter custom body content for this invitation..."><?= h($currentBody) ?></textarea>
+      <span class="small">This content will appear in the email body below the When/Where information. Supports markdown formatting (e.g., **bold**, *italic*).</span>
     </label>
 
     <div class="actions">
@@ -629,7 +628,7 @@ header_html('Send Event Invitations');
 <?php endif; ?>
 
 <div class="card">
-  <h3>Event Details</h3>
+  <h3>Email Preview</h3>
   <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></p>
   <?php if (!empty($event['location'])): ?><p><strong>Where:</strong> <?= h((string)$event['location']) ?></p><?php endif; ?>
   <?php if (!empty($event['description'])): ?><p><strong>Description:</strong> <?= Text::renderMarkup(trim((string)$event['description'])) ?></p><?php endif; ?>
