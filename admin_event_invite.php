@@ -402,10 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       <p style="margin:0 0 16px;color:#444;">'. htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') .'</p>
       <p style="margin:0 0 16px;">
         <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
-      </p>'.
-      ($safeEventImageUrl !== '' ? '<div style="text-align:center;margin:16px 0;">
-        <img src="'. $safeEventImageUrl .'" alt="'. $safeEvent .'" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #ddd;">
-      </div>' : '') .'
+      </p>
     </div>
     <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
@@ -414,6 +411,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     . ($description !== '' ? ('<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
       <div>'. Text::renderMarkup($description) .'</div>
     </div>') : '')
+    . ($safeEventImageUrl !== '' ? '<div style="text-align:center;margin:16px 0;">
+        <img src="'. $safeEventImageUrl .'" alt="'. $safeEvent .'" style="max-width:400px;height:auto;border-radius:8px;border:1px solid #ddd;">
+      </div>' : '')
     . '<div style="text-align:center;margin:0 0 12px;">
       <a href="'. $safeGoogle .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Google</a>
       <a href="'. $safeOutlook .'" style="margin:0 6px;display:inline-block;padding:8px 12px;border:1px solid #ddd;border-radius:6px;text-decoration:none;color:#0b5ed7;">Add to Outlook</a>
