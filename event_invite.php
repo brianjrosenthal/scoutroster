@@ -344,6 +344,27 @@ header_html('Event Invite');
         <input type="hidden" name="sig" value="<?= h($sig) ?>">
         <input type="hidden" name="answer" id="inviteAnswerInput" value="<?= h((string)($inviteeRsvp['answer'] ?? 'yes')) ?>">
 
+        <?php if ($inviteeRsvp): ?>
+        <div style="margin-bottom: 16px;">
+          <strong>Change your RSVP:</strong>
+          <div style="margin-top: 8px;">
+            <?php $currentAnswer = (string)($inviteeRsvp['answer'] ?? 'yes'); ?>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="yes" <?= $currentAnswer === 'yes' ? 'checked' : '' ?>>
+              Yes
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="maybe" <?= $currentAnswer === 'maybe' ? 'checked' : '' ?>>
+              Maybe
+            </label>
+            <label class="inline">
+              <input type="radio" name="answer_radio" value="no" <?= $currentAnswer === 'no' ? 'checked' : '' ?>>
+              No
+            </label>
+          </div>
+        </div>
+        <?php endif; ?>
+
         <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;align-items:start;">
           <div>
             <h3>Adults</h3>
@@ -403,6 +424,16 @@ header_html('Event Invite');
       if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value='maybe'; openModal(); });
       if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value='no'; openModal(); });
       if (editBtn) editBtn.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+
+      // Handle radio button changes in the modal
+      const answerRadios = document.querySelectorAll('input[name="answer_radio"]');
+      answerRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+          if (this.checked) {
+            if (answerInput) answerInput.value = this.value;
+          }
+        });
+      });
 
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
