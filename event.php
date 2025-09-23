@@ -525,6 +525,26 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
       <input type="hidden" name="answer" id="rsvpAnswerInput" value="<?= h($myAnswer) ?>">
 
+      <?php if ($myRsvp): ?>
+      <div style="margin-bottom: 16px;">
+        <strong>Change your RSVP:</strong>
+        <div style="margin-top: 8px;">
+          <label class="inline">
+            <input type="radio" name="answer_radio" value="yes" <?= $myAnswer === 'yes' ? 'checked' : '' ?>>
+            Yes
+          </label>
+          <label class="inline">
+            <input type="radio" name="answer_radio" value="maybe" <?= $myAnswer === 'maybe' ? 'checked' : '' ?>>
+            Maybe
+          </label>
+          <label class="inline">
+            <input type="radio" name="answer_radio" value="no" <?= $myAnswer === 'no' ? 'checked' : '' ?>>
+            No
+          </label>
+        </div>
+      </div>
+      <?php endif; ?>
+
       <h4>Adults</h4>
       <?php
         $selAdults = [];
@@ -606,6 +626,17 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       e.preventDefault();
       if (heading && answerInput) heading.textContent = (answerInput.value || 'yes').toUpperCase();
       openModal();
+    });
+
+    // Handle radio button changes in the modal
+    const answerRadios = document.querySelectorAll('input[name="answer_radio"]');
+    answerRadios.forEach(radio => {
+      radio.addEventListener('change', function() {
+        if (this.checked) {
+          if (answerInput) answerInput.value = this.value;
+          if (heading) heading.textContent = this.value.toUpperCase();
+        }
+      });
     });
 
     if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
