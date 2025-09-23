@@ -903,6 +903,44 @@ header_html('Send Event Invitations');
     let isSubmitting = false;
     let countTimeout = null;
 
+    // Dynamic subject line updating based on email type
+    const emailTypeRadios = document.querySelectorAll('input[name="email_type"]');
+    const subjectField = document.querySelector('input[name="subject"]');
+    const defaultSubject = '<?= addslashes($subjectDefault) ?>';
+    const eventName = '<?= addslashes((string)$event['name']) ?>';
+    const eventDateTime = '<?= addslashes(date('D n/j \\a\\t g:i A', strtotime((string)$event['starts_at']))) ?>';
+    
+    function updateSubjectField() {
+        if (!subjectField) return;
+        
+        const selectedType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
+        let newSubject = defaultSubject;
+        
+        if (selectedType === 'invitation') {
+            newSubject = `You're invited to "${eventName}", ${eventDateTime}`;
+        } else if (selectedType === 'reminder') {
+            newSubject = `Reminder: "${eventName}", ${eventDateTime}`;
+        }
+        
+        // Only update if the current subject matches a generated pattern or is the default
+        const currentSubject = subjectField.value.trim();
+        const isDefaultSubject = currentSubject === defaultSubject;
+        const isGeneratedSubject = currentSubject.startsWith("You're invited to \"") || 
+                                 currentSubject.startsWith("Reminder: \"");
+        
+        if (isDefaultSubject || isGeneratedSubject) {
+            subjectField.value = newSubject;
+        }
+    }
+    
+    // Add event listeners to email type radio buttons
+    emailTypeRadios.forEach(radio => {
+        radio.addEventListener('change', updateSubjectField);
+    });
+    
+    // Initialize subject on page load
+    updateSubjectField();
+
     // Real-time recipient counting
     function updateRecipientCount() {
         if (!form || !recipientCountSpan) return;
