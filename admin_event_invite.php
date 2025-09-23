@@ -631,17 +631,6 @@ header_html('Send Event Invitations');
       </div>
 
       <div style="margin-bottom: 16px;">
-        <label><strong>Suppress duplicate policy:</strong></label>
-        <div style="margin-left: 16px;">
-          <?php $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
-          <label class="inline"><input type="radio" name="suppress_policy" value="last_24_hours" <?= $suppressPolicy==='last_24_hours'?'checked':'' ?>> Don't send if invited in last 24 hours</label>
-          <label class="inline"><input type="radio" name="suppress_policy" value="ever_invited" <?= $suppressPolicy==='ever_invited'?'checked':'' ?>> Don't send if ever invited</label>
-          <label class="inline"><input type="radio" name="suppress_policy" value="none" <?= $suppressPolicy==='none'?'checked':'' ?>> No suppression policy</label>
-          <span class="small">Choose how to handle users who have already been invited to this event</span>
-        </div>
-      </div>
-
-      <div style="margin-bottom: 16px;">
         <label><strong>Specific adults:</strong></label>
         <div style="margin-left: 16px;">
           <div id="specificAdultsContainer">
@@ -668,6 +657,17 @@ header_html('Send Event Invitations');
             <div id="adultTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
           </div>
           <span class="small">Add specific adults to include regardless of other filters</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label><strong>Suppress duplicate policy:</strong></label>
+        <div style="margin-left: 16px;">
+          <?php $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
+          <label class="inline"><input type="radio" name="suppress_policy" value="last_24_hours" <?= $suppressPolicy==='last_24_hours'?'checked':'' ?>> Don't send if invited in last 24 hours</label>
+          <label class="inline"><input type="radio" name="suppress_policy" value="ever_invited" <?= $suppressPolicy==='ever_invited'?'checked':'' ?>> Don't send if ever invited</label>
+          <label class="inline"><input type="radio" name="suppress_policy" value="none" <?= $suppressPolicy==='none'?'checked':'' ?>> No suppression policy</label>
+          <span class="small">Choose how to handle users who have already been invited to this event</span>
         </div>
       </div>
     </fieldset>
