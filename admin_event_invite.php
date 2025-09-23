@@ -74,6 +74,44 @@ $error = null;
 $previewRecipients = null;
 $previewData = null;
 
+// Handle AJAX request for recipient count
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'count_recipients') {
+  header('Content-Type: application/json');
+  
+  try {
+    require_csrf();
+    
+    $filters = [
+      'registration_status' => $_POST['registration_status'] ?? 'all',
+      'grades' => $_POST['grades'] ?? [],
+      'rsvp_status' => $_POST['rsvp_status'] ?? 'all',
+      'event_id' => $eventId,
+      'specific_adult_ids' => $_POST['specific_adult_ids'] ?? []
+    ];
+    
+    // Normalize grades array
+    if (is_string($filters['grades'])) {
+      $filters['grades'] = explode(',', $filters['grades']);
+    }
+    $filters['grades'] = array_filter(array_map('intval', (array)$filters['grades']));
+    
+    // Normalize specific adult IDs
+    if (is_string($filters['specific_adult_ids'])) {
+      $filters['specific_adult_ids'] = explode(',', $filters['specific_adult_ids']);
+    }
+    $filters['specific_adult_ids'] = array_filter(array_map('intval', (array)$filters['specific_adult_ids']));
+    
+    $count = UserManagement::countAdultsWithFilters($filters);
+    
+    echo json_encode(['success' => true, 'count' => $count]);
+    exit;
+    
+  } catch (Throwable $e) {
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    exit;
+  }
+}
+
 // Helper function to detect environment
 function detectEnvironment($host) {
   $host = strtolower($host);
@@ -91,34 +129,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
   try {
     require_csrf();
 
-    $audience = $_POST['audience'] ?? 'all_adults';
-    $gradeLbl = trim((string)($_POST['grade'] ?? ''));
-    $oneAdultId = (int)($_POST['adult_id'] ?? 0);
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
+    $description = trim((string)($_POST['description'] ?? ''));
 
     if ($subject === '') $subject = $subjectDefault;
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
       throw new RuntimeException('Organizer email is invalid.');
     }
 
-    // Build recipients (same logic as send)
-    $recipients = [];
-    if ($audience === 'all_adults') {
-      $recipients = UserManagement::listAdultsWithAnyEmail();
-    } elseif ($audience === 'registered_families') {
-      $recipients = UserManagement::listAdultsWithRegisteredChildrenEmails();
-    } elseif ($audience === 'by_grade') {
-      $classOf = UserManagement::computeClassOfFromGradeLabel($gradeLbl);
-      if ($classOf === null) throw new RuntimeException('Grade is required for "families by grade".');
-      $recipients = UserManagement::listAdultsByChildClassOfEmails((int)$classOf);
-    } elseif ($audience === 'one_adult') {
-      if ($oneAdultId <= 0) throw new RuntimeException('Please choose an adult.');
-      $row = UserManagement::findBasicForEmailingById($oneAdultId);
-      if ($row && !empty($row['email'])) $recipients = [$row];
-    } else {
-      throw new RuntimeException('Invalid audience.');
+    // Build filters from new form structure
+    $filters = [
+      'registration_status' => $_POST['registration_status'] ?? 'all',
+      'grades' => $_POST['grades'] ?? [],
+      'rsvp_status' => $_POST['rsvp_status'] ?? 'all',
+      'event_id' => $eventId,
+      'specific_adult_ids' => $_POST['specific_adult_ids'] ?? []
+    ];
+
+    // Normalize grades array
+    if (is_string($filters['grades'])) {
+      $filters['grades'] = explode(',', $filters['grades']);
     }
+    $filters['grades'] = array_filter(array_map('intval', (array)$filters['grades']));
+
+    // Normalize specific adult IDs
+    if (is_string($filters['specific_adult_ids'])) {
+      $filters['specific_adult_ids'] = explode(',', $filters['specific_adult_ids']);
+    }
+    $filters['specific_adult_ids'] = array_filter(array_map('intval', (array)$filters['specific_adult_ids']));
+
+    // Get recipients using new filter system
+    $recipients = UserManagement::listAdultsWithFilters($filters);
 
     // Dedupe by email and skip blanks
     $byEmail = [];
@@ -137,11 +179,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
     // Store preview data
     $previewRecipients = $finalRecipients;
     $previewData = [
-      'audience' => $audience,
-      'grade' => $gradeLbl,
-      'adult_id' => $oneAdultId,
+      'filters' => $filters,
       'subject' => $subject,
       'organizer' => $organizer,
+      'description' => $description,
       'count' => count($finalRecipients)
     ];
 
@@ -155,34 +196,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
   try {
     require_csrf();
 
-    $audience = $_POST['audience'] ?? 'all_adults';
-    $gradeLbl = trim((string)($_POST['grade'] ?? ''));
-    $oneAdultId = (int)($_POST['adult_id'] ?? 0);
     $subject = trim((string)($_POST['subject'] ?? $subjectDefault));
     $organizer = trim((string)($_POST['organizer'] ?? $defaultOrganizer));
+    $description = trim((string)($_POST['description'] ?? ''));
 
     if ($subject === '') $subject = $subjectDefault;
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
       throw new RuntimeException('Organizer email is invalid.');
     }
 
-    // Build recipients (moved to domain methods)
-    $recipients = []; // [ ['id'=>int,'email'=>str,'first_name'=>..., 'last_name'=>...], ... ]
-    if ($audience === 'all_adults') {
-      $recipients = UserManagement::listAdultsWithAnyEmail();
-    } elseif ($audience === 'registered_families') {
-      $recipients = UserManagement::listAdultsWithRegisteredChildrenEmails();
-    } elseif ($audience === 'by_grade') {
-      $classOf = UserManagement::computeClassOfFromGradeLabel($gradeLbl);
-      if ($classOf === null) throw new RuntimeException('Grade is required for "families by grade".');
-      $recipients = UserManagement::listAdultsByChildClassOfEmails((int)$classOf);
-    } elseif ($audience === 'one_adult') {
-      if ($oneAdultId <= 0) throw new RuntimeException('Please choose an adult.');
-      $row = UserManagement::findBasicForEmailingById($oneAdultId);
-      if ($row && !empty($row['email'])) $recipients = [$row];
-    } else {
-      throw new RuntimeException('Invalid audience.');
+    // Build filters from form data (same as preview)
+    $filters = [
+      'registration_status' => $_POST['registration_status'] ?? 'all',
+      'grades' => $_POST['grades'] ?? [],
+      'rsvp_status' => $_POST['rsvp_status'] ?? 'all',
+      'event_id' => $eventId,
+      'specific_adult_ids' => $_POST['specific_adult_ids'] ?? []
+    ];
+
+    // Normalize grades array
+    if (is_string($filters['grades'])) {
+      $filters['grades'] = explode(',', $filters['grades']);
     }
+    $filters['grades'] = array_filter(array_map('intval', (array)$filters['grades']));
+
+    // Normalize specific adult IDs
+    if (is_string($filters['specific_adult_ids'])) {
+      $filters['specific_adult_ids'] = explode(',', $filters['specific_adult_ids']);
+    }
+    $filters['specific_adult_ids'] = array_filter(array_map('intval', (array)$filters['specific_adult_ids']));
+
+    // Get recipients using new filter system
+    $recipients = UserManagement::listAdultsWithFilters($filters);
 
     // Dedupe by email and skip blanks
     $byEmail = [];
@@ -452,48 +497,81 @@ header_html('Send Event Invitations');
       <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
 
     <fieldset>
-      <legend>Audience</legend>
+      <legend>Filter adults by:</legend>
       <?php
-        $aud = $_POST['audience'] ?? ($_GET['audience'] ?? 'all_adults');
-        $gradeSel = $_POST['grade'] ?? ($_GET['grade'] ?? '');
-        $adultSel = (int)($_POST['adult_id'] ?? 0);
+        $regStatus = $_POST['registration_status'] ?? 'all';
+        $selectedGrades = $_POST['grades'] ?? [];
+        $rsvpStatus = $_POST['rsvp_status'] ?? 'all';
+        $specificAdultIds = $_POST['specific_adult_ids'] ?? [];
+        
+        // Normalize arrays from form data
+        if (is_string($selectedGrades)) {
+          $selectedGrades = explode(',', $selectedGrades);
+        }
+        $selectedGrades = array_filter(array_map('intval', (array)$selectedGrades));
+        
+        if (is_string($specificAdultIds)) {
+          $specificAdultIds = explode(',', $specificAdultIds);
+        }
+        $specificAdultIds = array_filter(array_map('intval', (array)$specificAdultIds));
       ?>
-      <label class="inline"><input type="radio" name="audience" value="all_adults" <?= $aud==='all_adults'?'checked':'' ?>> All adults</label>
-      <label class="inline"><input type="radio" name="audience" value="registered_families" <?= $aud==='registered_families'?'checked':'' ?>> Registered families (child has BSA ID)</label>
-      <label class="inline"><input type="radio" name="audience" value="by_grade" <?= $aud==='by_grade'?'checked':'' ?>> Families by grade</label>
-      <div>
-        <select name="grade">
-          <option value="">Select grade</option>
-          <?php for($i=0;$i<=5;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
-            <option value="<?= h($lbl) ?>" <?= ($gradeSel===$lbl?'selected':'') ?>>
-              <?= $i===0?'K':$i ?>
-            </option>
-          <?php endfor; ?>
-        </select>
-        <span class="small">(Only used when selecting "Families by grade")</span>
-      </div>
-      <label class="inline"><input type="radio" name="audience" value="one_adult" <?= $aud==='one_adult'?'checked':'' ?>> One adult</label>
-      <div>
-        <?php
-          $prefill = '';
-          if ($adultSel > 0) {
-            $sel = UserManagement::findBasicForEmailingById((int)$adultSel);
-            if ($sel) {
-              $ln = trim((string)($sel['last_name'] ?? ''));
-              $fn = trim((string)($sel['first_name'] ?? ''));
-              $email = trim((string)($sel['email'] ?? ''));
-              $prefill = ($ln !== '' || $fn !== '') ? ($ln.', '.$fn) : ('User #'.(int)($sel['id'] ?? 0));
-              if ($email !== '') $prefill .= ' <'.$email.'>';
-            }
-          }
-        ?>
-        <div class="typeahead">
-          <input type="text" id="userTypeahead" placeholder="Type name or email" autocomplete="off" value="<?= h($prefill) ?>">
-          <input type="hidden" id="userId" name="adult_id" value="<?= (int)$adultSel ?>">
-          <div id="userTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
-          <button class="button" type="button" id="clearUserBtn">Clear</button>
+      
+      <div style="margin-bottom: 16px;">
+        <label><strong>Registration status:</strong></label>
+        <div style="margin-left: 16px;">
+          <label class="inline"><input type="radio" name="registration_status" value="all" <?= $regStatus==='all'?'checked':'' ?>> All</label>
+          <label class="inline"><input type="radio" name="registration_status" value="registered" <?= $regStatus==='registered'?'checked':'' ?>> Registered only</label>
+          <label class="inline"><input type="radio" name="registration_status" value="unregistered" <?= $regStatus==='unregistered'?'checked':'' ?>> Unregistered only</label>
         </div>
-        <span class="small">(Only used when selecting "One adult")</span>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label><strong>Grade:</strong></label>
+        <div style="margin-left: 16px;">
+          <label class="inline"><input type="checkbox" name="grades[]" value="0" <?= in_array(0, $selectedGrades)?'checked':'' ?>> K</label>
+          <?php for($i=1;$i<=5;$i++): ?>
+            <label class="inline"><input type="checkbox" name="grades[]" value="<?= $i ?>" <?= in_array($i, $selectedGrades)?'checked':'' ?>> <?= $i ?></label>
+          <?php endfor; ?>
+          <span class="small">(Select multiple grades to include families with children in any of those grades)</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label><strong>RSVP'd:</strong></label>
+        <div style="margin-left: 16px;">
+          <label class="inline"><input type="radio" name="rsvp_status" value="all" <?= $rsvpStatus==='all'?'checked':'' ?>> All</label>
+          <label class="inline"><input type="radio" name="rsvp_status" value="not_rsvped" <?= $rsvpStatus==='not_rsvped'?'checked':'' ?>> People who have not RSVP'd</label>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <label><strong>Specific adults:</strong></label>
+        <div style="margin-left: 16px;">
+          <div id="specificAdultsContainer">
+            <?php if (!empty($specificAdultIds)): ?>
+              <?php foreach ($specificAdultIds as $adultId): ?>
+                <?php 
+                  $adult = UserManagement::findBasicForEmailingById($adultId);
+                  if ($adult):
+                    $name = trim(($adult['first_name'] ?? '') . ' ' . ($adult['last_name'] ?? ''));
+                    $displayName = $name ?: 'User #' . $adultId;
+                    if (!empty($adult['email'])) $displayName .= ' <' . $adult['email'] . '>';
+                ?>
+                  <div class="selected-adult" data-adult-id="<?= $adultId ?>">
+                    <span><?= h($displayName) ?></span>
+                    <button type="button" class="remove-adult" style="margin-left: 8px; padding: 2px 6px; font-size: 12px;">×</button>
+                    <input type="hidden" name="specific_adult_ids[]" value="<?= $adultId ?>">
+                  </div>
+                <?php endif; ?>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+          <div class="typeahead" style="margin-top: 8px;">
+            <input type="text" id="adultTypeahead" placeholder="Type name or email to add specific adults" autocomplete="off">
+            <div id="adultTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
+          </div>
+          <span class="small">Add specific adults to include regardless of other filters</span>
+        </div>
       </div>
     </fieldset>
 
@@ -505,9 +583,21 @@ header_html('Send Event Invitations');
       <input type="email" name="organizer" value="<?= h($_POST['organizer'] ?? $defaultOrganizer) ?>">
     </label>
 
+    <?php
+      // Default description with current event description formatted as markup
+      $defaultDescription = '';
+      if (!empty($event['description'])) {
+        $defaultDescription = trim((string)$event['description']);
+      }
+      $currentDescription = $_POST['description'] ?? $defaultDescription;
+    ?>
+    <label>Description (will be included in the email)
+      <textarea name="description" rows="6" placeholder="Enter custom description for this invitation..."><?= h($currentDescription) ?></textarea>
+      <span class="small">This description will appear in the email. Leave blank to use the event's default description. Supports basic markup.</span>
+    </label>
 
     <div class="actions">
-      <button class="primary" id="previewRecipientsBtn">Preview Recipients</button>
+      <button class="primary" id="previewRecipientsBtn">Preview Recipients (<span id="recipientCount">0</span>)</button>
       <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
       <a class="button" href="/events.php">Manage Events</a>
     </div>
@@ -542,12 +632,201 @@ header_html('Send Event Invitations');
   <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
 <?php endif; ?>
 
+<style>
+.selected-adult {
+    display: inline-block;
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 2px;
+    font-size: 14px;
+}
+.selected-adult .remove-adult {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-weight: bold;
+}
+.selected-adult .remove-adult:hover {
+    color: #a71e2a;
+}
+.typeahead-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ced4da;
+    border-top: none;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+}
+.typeahead-result {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #e9ecef;
+}
+.typeahead-result:hover {
+    background: #f8f9fa;
+}
+.typeahead-result:last-child {
+    border-bottom: none;
+}
+.typeahead {
+    position: relative;
+}
+</style>
+
 <script>
 (function() {
     // Handle both preview and confirmation buttons
     const previewBtn = document.getElementById('previewRecipientsBtn');
     const confirmBtn = document.getElementById('confirmSendBtn');
+    const recipientCountSpan = document.getElementById('recipientCount');
+    const form = previewBtn ? previewBtn.closest('form') : null;
     let isSubmitting = false;
+    let countTimeout = null;
+
+    // Real-time recipient counting
+    function updateRecipientCount() {
+        if (!form || !recipientCountSpan) return;
+        
+        clearTimeout(countTimeout);
+        countTimeout = setTimeout(() => {
+            const formData = new FormData(form);
+            formData.set('action', 'count_recipients');
+            
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    recipientCountSpan.textContent = data.count;
+                } else {
+                    console.error('Error counting recipients:', data.error);
+                    recipientCountSpan.textContent = '?';
+                }
+            })
+            .catch(error => {
+                console.error('Error counting recipients:', error);
+                recipientCountSpan.textContent = '?';
+            });
+        }, 300); // Debounce for 300ms
+    }
+
+    // Add event listeners to all filter inputs
+    if (form) {
+        const filterInputs = form.querySelectorAll('input[name="registration_status"], input[name="grades[]"], input[name="rsvp_status"]');
+        filterInputs.forEach(input => {
+            input.addEventListener('change', updateRecipientCount);
+        });
+        
+        // Initial count
+        updateRecipientCount();
+    }
+
+    // Specific adults management
+    const adultTypeahead = document.getElementById('adultTypeahead');
+    const adultResults = document.getElementById('adultTypeaheadResults');
+    const adultsContainer = document.getElementById('specificAdultsContainer');
+    let searchTimeout = null;
+
+    if (adultTypeahead && adultResults && adultsContainer) {
+        // Typeahead search
+        adultTypeahead.addEventListener('input', function() {
+            const query = this.value.trim();
+            
+            clearTimeout(searchTimeout);
+            
+            if (query.length < 2) {
+                adultResults.style.display = 'none';
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetch('/admin_adults.php?ajax=search&q=' + encodeURIComponent(query))
+                    .then(response => response.json())
+                    .then(data => {
+                        adultResults.innerHTML = '';
+                        
+                        if (data.length === 0) {
+                            adultResults.innerHTML = '<div class="typeahead-result">No adults found</div>';
+                        } else {
+                            data.forEach(adult => {
+                                const div = document.createElement('div');
+                                div.className = 'typeahead-result';
+                                div.textContent = adult.last_name + ', ' + adult.first_name + (adult.email ? ' <' + adult.email + '>' : '');
+                                div.dataset.adultId = adult.id;
+                                div.dataset.adultName = adult.first_name + ' ' + adult.last_name;
+                                div.dataset.adultEmail = adult.email || '';
+                                
+                                div.addEventListener('click', function() {
+                                    addSpecificAdult(adult.id, adult.first_name + ' ' + adult.last_name, adult.email);
+                                    adultTypeahead.value = '';
+                                    adultResults.style.display = 'none';
+                                });
+                                
+                                adultResults.appendChild(div);
+                            });
+                        }
+                        
+                        adultResults.style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error searching adults:', error);
+                        adultResults.innerHTML = '<div class="typeahead-result">Error searching</div>';
+                        adultResults.style.display = 'block';
+                    });
+            }, 300);
+        });
+
+        // Hide results when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!adultTypeahead.contains(e.target) && !adultResults.contains(e.target)) {
+                adultResults.style.display = 'none';
+            }
+        });
+
+        // Add specific adult
+        function addSpecificAdult(id, name, email) {
+            // Check if already added
+            if (adultsContainer.querySelector(`[data-adult-id="${id}"]`)) {
+                return;
+            }
+
+            const displayName = name + (email ? ' <' + email + '>' : '');
+            
+            const div = document.createElement('div');
+            div.className = 'selected-adult';
+            div.dataset.adultId = id;
+            div.innerHTML = `
+                <span>${displayName}</span>
+                <button type="button" class="remove-adult" style="margin-left: 8px; padding: 2px 6px; font-size: 12px;">×</button>
+                <input type="hidden" name="specific_adult_ids[]" value="${id}">
+            `;
+            
+            div.querySelector('.remove-adult').addEventListener('click', function() {
+                div.remove();
+                updateRecipientCount(); // Update count when removing adult
+            });
+            
+            adultsContainer.appendChild(div);
+            updateRecipientCount(); // Update count when adding adult
+        }
+
+        // Handle existing remove buttons
+        adultsContainer.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-adult')) {
+                e.target.closest('.selected-adult').remove();
+                updateRecipientCount();
+            }
+        });
+    }
     
     // Preview button handler
     if (previewBtn) {
@@ -621,7 +900,7 @@ header_html('Send Event Invitations');
         if (previewBtn) {
             isSubmitting = false;
             previewBtn.disabled = false;
-            previewBtn.textContent = 'Preview Recipients';
+            previewBtn.textContent = 'Preview Recipients (' + (recipientCountSpan ? recipientCountSpan.textContent : '0') + ')';
             previewBtn.style.opacity = '1';
             previewBtn.style.cursor = 'pointer';
             

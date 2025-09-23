@@ -904,6 +904,190 @@ class UserManagement {
     return $row ?: null;
   }
 
+  /**
+   * List adults with email addresses based on multiple filter criteria.
+   * Returns array of ['id' => int, 'first_name' => str, 'last_name' => str, 'email' => str]
+   * 
+   * @param array $filters Filter criteria:
+   *   - 'registration_status' => 'all'|'registered'|'unregistered'
+   *   - 'grades' => array of grade numbers (0=K, 1-5)
+   *   - 'rsvp_status' => 'all'|'not_rsvped'
+   *   - 'event_id' => int (required for RSVP filtering)
+   *   - 'specific_adult_ids' => array of user IDs to include
+   * @return array
+   */
+  public static function listAdultsWithFilters(array $filters): array {
+    $registrationStatus = $filters['registration_status'] ?? 'all';
+    $grades = $filters['grades'] ?? [];
+    $rsvpStatus = $filters['rsvp_status'] ?? 'all';
+    $eventId = isset($filters['event_id']) ? (int)$filters['event_id'] : null;
+    $specificAdultIds = $filters['specific_adult_ids'] ?? [];
+
+    // Normalize grades to class_of values
+    $classOfValues = [];
+    if (!empty($grades)) {
+      $currentFifth = \GradeCalculator::schoolYearEndYear();
+      foreach ($grades as $grade) {
+        $g = (int)$grade;
+        if ($g >= 0 && $g <= 5) {
+          $classOfValues[] = $currentFifth + (5 - $g);
+        }
+      }
+    }
+
+    // Normalize specific adult IDs
+    $specificAdultIds = array_values(array_unique(array_filter(array_map(static function($v) {
+      $n = (int)$v;
+      return $n > 0 ? $n : null;
+    }, $specificAdultIds))));
+
+    // Base query - adults with email addresses
+    $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email FROM users u";
+    $joins = [];
+    $wheres = ["u.email IS NOT NULL", "u.email <> ''"];
+    $params = [];
+
+    // Registration status filtering
+    if ($registrationStatus === 'registered') {
+      $joins[] = "LEFT JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
+      $joins[] = "LEFT JOIN youth y_reg ON y_reg.id = pr_reg.youth_id";
+      $wheres[] = "(u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y_reg.bsa_registration_number IS NOT NULL AND y_reg.bsa_registration_number <> '')";
+    } elseif ($registrationStatus === 'unregistered') {
+      $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
+      $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
+      $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+    }
+
+    // Grade filtering
+    if (!empty($classOfValues)) {
+      $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
+      $joins[] = "JOIN youth y_grade ON y_grade.id = pr_grade.youth_id";
+      $placeholders = implode(',', array_fill(0, count($classOfValues), '?'));
+      $wheres[] = "y_grade.class_of IN ($placeholders)";
+      $params = array_merge($params, $classOfValues);
+    }
+
+    // RSVP status filtering
+    if ($rsvpStatus === 'not_rsvped' && $eventId) {
+      $wheres[] = "NOT EXISTS (
+        SELECT 1 FROM rsvps r 
+        WHERE r.event_id = ? AND r.created_by_user_id = u.id
+      ) AND NOT EXISTS (
+        SELECT 1 FROM rsvp_members rm 
+        JOIN rsvps r2 ON r2.id = rm.rsvp_id 
+        WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND rm.adult_id = u.id
+      )";
+      $params[] = $eventId;
+      $params[] = $eventId;
+    }
+
+    // Specific adults inclusion
+    if (!empty($specificAdultIds)) {
+      $placeholders = implode(',', array_fill(0, count($specificAdultIds), '?'));
+      $wheres[] = "u.id IN ($placeholders)";
+      $params = array_merge($params, $specificAdultIds);
+    }
+
+    // Build final query
+    if (!empty($joins)) {
+      $sql .= " " . implode(" ", $joins);
+    }
+    $sql .= " WHERE " . implode(" AND ", $wheres);
+    $sql .= " ORDER BY u.last_name, u.first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll();
+  }
+
+  /**
+   * Count adults that would be returned by listAdultsWithFilters() without fetching full data.
+   * Uses same filtering logic but returns just the count for performance.
+   */
+  public static function countAdultsWithFilters(array $filters): int {
+    $registrationStatus = $filters['registration_status'] ?? 'all';
+    $grades = $filters['grades'] ?? [];
+    $rsvpStatus = $filters['rsvp_status'] ?? 'all';
+    $eventId = isset($filters['event_id']) ? (int)$filters['event_id'] : null;
+    $specificAdultIds = $filters['specific_adult_ids'] ?? [];
+
+    // Normalize grades to class_of values
+    $classOfValues = [];
+    if (!empty($grades)) {
+      $currentFifth = \GradeCalculator::schoolYearEndYear();
+      foreach ($grades as $grade) {
+        $g = (int)$grade;
+        if ($g >= 0 && $g <= 5) {
+          $classOfValues[] = $currentFifth + (5 - $g);
+        }
+      }
+    }
+
+    // Normalize specific adult IDs
+    $specificAdultIds = array_values(array_unique(array_filter(array_map(static function($v) {
+      $n = (int)$v;
+      return $n > 0 ? $n : null;
+    }, $specificAdultIds))));
+
+    // Base query - count distinct adults with email addresses
+    $sql = "SELECT COUNT(DISTINCT u.id) as count FROM users u";
+    $joins = [];
+    $wheres = ["u.email IS NOT NULL", "u.email <> ''"];
+    $params = [];
+
+    // Registration status filtering
+    if ($registrationStatus === 'registered') {
+      $joins[] = "LEFT JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
+      $joins[] = "LEFT JOIN youth y_reg ON y_reg.id = pr_reg.youth_id";
+      $wheres[] = "(u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y_reg.bsa_registration_number IS NOT NULL AND y_reg.bsa_registration_number <> '')";
+    } elseif ($registrationStatus === 'unregistered') {
+      $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
+      $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
+      $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+    }
+
+    // Grade filtering
+    if (!empty($classOfValues)) {
+      $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
+      $joins[] = "JOIN youth y_grade ON y_grade.id = pr_grade.youth_id";
+      $placeholders = implode(',', array_fill(0, count($classOfValues), '?'));
+      $wheres[] = "y_grade.class_of IN ($placeholders)";
+      $params = array_merge($params, $classOfValues);
+    }
+
+    // RSVP status filtering
+    if ($rsvpStatus === 'not_rsvped' && $eventId) {
+      $wheres[] = "NOT EXISTS (
+        SELECT 1 FROM rsvps r 
+        WHERE r.event_id = ? AND r.created_by_user_id = u.id
+      ) AND NOT EXISTS (
+        SELECT 1 FROM rsvp_members rm 
+        JOIN rsvps r2 ON r2.id = rm.rsvp_id 
+        WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND rm.adult_id = u.id
+      )";
+      $params[] = $eventId;
+      $params[] = $eventId;
+    }
+
+    // Specific adults inclusion
+    if (!empty($specificAdultIds)) {
+      $placeholders = implode(',', array_fill(0, count($specificAdultIds), '?'));
+      $wheres[] = "u.id IN ($placeholders)";
+      $params = array_merge($params, $specificAdultIds);
+    }
+
+    // Build final query
+    if (!empty($joins)) {
+      $sql .= " " . implode(" ", $joins);
+    }
+    $sql .= " WHERE " . implode(" AND ", $wheres);
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    $row = $st->fetch();
+    return (int)($row['count'] ?? 0);
+  }
+
   // Determine if a user may upload a photo for the target adult.
   public static function canUploadAdultPhoto(?UserContext $ctx, int $targetAdultId): bool {
     if (!$ctx) {
