@@ -56,46 +56,53 @@ $inviteUid = isset($_POST['uid']) ? (int)$_POST['uid'] : 0;
 $inviteSig = isset($_POST['sig']) ? (string)$_POST['sig'] : '';
 
 if ($inviteUid > 0 && $inviteSig !== '') {
-  // Validate HMAC
-  $err = validate_invite_sig($inviteUid, $eventId, $inviteSig);
-  if ($err !== null) {
-    // Fallback to logged-in flow on invalid signature
-    $me = current_user();
-    if (!$me) {
-      // Redirect back to invite page with error
-      $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode($err);
-      header('Location: '.$redirectUrl);
-      exit;
-    }
+  // Check if there's a logged-in user and prioritize them over the token
+  $me = current_user();
+  if ($me && (int)$me['id'] !== (int)$inviteUid) {
+    // Prioritize the logged-in user over the email token
     $actingUserId = (int)$me['id'];
+    $redirectUrl = '/event.php?id='.(int)$eventId;
   } else {
-    // Check token expiration against event end time (or +1h from start if no end)
-    $ev = EventManagement::findById((int)$eventId);
-    if (!$ev) {
-      $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('Event not found.');
-      header('Location: '.$redirectUrl);
-      exit;
-    }
-    try {
-      $tz = new DateTimeZone(Settings::timezoneId());
-      if (!empty($ev['ends_at'])) {
-        $endRef = new DateTime($ev['ends_at'], $tz);
-      } else {
-        $endRef = new DateTime($ev['starts_at'], $tz);
-        $endRef->modify('+1 hour');
-      }
-      $nowTz = new DateTime('now', $tz);
-      if ($nowTz >= $endRef) {
-        $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
+    // Validate HMAC
+    $err = validate_invite_sig($inviteUid, $eventId, $inviteSig);
+    if ($err !== null) {
+      // Fallback to logged-in flow on invalid signature
+      if (!$me) {
+        // Redirect back to invite page with error
+        $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode($err);
         header('Location: '.$redirectUrl);
         exit;
       }
-    } catch (Throwable $e) {
-      // If parsing fails, proceed
-    }
+      $actingUserId = (int)$me['id'];
+    } else {
+      // Check token expiration against event end time (or +1h from start if no end)
+      $ev = EventManagement::findById((int)$eventId);
+      if (!$ev) {
+        $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('Event not found.');
+        header('Location: '.$redirectUrl);
+        exit;
+      }
+      try {
+        $tz = new DateTimeZone(Settings::timezoneId());
+        if (!empty($ev['ends_at'])) {
+          $endRef = new DateTime($ev['ends_at'], $tz);
+        } else {
+          $endRef = new DateTime($ev['starts_at'], $tz);
+          $endRef->modify('+1 hour');
+        }
+        $nowTz = new DateTime('now', $tz);
+        if ($nowTz >= $endRef) {
+          $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
+          header('Location: '.$redirectUrl);
+          exit;
+        }
+      } catch (Throwable $e) {
+        // If parsing fails, proceed
+      }
 
-    $actingUserId = (int)$inviteUid;
-    $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig);
+      $actingUserId = (int)$inviteUid;
+      $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig);
+    }
   }
 } else {
   // Logged-in only
