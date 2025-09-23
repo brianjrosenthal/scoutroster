@@ -353,8 +353,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
 
 // Handle actual send - Real-time email sending with tracking
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
-  // Start output buffering for real-time display
+  // Configure output buffering for real-time display
+  if (ob_get_level()) {
+    ob_end_clean(); // Clear any existing output buffers
+  }
+  
+  // Disable implicit flush initially, we'll control it manually
+  ob_implicit_flush(false);
+  
+  // Start a new output buffer that we can control
   ob_start();
+  
+  // Send headers to prevent caching and enable real-time display
+  header('Content-Type: text/html; charset=UTF-8');
+  header('Cache-Control: no-cache, must-revalidate');
+  header('Pragma: no-cache');
   
   try {
     require_csrf();
@@ -506,6 +519,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $fail = 0;
     $skipped = 0;
 
+    // Enable real-time output
+    ob_implicit_flush(true);
+    
     foreach ($filteredRecipients as $r) {
       $uid = (int)$r['id'];
       $email = trim((string)$r['email']);
@@ -522,9 +538,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       // Use shared email template function
       $html = generateEmailHTML($event, $siteTitle, $baseUrl, $deepLink, $whenText, $whereHtml, $description, $googleLink, $outlookLink, $icsDownloadLink, $emailType, $eventId, $uid, true);
 
-      $ok = @send_email_with_ics($email, $subject, $html, $icsContent, 'event_'.$eventId.'.ics', $name !== '' ? $name : $email);
+      // Use the detailed email function to get specific error information
+      $result = send_email_with_ics_detailed($email, $subject, $html, $icsContent, 'event_'.$eventId.'.ics', $name !== '' ? $name : $email);
       
-      if ($ok) { 
+      if ($result['success']) { 
         $sent++;
         echo "complete.<br>\n";
         
@@ -537,7 +554,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
         }
       } else { 
         $fail++;
-        echo "failed.<br>\n";
+        $errorMsg = $result['error'] ?? 'Unknown error';
+        echo "failed: " . htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') . "<br>\n";
+        
+        // Log the specific error to the error log as well
+        error_log("Email send failed to $email for event $eventId: $errorMsg");
       }
       
       ob_flush();

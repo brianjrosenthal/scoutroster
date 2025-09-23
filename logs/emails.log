@@ -1,0 +1,3 @@
+{"ts":"2025-09-23T15:40:16+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"Test User","cc_email":null,"subject":"Test Subject","body_length":52,"success":true,"error_message":null}
+{"ts":"2025-09-23T15:40:18+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"Test User","cc_email":null,"subject":"Test Subject","body_length":52,"success":true,"error_message":null}
+{"ts":"2025-09-23T15:40:19+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"test@example.com","cc_email":null,"subject":"Test Log Subject","body_length":53,"success":true,"error_message":null}
