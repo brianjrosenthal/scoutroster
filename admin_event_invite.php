@@ -27,6 +27,40 @@ $event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
 // Helpers
+function generateSubjectLine(string $emailType, array $event, string $originalSubject, string $defaultSubject): string {
+  // If user has customized the subject (not using default), keep their custom subject
+  if ($originalSubject !== $defaultSubject) {
+    return $originalSubject;
+  }
+  
+  $eventName = (string)$event['name'];
+  $quotedEventName = '"' . $eventName . '"';
+  
+  // Format the date/time
+  $startsAt = (string)$event['starts_at'];
+  try {
+    $dt = new DateTime($startsAt);
+    $dayOfWeek = $dt->format('D'); // Mon, Tue, etc.
+    $monthDay = $dt->format('n/j'); // 10/7
+    $time = $dt->format('g:i A'); // 3:00 PM
+    $dateTimeStr = $dayOfWeek . ' ' . $monthDay . ' at ' . $time;
+  } catch (Throwable $e) {
+    // Fallback if date parsing fails
+    $dateTimeStr = $startsAt;
+  }
+  
+  if ($emailType === 'invitation') {
+    return "You're invited to " . $quotedEventName . ', ' . $dateTimeStr;
+  }
+  
+  if ($emailType === 'reminder') {
+    return 'Reminder: ' . $quotedEventName . ', ' . $dateTimeStr;
+  }
+  
+  // Default case (emailType === 'none')
+  return $originalSubject;
+}
+
 function getEmailIntroduction(string $emailType, int $eventId, int $userId): string {
   if ($emailType === 'none') {
     return '';
@@ -213,6 +247,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
     $emailType = $_POST['email_type'] ?? 'none';
 
     if ($subject === '') $subject = $subjectDefault;
+    
+    // Generate dynamic subject line based on email type
+    $subject = generateSubjectLine($emailType, $event, $subject, $subjectDefault);
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
       throw new RuntimeException('Organizer email is invalid.');
     }
@@ -306,6 +343,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours';
 
     if ($subject === '') $subject = $subjectDefault;
+    
+    // Generate dynamic subject line based on email type
+    $subject = generateSubjectLine($emailType, $event, $subject, $subjectDefault);
     if ($organizer !== '' && !filter_var($organizer, FILTER_VALIDATE_EMAIL)) {
       throw new RuntimeException('Organizer email is invalid.');
     }
