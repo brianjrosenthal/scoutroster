@@ -61,6 +61,18 @@ function generateSubjectLine(string $emailType, array $event, string $originalSu
   return $originalSubject;
 }
 
+function getRsvpStatus(int $eventId, int $userId): ?string {
+  try {
+    $pdo = pdo();
+    $stmt = $pdo->prepare('SELECT answer FROM rsvps WHERE event_id = ? AND created_by_user_id = ? LIMIT 1');
+    $stmt->execute([$eventId, $userId]);
+    $result = $stmt->fetchColumn();
+    return $result ?: null;
+  } catch (Throwable $e) {
+    return null;
+  }
+}
+
 function getEmailIntroduction(string $emailType, int $eventId, int $userId): string {
   if ($emailType === 'none') {
     return '';
@@ -72,20 +84,32 @@ function getEmailIntroduction(string $emailType, int $eventId, int $userId): str
   
   if ($emailType === 'reminder') {
     // Check if user has RSVP'd to this event
-    try {
-      $pdo = pdo();
-      $stmt = $pdo->prepare('SELECT COUNT(*) FROM rsvps WHERE event_id = ? AND user_id = ?');
-      $stmt->execute([$eventId, $userId]);
-      $hasRsvped = $stmt->fetchColumn() > 0;
-      
-      return $hasRsvped ? 'Reminder:' : 'Reminder to RSVP for...';
-    } catch (Throwable $e) {
-      // If we can't check RSVP status, default to generic reminder
-      return 'Reminder:';
-    }
+    $rsvpStatus = getRsvpStatus($eventId, $userId);
+    return $rsvpStatus ? 'Reminder:' : 'Reminder to RSVP for...';
   }
   
   return '';
+}
+
+function generateRsvpButtonHtml(int $eventId, int $userId, string $deepLink): string {
+  $safeDeep = htmlspecialchars($deepLink, ENT_QUOTES, 'UTF-8');
+  $rsvpStatus = getRsvpStatus($eventId, $userId);
+  
+  if ($rsvpStatus) {
+    // User has RSVP'd - show status and "View Details"
+    $statusText = ucfirst($rsvpStatus); // 'yes' -> 'Yes', 'maybe' -> 'Maybe', 'no' -> 'No'
+    return '<p style="margin:0 0 16px;">
+      <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;text-align:center;">
+        <div style="font-weight:bold;">You RSVP\'d: '. htmlspecialchars($statusText, ENT_QUOTES, 'UTF-8') .'</div>
+        <div style="font-size:14px;margin-top:2px;">View Details</div>
+      </a>
+    </p>';
+  } else {
+    // User hasn't RSVP'd - show standard button
+    return '<p style="margin:0 0 16px;">
+      <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
+    </p>';
+  }
 }
 
 function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, string $deepLink, string $whenText, string $whereHtml, string $description, string $googleLink, string $outlookLink, string $icsDownloadLink, string $emailType = 'none', int $eventId = 0, int $userId = 0, bool $includeCalendarLinks = true): string {
@@ -114,15 +138,16 @@ function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, str
     </div>';
   }
   
+  // Generate context-aware button HTML
+  $buttonHtml = generateRsvpButtonHtml($eventId, $userId, $deepLink);
+  
   return '
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
     <div style="text-align:center;">
       '. $introHtml .'
       <h2 style="margin:0 0 8px;">'. $safeEvent .'</h2>
       <p style="margin:0 0 16px;color:#444;">'. $safeSite .'</p>
-      <p style="margin:0 0 16px;">
-        <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
-      </p>
+      '. $buttonHtml .'
     </div>
     <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
