@@ -9,6 +9,7 @@ require_once __DIR__ . '/lib/EventUIManager.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/EventInvitationTracking.php';
+require_once __DIR__ . '/lib/Files.php';
 require_once __DIR__ . '/settings.php';
 
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
@@ -385,6 +386,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       $safeOutlook = htmlspecialchars($outlookLink, ENT_QUOTES, 'UTF-8');
       $safeIcs = htmlspecialchars($icsDownloadLink, ENT_QUOTES, 'UTF-8');
 
+      // Get event image URL for email
+      $eventImageUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null);
+      $safeEventImageUrl = '';
+      if ($eventImageUrl !== '') {
+        // Convert to absolute URL for email compatibility
+        $absoluteImageUrl = (strpos($eventImageUrl, 'http') === 0) ? $eventImageUrl : $baseUrl . $eventImageUrl;
+        $safeEventImageUrl = htmlspecialchars($absoluteImageUrl, ENT_QUOTES, 'UTF-8');
+      }
+
       $html = '
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
     <div style="text-align:center;">
@@ -392,7 +402,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       <p style="margin:0 0 16px;color:#444;">'. htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8') .'</p>
       <p style="margin:0 0 16px;">
         <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
-      </p>
+      </p>'.
+      ($safeEventImageUrl !== '' ? '<div style="text-align:center;margin:16px 0;">
+        <img src="'. $safeEventImageUrl .'" alt="'. $safeEvent .'" style="max-width:100%;height:auto;border-radius:8px;border:1px solid #ddd;">
+      </div>' : '') .'
     </div>
     <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
       <div><strong>When:</strong> '. $safeWhen .'</div>'.
