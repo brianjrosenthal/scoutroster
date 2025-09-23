@@ -283,7 +283,7 @@ header_html('Event Invite');
           <?php
         } else {
           ?>
-            <p>You may log in to view this event and your RSVP.</p>
+            <p>You may log in to view this event and your RSVP. (if you have never logged in before, just go through the "Forgot my password" flow)</p>
             <a class="button" href="/login.php?next=<?= h(urlencode('/event.php?id='.(int)$eventId)) ?>">Log In</a>
           <?php
         }
@@ -618,7 +618,7 @@ header_html('Event Invite');
       <?php endforeach; ?>
 
       <div class="actions" style="margin-top:10px;">
-        <button class="button" id="volunteerMaybeLater">Maybe later</button>
+        <button class="button" id="volunteerMaybeLater">Back to Event</button>
       </div>
     </div>
   </div>
@@ -630,7 +630,7 @@ header_html('Event Invite');
       const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
       if (closeBtn) closeBtn.addEventListener('click', closeModal);
-      if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); closeModal(); });
+      if (laterBtn) laterBtn.addEventListener('click', function(e){ e.preventDefault(); window.location.reload(); });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
         openModal();
