@@ -189,6 +189,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Save RSVP on behalf of invitee
     RSVPManagement::setFamilyRSVP(null, (int)$uid, (int)$eventId, (string)$answer, (array)$adults, (array)$youths, ($comments !== '' ? $comments : null), (int)$nGuests);
     $saved = true;
+    
+    // Redirect with volunteer modal trigger if appropriate
+    if (strtolower((string)$answer) === 'yes' && Volunteers::openRolesExist((int)$eventId)) {
+      $redirectUrl = '/event_invite.php?uid=' . (int)$uid . '&event_id=' . (int)$eventId . '&sig=' . urlencode($sig) . '&vol=1';
+      header('Location: ' . $redirectUrl);
+      exit;
+    }
   } catch (Throwable $e) {
     $error = $e->getMessage() ?: 'Failed to save RSVP.';
   }
@@ -257,7 +264,7 @@ $openVolunteerRoles = Volunteers::openRolesExist((int)$eventId);
 $_invAns = RSVPManagement::getAnswerForCreator((int)$eventId, (int)$uid);
 $inviteeHasYes = ($_invAns === 'yes');
 $lastAnswerYes = isset($answer) ? (strtolower((string)$answer) === 'yes') : false;
-$showVolunteerModal = ($saved && $lastAnswerYes && $openVolunteerRoles && $_SERVER['REQUEST_METHOD'] === 'POST');
+$showVolunteerModal = ($inviteeHasYes && $openVolunteerRoles && !empty($_GET['vol']));
 
 header_html('Event Invite');
 ?>
@@ -283,7 +290,7 @@ header_html('Event Invite');
           <?php
         } else {
           ?>
-            <p>You may log in to view this event and your RSVP. (if you have never logged in before, just go through the "Forgot my password" flow)</p>
+            <p>Log in to view this event and your RSVP. (You are in the email-authenticated RSVP flow but not fully logged in.  Please login.  If you have never logged in before, just go through the "Forgot my password" flow)</p>
             <a class="button" href="/login.php?next=<?= h(urlencode('/event.php?id='.(int)$eventId)) ?>">Log In</a>
           <?php
         }
@@ -633,7 +640,9 @@ header_html('Event Invite');
       if (laterBtn) laterBtn.addEventListener('click', function(e){ 
         e.preventDefault(); 
         closeModal(); 
-        window.location.reload(); 
+        // Redirect to clean URL without vol parameter
+        const cleanUrl = '/event_invite.php?uid=<?= (int)$uid ?>&event_id=<?= (int)$eventId ?>&sig=<?= urlencode($sig) ?>';
+        window.location.href = cleanUrl;
       });
       document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       <?php if ($showVolunteerModal): ?>
