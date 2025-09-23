@@ -257,7 +257,7 @@ $openVolunteerRoles = Volunteers::openRolesExist((int)$eventId);
 $_invAns = RSVPManagement::getAnswerForCreator((int)$eventId, (int)$uid);
 $inviteeHasYes = ($_invAns === 'yes');
 $lastAnswerYes = isset($answer) ? (strtolower((string)$answer) === 'yes') : false;
-$showVolunteerModal = ($saved && $lastAnswerYes && $openVolunteerRoles);
+$showVolunteerModal = ($saved && $lastAnswerYes && $openVolunteerRoles && $_SERVER['REQUEST_METHOD'] === 'POST');
 
 header_html('Event Invite');
 ?>
