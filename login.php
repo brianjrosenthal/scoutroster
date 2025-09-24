@@ -56,6 +56,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_SESSION['is_admin'] = !empty($u['is_admin']) ? 1 : 0;
       $_SESSION['last_activity'] = time();
       $_SESSION['public_computer'] = !empty($_POST['public_computer']) ? 1 : 0;
+      
+      // Create remember token if NOT a public computer
+      if (empty($_POST['public_computer'])) {
+        $remember_token = create_remember_token($u['id'], $u['password_hash']);
+        if ($remember_token) {
+          // Set cookie to expire in 10 years (effectively never)
+          $expire_time = time() + (10 * 365 * 24 * 60 * 60); // 10 years
+          setcookie('remember_token', $remember_token, $expire_time, '/', '', true, true);
+        }
+      }
+      
       // Initialize request-scoped context immediately (partials will also bootstrap next request)
       if (class_exists('UserContext')) {
         UserContext::set(new UserContext((int)$u['id'], !empty($u['is_admin'])));
