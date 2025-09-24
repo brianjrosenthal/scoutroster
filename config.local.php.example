@@ -26,3 +26,7 @@ define('SMTP_FROM_NAME', 'Cub Scouts'); // From name seen in emails
 // HMAC key for secure event invite links (REQUIRED for invite feature).
 // Set to a long random string, e.g., bin2hex(random_bytes(32)).
 define('INVITE_HMAC_KEY', '');
+
+// HMAC key for remember me tokens (REQUIRED for persistent login).
+// Set to a long random string, e.g., bin2hex(random_bytes(32)).
+define('REMEMBER_TOKEN_KEY', '');
