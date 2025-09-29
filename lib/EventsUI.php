@@ -160,21 +160,13 @@ class EventsUI {
             </div>
             <div>
               <h4>Public RSVPs</h4>
-              <?php if (empty($rsvpData['publicRsvps'])): ?>
+              <?php if ($rsvpData['pubAdultsYes'] + $rsvpData['pubKidsYes'] === 0): ?>
                 <p class="small">No public RSVPs yet.</p>
               <?php else: ?>
-                <ul>
-                  <?php foreach ($rsvpData['publicRsvps'] as $pr): ?>
-                    <li>
-                      <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
-                      — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
-                      <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
-                      <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
-                        <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
-                      <?php endif; ?>
-                    </li>
-                  <?php endforeach; ?>
-                </ul>
+                <p class="small">
+                  <?= (int)$rsvpData['pubAdultsYes'] ?> adult<?= $rsvpData['pubAdultsYes'] === 1 ? '' : 's' ?>, 
+                  <?= (int)$rsvpData['pubKidsYes'] ?> kid<?= $rsvpData['pubKidsYes'] === 1 ? '' : 's' ?>
+                </p>
               <?php endif; ?>
             </div>
           </div>
