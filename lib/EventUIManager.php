@@ -82,6 +82,7 @@ class EventUIManager {
         if ($eviteUrl === '') {
             $html .= '
                 <a href="#" id="adminCopyEmailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Emails</a>
+                <a href="#" id="adminCopyEventDetailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Event Details</a>
                 <a href="#" id="adminManageRsvpBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Manage RSVPs</a>
                 <a href="#" id="adminExportAttendeesBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Export Attendees</a>
                 <a href="/event_dietary_needs.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'dietary' ? ' background-color: #f5f5f5;' : '') . '">Dietary Needs</a>';
@@ -626,6 +627,99 @@ class EventUIManager {
         });
     }
 
+    // Copy Event Details modal functionality
+    const copyEventDetailsBtn = document.getElementById("adminCopyEventDetailsBtn");
+    const copyEventDetailsModal = document.getElementById("copyEventDetailsModal");
+    const copyEventDetailsModalClose = document.getElementById("copyEventDetailsModalClose");
+    const copyEventDetailsCloseBtn = document.getElementById("copyEventDetailsCloseBtn");
+    const copyEventDetailsTextBtn = document.getElementById("copyEventDetailsTextBtn");
+    const eventDetailsText = document.getElementById("eventDetailsText");
+    const copyEventDetailsStatus = document.getElementById("copyEventDetailsStatus");
+
+    if (copyEventDetailsBtn) {
+        copyEventDetailsBtn.addEventListener("click", function(e) {
+            e.preventDefault();
+            const modal = document.getElementById("copyEventDetailsModal");
+            if (modal) {
+                modal.classList.remove("hidden");
+                modal.setAttribute("aria-hidden", "false");
+                if (eventDetailsText) eventDetailsText.focus();
+            }
+        });
+    }
+
+    if (copyEventDetailsModalClose) {
+        copyEventDetailsModalClose.addEventListener("click", function() {
+            const modal = document.getElementById("copyEventDetailsModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.setAttribute("aria-hidden", "true");
+                if (copyEventDetailsStatus) copyEventDetailsStatus.style.display = "none";
+            }
+        });
+    }
+
+    if (copyEventDetailsCloseBtn) {
+        copyEventDetailsCloseBtn.addEventListener("click", function() {
+            const modal = document.getElementById("copyEventDetailsModal");
+            if (modal) {
+                modal.classList.add("hidden");
+                modal.setAttribute("aria-hidden", "true");
+                if (copyEventDetailsStatus) copyEventDetailsStatus.style.display = "none";
+            }
+        });
+    }
+
+    if (copyEventDetailsTextBtn && eventDetailsText) {
+        copyEventDetailsTextBtn.addEventListener("click", function() {
+            try {
+                // Modern approach
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(eventDetailsText.value).then(function() {
+                        showEventDetailsCopySuccess();
+                    }).catch(function() {
+                        fallbackEventDetailsCopy();
+                    });
+                } else {
+                    fallbackEventDetailsCopy();
+                }
+            } catch (e) {
+                fallbackEventDetailsCopy();
+            }
+        });
+    }
+
+    function fallbackEventDetailsCopy() {
+        try {
+            eventDetailsText.select();
+            eventDetailsText.setSelectionRange(0, 99999); // For mobile devices
+            document.execCommand("copy");
+            showEventDetailsCopySuccess();
+        } catch (e) {
+            alert("Copy failed. Please manually select and copy the text.");
+        }
+    }
+
+    function showEventDetailsCopySuccess() {
+        if (copyEventDetailsStatus) {
+            copyEventDetailsStatus.style.display = "block";
+            setTimeout(function() {
+                if (copyEventDetailsStatus) copyEventDetailsStatus.style.display = "none";
+            }, 3000);
+        }
+    }
+
+    // Close event details modal on outside click
+    if (copyEventDetailsModal) {
+        copyEventDetailsModal.addEventListener("click", function(e) {
+            if (e.target === copyEventDetailsModal) {
+                copyEventDetailsModal.classList.add("hidden");
+                copyEventDetailsModal.setAttribute("aria-hidden", "true");
+                if (copyEventDetailsStatus) copyEventDetailsStatus.style.display = "none";
+            }
+        });
+    }
+
     // Close modals on outside click or Escape
     document.addEventListener("keydown", function(e) {
         if (e.key === "Escape") {
@@ -640,6 +734,11 @@ class EventUIManager {
             if (adminRsvpModal && !adminRsvpModal.classList.contains("hidden")) {
                 adminRsvpModal.classList.add("hidden");
                 adminRsvpModal.setAttribute("aria-hidden", "true");
+            }
+            if (copyEventDetailsModal && !copyEventDetailsModal.classList.contains("hidden")) {
+                copyEventDetailsModal.classList.add("hidden");
+                copyEventDetailsModal.setAttribute("aria-hidden", "true");
+                if (copyEventDetailsStatus) copyEventDetailsStatus.style.display = "none";
             }
         }
     });
@@ -669,6 +768,26 @@ class EventUIManager {
         $needsMedicalForm = !empty($event['needs_medical_form']);
         
         return '
+<!-- Copy Event Details Modal -->
+<div id="copyEventDetailsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+        <button class="close" type="button" id="copyEventDetailsModalClose" aria-label="Close">&times;</button>
+        <h3>Event Details for Email</h3>
+        <div style="margin-bottom: 16px;">
+            <textarea id="eventDetailsText" rows="12" style="width: 100%; font-family: monospace; font-size: 14px;" readonly>' .
+                ($event ? self::generateEventDetailsText($event) : '') .
+            '</textarea>
+        </div>
+        <div class="actions">
+            <button type="button" class="button primary" id="copyEventDetailsTextBtn">Copy to Clipboard</button>
+            <button type="button" class="button" id="copyEventDetailsCloseBtn">Close</button>
+        </div>
+        <div id="copyEventDetailsStatus" style="margin-top: 8px; font-size: 14px; color: #28a745; display: none;">
+            ✓ Copied to clipboard!
+        </div>
+    </div>
+</div>
+
 <!-- Copy Emails modal -->
 <div id="copyEmailsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
@@ -799,5 +918,43 @@ class EventUIManager {
         </div>
     </div>
 </div>';
+    }
+    
+    /**
+     * Generate formatted event details text for email
+     * 
+     * @param array $event Event data array
+     * @return string Formatted event details text
+     */
+    private static function generateEventDetailsText(array $event): string {
+        $details = '';
+        
+        // WHAT
+        $details .= "WHAT: " . trim((string)$event['name']) . "\n";
+        
+        // WHEN
+        $details .= "WHEN: " . Settings::formatDateTimeRange($event['starts_at'], !empty($event['ends_at']) ? $event['ends_at'] : null) . "\n";
+        
+        // WHERE - combine name and address, convert newlines to commas
+        $locName = trim((string)($event['location'] ?? ''));
+        $locAddr = trim((string)($event['location_address'] ?? ''));
+        if ($locName !== '' || $locAddr !== '') {
+            $details .= "WHERE: ";
+            $locParts = [];
+            if ($locName !== '') $locParts[] = $locName;
+            if ($locAddr !== '') {
+                // Convert newlines in address to commas
+                $locParts[] = preg_replace("/\r\n|\r|\n/", ", ", $locAddr);
+            }
+            $details .= implode(", ", $locParts) . "\n";
+        }
+        
+        // DETAILS
+        $details .= "DETAILS:\n";
+        if (!empty($event['description'])) {
+            $details .= trim((string)$event['description']);
+        }
+        
+        return $details;
     }
 }
