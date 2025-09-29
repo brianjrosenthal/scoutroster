@@ -134,22 +134,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$eventStarted && $allowPublic) {
   }
 }
 
-// For display: public RSVP totals
-$_pubTotals = RsvpsLoggedOutManagement::totalsAllAnswers((int)$eventId);
-$pubAdults = (int)($_pubTotals['adults'] ?? 0);
-$pubKids   = (int)($_pubTotals['kids'] ?? 0);
+// Load RSVP data using EventsUI
+require_once __DIR__ . '/lib/EventsUI.php';
 
 $openVolunteerRolesPublic = Volunteers::openRolesExist((int)$eventId);
 
 header_html('Event - Public RSVP');
 ?>
 <?php if ($allowPublic): ?>
-  <?php
-    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null);
-    if ($heroUrl !== ''):
-  ?>
-    <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero-top">
-  <?php endif; ?>
   <h2><?= h($event['name']) ?></h2>
 <?php else: ?>
   <h2>Public RSVP</h2>
@@ -165,64 +157,36 @@ header_html('Event - Public RSVP');
   </div>
 <?php endif; ?>
 
-<?php if ($eviteUrl === ''): ?>
+<?php if (!$saved && $eviteUrl !== ''): ?>
+  <?= EventsUI::renderEviteCard($eviteUrl) ?>
+<?php endif; ?>
+
+<?php if (!$saved && $eviteUrl === ''): ?>
   <?php if (!$allowPublic): ?>
     <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
-  <?php elseif (!$eventStarted && !$saved): ?>
-    <!-- RSVP form available via modal; see bottom banner -->
   <?php elseif ($eventStarted): ?>
     <div class="card"><p class="error">This event has already started. RSVPs are no longer accepted.</p></div>
+  <?php else: ?>
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-start;">
+        <strong>RSVP:</strong>
+        <button class="primary" id="rsvpYesBtn">Yes</button>
+        <button id="rsvpMaybeBtn">Maybe</button>
+        <button id="rsvpNoBtn">No</button>
+      </div>
+    </div>
   <?php endif; ?>
 <?php endif; ?>
 
-<?php if ($allowPublic): ?>
-<div class="card">
-  <p><strong>When:</strong> <?= h(Settings::formatRangeShort((string)$event['starts_at'], (!empty($event['ends_at']) ? (string)$event['ends_at'] : null))) ?></p>
-  <?php
-    $locName = trim((string)($event['location'] ?? ''));
-    $locAddr = trim((string)($event['location_address'] ?? ''));
-    $mapsUrl = trim((string)($event['google_maps_url'] ?? ''));
-    $mapHref = $mapsUrl !== '' ? $mapsUrl : ($locAddr !== '' ? 'https://www.google.com/maps/search/?api=1&query='.urlencode($locAddr) : '');
-    if ($locName !== '' || $locAddr !== ''):
-  ?>
-    <p><strong>Where:</strong>
-      <?php if ($locName !== ''): ?>
-        <?= h($locName) ?><?php if ($mapHref !== ''): ?> <a class="small" href="<?= h($mapHref) ?>" target="_blank" rel="noopener">map</a><br><?php endif; ?>
-      <?php endif; ?>
-      <?php if ($locAddr !== ''): ?>
-        <?= nl2br(h($locAddr)) ?>
-      <?php endif; ?>
-    </p>
-  <?php endif; ?>
-  <?php if (!empty($event['description'])): ?>
-    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
-  <?php endif; ?>
-  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
-</div>
-<?php endif; ?>
+<?= EventsUI::renderEventDetailsCard($event) ?>
 
-<?php if ($eviteUrl !== ''): ?>
-  <div class="card">
-    <p>RSVPs for this event are handled on Evite.</p>
-    <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
-  </div>
-<?php endif; ?>
+<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $eviteUrl) ?>
 
 <?php if ($allowPublic && !$eventStarted && !$saved && $eviteUrl === ''): ?>
-  <div class="bottom-banner">
-    <div class="prompt">RSVP:</div>
-    <div class="actions">
-      <button id="rsvpYesBtn" class="primary">YES</button>
-      <button id="rsvpMaybeBtn" class="primary" title="You can change later">MAYBE</button>
-      <button id="rsvpNoBtn">NO</button>
-    </div>
-  </div>
-  <div style="height:64px"></div>
-
   <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
       <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>
-      <h3>RSVP <strong id="rsvpAnswerHeading">YES</strong> to <?= h($event['name']) ?></h3>
+      <h3>RSVP to <?= h($event['name']) ?></h3>
       <?php if ($error): ?><p class="error"><?= h($error) ?></p><?php endif; ?>
       <form method="post" class="stack">
         <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -270,15 +234,16 @@ header_html('Event - Public RSVP');
       const maybeBtn = document.getElementById('rsvpMaybeBtn');
       const noBtn = document.getElementById('rsvpNoBtn');
       const answerInput = document.querySelector('#rsvpModal form input[name="answer"]');
-      const heading = document.getElementById('rsvpAnswerHeading');
+      
       const openModal = () => { if (modal) { modal.classList.remove('hidden'); modal.setAttribute('aria-hidden','false'); } };
       const closeModal = () => { if (modal) { modal.classList.add('hidden'); modal.setAttribute('aria-hidden','true'); } };
 
-      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; if (heading) heading.textContent = 'YES'; openModal(); });
-      if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; if (heading) heading.textContent = 'MAYBE'; openModal(); });
-      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; if (heading) heading.textContent = 'NO'; openModal(); });
+      if (yesBtn) yesBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'yes'; openModal(); });
+      if (maybeBtn) maybeBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'maybe'; openModal(); });
+      if (noBtn) noBtn.addEventListener('click', function(e){ e.preventDefault(); if (answerInput) answerInput.value = 'no'; openModal(); });
 
-      if (closeBtn) closeBtn.addEventListener('click', function(){ closeModal(); });
+      if (closeBtn) closeBtn.addEventListener('click', closeModal);
+      document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeModal(); });
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
 
       <?php if ($error): ?>

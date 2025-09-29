@@ -164,6 +164,9 @@ class YouthManagement {
     }
 
     if (!$includeUnregistered) {
+      // Exclude youth who have left the troop when "Include only registered members" is checked
+      $sql .= " AND y.left_troop = 0";
+      
       $sql .= " AND ("
             . " (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
             . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"
@@ -175,6 +178,7 @@ class YouthManagement {
             . "   JOIN parent_relationships pr2 ON pr2.adult_id = pr1.adult_id "
             . "   WHERE pr2.youth_id = y2.id "
             . "   AND y2.id != y.id "
+            . "   AND y2.left_troop = 0 "
             . "   AND ((y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '') "
             . "        OR (y2.date_paid_until IS NOT NULL AND y2.date_paid_until >= CURDATE())"
             . "        OR EXISTS (SELECT 1 FROM pending_registrations pr3 WHERE pr3.youth_id = y2.id AND pr3.status <> 'deleted')"
@@ -364,7 +368,7 @@ class YouthManagement {
     // Common fields parents can update
     $allowedCommon = [
       'first_name','last_name','suffix','preferred_name','gender','birthdate','school','shirt_size',
-      'street1','street2','city','state','zip','sibling',
+      'street1','street2','city','state','zip','sibling','left_troop',
       'dietary_vegetarian','dietary_vegan','dietary_lactose_free','dietary_no_pork_shellfish',
       'dietary_nut_allergy','dietary_gluten_free','dietary_other'
     ];
@@ -394,7 +398,7 @@ class YouthManagement {
         $val = self::sanitizeGender(self::nn($data[$key]));
       } elseif ($key === 'birthdate') {
         $val = self::validateDateYmd($data[$key] ?? null);
-      } elseif ($key === 'sibling') {
+      } elseif ($key === 'sibling' || $key === 'left_troop') {
         $val = self::boolInt($data[$key] ?? 0);
       } else {
         $val = self::nn($data[$key]);

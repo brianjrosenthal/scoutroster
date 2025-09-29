@@ -56,6 +56,7 @@ header_html('Mailing List');
       <label>Registered (child has BSA ID)
         <select name="registered">
           <option value="all" <?= $registered==='all' ? 'selected' : '' ?>>All</option>
+          <option value="all_inactive" <?= $registered==='all_inactive' ? 'selected' : '' ?>>All + inactive</option>
           <option value="yes" <?= $registered==='yes' ? 'selected' : '' ?>>Yes</option>
           <option value="no"  <?= $registered==='no'  ? 'selected' : '' ?>>No</option>
         </select>
