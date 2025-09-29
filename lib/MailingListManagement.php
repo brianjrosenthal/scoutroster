@@ -15,7 +15,7 @@ class MailingListManagement {
    * Build filters array:
    * - q: ?string
    * - class_of: ?int
-   * - registered: 'all' | 'yes' | 'no'
+   * - registered: 'all' | 'all_inactive' | 'yes' | 'no'
    */
   public static function normalizeFilters(array $filters): array {
     $out = [
@@ -36,7 +36,7 @@ class MailingListManagement {
     }
     if (isset($filters['registered'])) {
       $r = strtolower(trim((string)$filters['registered']));
-      if ($r === 'yes' || $r === 'no') {
+      if (in_array($r, ['yes', 'no', 'all_inactive'], true)) {
         $out['registered'] = $r;
       } else {
         $out['registered'] = 'all';
@@ -78,6 +78,17 @@ class MailingListManagement {
     } elseif ($f['registered'] === 'no') {
       $sqlBase .= " AND (y.id IS NOT NULL AND y.bsa_registration_number IS NULL)";
     }
+
+    // Handle "left_troop" filtering logic
+    if ($f['registered'] === 'all') {
+      // For 'all', exclude parents if ALL of their children have left the troop
+      $sqlBase .= " AND (pr.adult_id IS NULL OR EXISTS (
+        SELECT 1 FROM parent_relationships pr2 
+        JOIN youth y2 ON y2.id = pr2.youth_id 
+        WHERE pr2.adult_id = u.id AND y2.left_troop = 0
+      ))";
+    }
+    // For 'all_inactive', we don't add any left_troop filtering - include everyone
 
     $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email " . $sqlBase . " ORDER BY u.last_name, u.first_name";
     $st = self::pdo()->prepare($sql);

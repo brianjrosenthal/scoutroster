@@ -174,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $bsa = trim($_POST['bsa_registration_number'] ?? '');
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
+  $leftTroop = !empty($_POST['left_troop']) ? 1 : 0;
 
   // Admin/Approver optional fields
   $regExpires = trim($_POST['bsa_registration_expires_date'] ?? '');
@@ -239,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'state' => $state,
         'zip' => $zip,
         'sibling' => $sibling,
+        'left_troop' => $leftTroop,
         'grade_label' => $gradeLabel,
       ];
       if ($isAdmin) {
@@ -287,6 +289,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     'zip' => $zip,
     'class_of' => $class_of ?? $y['class_of'],
     'sibling' => $sibling,
+    'left_troop' => $leftTroop,
     'bsa_registration_expires_date' => ($regExpires !== '' ? $regExpires : ($y['bsa_registration_expires_date'] ?? null)),
     'date_paid_until' => ($paidUntil !== '' ? $paidUntil : ($y['date_paid_until'] ?? null)),
   ]);
@@ -446,6 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
       <?php endif; ?>
       <label class="inline"><input type="checkbox" name="sibling" value="1" <?= !empty($y['sibling']) ? 'checked' : '' ?>> Sibling</label>
+      <label class="inline"><input type="checkbox" name="left_troop" value="1" <?= !empty($y['left_troop']) ? 'checked' : '' ?>> Left Troop</label>
     </div>
 
     <h3>Address</h3>

@@ -90,6 +90,7 @@ CREATE TABLE youth (
 
   class_of INT NOT NULL,     -- grade computed from class_of
   sibling TINYINT(1) NOT NULL DEFAULT 0,
+  left_troop TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Indicates if the youth has left the troop (decided not to continue with scouts)',
 
   -- Dietary preferences
   dietary_vegetarian TINYINT(1) NOT NULL DEFAULT 0,

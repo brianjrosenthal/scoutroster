@@ -207,55 +207,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-/**
- * For display: RSVP totals and lists
- * - YES totals drive primary counts
- * - MAYBE totals listed separately and appended in parentheses
- */
-$guestsTotal = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'yes');
+// Load RSVP data using EventsUI
+require_once __DIR__ . '/lib/EventsUI.php';
 
-$adultEntries = RSVPManagement::listAdultEntriesByAnswer((int)$eventId, 'yes');
-$youthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'yes');
-
-// Public RSVPs (logged-out) - list YES only
-$publicRsvps = RsvpsLoggedOutManagement::listByAnswer((int)$eventId, 'yes');
-
-// Public YES totals
-$_pubYesTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$eventId, 'yes');
-$pubAdultsYes = (int)($_pubYesTotals['adults'] ?? 0);
-$pubKidsYes = (int)($_pubYesTotals['kids'] ?? 0);
-
-$rsvpCommentsByAdult = RSVPManagement::getCommentsByParentForEvent((int)$eventId);
-sort($youthNames);
-usort($adultEntries, function($a,$b){ return strcmp($a['name'], $b['name']); });
-
-// Counts (YES)
-$youthCount = count($youthNames);
-$adultCount = count($adultEntries);
-$adultCountCombined = $adultCount + $pubAdultsYes;
-$youthCountCombined = $youthCount + $pubKidsYes;
-
-$_maybeCounts = RSVPManagement::countDistinctParticipantsByAnswer((int)$eventId, 'maybe');
-$maybeAdultsIn = (int)($_maybeCounts['adults'] ?? 0);
-$maybeYouthIn  = (int)($_maybeCounts['youth'] ?? 0);
-$maybeGuestsIn = RSVPManagement::sumGuestsByAnswer((int)$eventId, 'maybe');
-
-// Public MAYBE totals
-$_pubMaybeTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$eventId, 'maybe');
-$pubAdultsMaybe = (int)($_pubMaybeTotals['adults'] ?? 0);
-$pubKidsMaybe = (int)($_pubMaybeTotals['kids'] ?? 0);
-
-// Combine MAYBE totals
-$maybeAdultsTotal = $maybeAdultsIn + $pubAdultsMaybe;
-$maybeYouthTotal  = $maybeYouthIn  + $pubKidsMaybe;
-$maybeGuestsTotal = $maybeGuestsIn;
-
-// MAYBE names (lists)
+// MAYBE names (lists) - still needed for volunteer section
 $maybeAdultNames = RSVPManagement::listAdultNamesByAnswer((int)$eventId, 'maybe');
-
 $maybeYouthNames = RSVPManagement::listYouthNamesByAnswer((int)$eventId, 'maybe');
-
-$publicMaybe = [];
 $publicMaybe = RsvpsLoggedOutManagement::listByAnswer((int)$eventId, 'maybe');
 
 /* Volunteer variables for invite flow */
@@ -447,102 +404,12 @@ header_html('Event Invite');
 
 <?php endif; ?>
 
-<div class="card">
-  <?php
-    $heroUrl = Files::eventPhotoUrl($event['photo_public_file_id'] ?? null);
-    if ($heroUrl !== ''):
-  ?>
-    <img src="<?= h($heroUrl) ?>" alt="<?= h($event['name']) ?> image" class="event-hero" width="220">
-  <?php endif; ?>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange($event['starts_at'], !empty($event['ends_at']) ? $event['ends_at'] : null)) ?></p>
-  <?php
-    $locName = trim((string)($event['location'] ?? ''));
-    $locAddr = trim((string)($event['location_address'] ?? ''));
-    $mapsUrl = trim((string)($event['google_maps_url'] ?? ''));
-    $mapHref = $mapsUrl !== '' ? $mapsUrl : ($locAddr !== '' ? 'https://www.google.com/maps/search/?api=1&query='.urlencode($locAddr) : '');
-    if ($locName !== '' || $locAddr !== ''):
-  ?>
-    <p><strong>Where:</strong>
-      <?php if ($locName !== ''): ?>
-        <?= h($locName) ?><?php if ($mapHref !== ''): ?>
-          <a class="small" href="<?= h($mapHref) ?>" target="_blank" rel="noopener">map</a><br>
-        <?php endif; ?>
-      <?php endif; ?>
-      <?php if ($locAddr !== ''): ?>
-        <?= nl2br(h($locAddr)) ?>
-      <?php endif; ?>
-    </p>
-  <?php endif; ?>
-  <?php if (!empty($event['description'])): ?>
-    <div><?= Text::renderMarkup((string)$event['description']) ?></div>
-  <?php endif; ?>
-  <?php if (!empty($event['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$event['max_cub_scouts'] ?></p><?php endif; ?>
-</div>
+<?= EventsUI::renderEventDetailsCard($event) ?>
 
 
 <?php if ($eviteUrl === ''): ?>
 
-<!-- Current RSVPs -->
-<div class="card">
-  <h3>Current RSVPs</h3>
-  <p class="small">
-    Adults: <?= (int)$adultCountCombined ?> &nbsp;&nbsp; | &nbsp;&nbsp;
-    Cub Scouts: <?= (int)$youthCountCombined ?><?= !empty($event['max_cub_scouts']) ? ' / '.(int)$event['max_cub_scouts'] : '' ?> &nbsp;&nbsp; | &nbsp;&nbsp;
-    Other Guests: <?= (int)$guestsTotal ?>
-    <?php if ($maybeAdultsTotal + $maybeYouthTotal + $maybeGuestsTotal > 0): ?>
-      &nbsp;&nbsp; | &nbsp;&nbsp; <em>(<?= (int)$maybeAdultsTotal ?> adults, <?= (int)$maybeYouthTotal ?> cub scouts, and <?= (int)$maybeGuestsTotal ?> other guests RSVP'd maybe)</em>
-    <?php endif; ?>
-  </p>
-
-  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;">
-    <div>
-      <h4>Adults</h4>
-      <?php if (empty($adultEntries)): ?>
-        <p class="small">No adults yet.</p>
-      <?php else: ?>
-        <ul>
-          <?php foreach ($adultEntries as $a): ?>
-            <li>
-              <?= h($a['name']) ?>
-              <?php if (!empty($rsvpCommentsByAdult[(int)$a['id']] ?? '')): ?>
-                <div class="small" style="font-style:italic;"><?= nl2br(h($rsvpCommentsByAdult[(int)$a['id']])) ?></div>
-              <?php endif; ?>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
-    </div>
-    <div>
-      <h4>Cub Scouts</h4>
-      <?php if (empty($youthNames)): ?>
-        <p class="small">No cub scouts yet.</p>
-      <?php else: ?>
-        <ul>
-          <?php foreach ($youthNames as $n): ?><li><?=h($n)?></li><?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
-    </div>
-    <div>
-      <h4>Public RSVPs</h4>
-      <?php if (empty($publicRsvps)): ?>
-        <p class="small">No public RSVPs yet.</p>
-      <?php else: ?>
-        <ul>
-          <?php foreach ($publicRsvps as $pr): ?>
-            <li>
-              <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
-              — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
-              <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
-              <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
-                <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
-              <?php endif; ?>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
-    </div>
-  </div>
-</div>
+<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $eviteUrl) ?>
 
 <!-- Event Volunteers -->
 <div class="card">
