@@ -188,7 +188,6 @@ class YouthManagement {
     }
 
     $sql .= " ORDER BY y.last_name, y.first_name";
-
     $st = self::pdo()->prepare($sql);
     $st->execute($params);
     return $st->fetchAll();
