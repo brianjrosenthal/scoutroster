@@ -22,6 +22,19 @@ function b64url_encode(string $bin): string {
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
+// If user is logged in, redirect to the full event page
+if (is_logged_in()) {
+    $redirectUrl = '/event.php?id=' . $eventId;
+    // Preserve any additional query parameters except event_id
+    $queryParams = $_GET;
+    unset($queryParams['event_id']); // Remove since we're using 'id' in event.php
+    if (!empty($queryParams)) {
+        $redirectUrl .= '&' . http_build_query($queryParams);
+    }
+    header('Location: ' . $redirectUrl);
+    exit;
+}
+
 /* Load event */
 $event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
