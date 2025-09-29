@@ -19,7 +19,7 @@ class GradeCalculator {
    * - For dates Aug-Dec 2025, end year is 2026 (school year 2025-2026).
    * - For dates Jan-Jul 2026, end year is 2026.
    */
-  public static function schoolYearEndYear(DateTime $now = null): int {
+  public static function schoolYearEndYear(?DateTime $now = null): int {
     if ($now === null) {
       $now = new DateTime('now', new DateTimeZone(Settings::timezoneId()));
     } else {
@@ -44,7 +44,7 @@ class GradeCalculator {
    *
    * Returns an integer grade 0..5. Values outside this range are clamped to 0..5.
    */
-  public static function gradeForClassOf(int $classOf, DateTime $now = null): int {
+  public static function gradeForClassOf(int $classOf, ?DateTime $now = null): int {
     $currentFifthClassOf = self::schoolYearEndYear($now);
     // General formula: grade = 5 - (class_of - currentFifthClassOf)
     // This can yield:

@@ -105,6 +105,64 @@ final class Recommendations {
     return $st->fetchAll() ?: [];
   }
 
+  // Export email addresses based on filters (returns all matching records, no limit)
+  // filters: ['q' => string, 'status' => one of new|active|joined|unsubscribed|new_active]
+  public static function exportEmails(array $filters = []): array {
+    $q = isset($filters['q']) ? trim((string)$filters['q']) : '';
+    $status = isset($filters['status']) ? (string)$filters['status'] : 'new_active';
+
+    $params = [];
+    $sql = "
+      SELECT r.email
+      FROM recommendations r
+      WHERE r.email IS NOT NULL AND r.email != ''
+    ";
+
+    if ($q !== '') {
+      $tokens = \Search::tokenize($q);
+      $sql .= \Search::buildAndLikeClause(
+        ['r.parent_name','r.child_name','r.email','r.phone'],
+        $tokens,
+        $params
+      );
+    }
+
+    switch ($status) {
+      case 'new':
+        $sql .= " AND r.status = 'new'";
+        break;
+      case 'active':
+        $sql .= " AND r.status = 'active'";
+        break;
+      case 'joined':
+        $sql .= " AND r.status = 'joined'";
+        break;
+      case 'unsubscribed':
+        $sql .= " AND r.status = 'unsubscribed'";
+        break;
+      case 'new_active':
+      default:
+        $sql .= " AND r.status IN ('new','active')";
+        break;
+    }
+
+    $sql .= " ORDER BY r.email";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    $rows = $st->fetchAll() ?: [];
+    
+    // Extract email addresses from the result
+    $emails = [];
+    foreach ($rows as $row) {
+      if (!empty($row['email'])) {
+        $emails[] = trim($row['email']);
+      }
+    }
+    
+    return $emails;
+  }
+
   // =========================
   // Writes (UserContext required)
   // =========================
