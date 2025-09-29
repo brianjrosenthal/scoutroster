@@ -1225,8 +1225,8 @@ header_html('Send Event Invitations');
         // Check if we're on the preview page (previewData exists) or the form page
         <?php if ($previewData): ?>
         // We're on the preview page - use PHP previewData
-        const currentDescription = '<?= addslashes($previewData['description']) ?>';
-        const currentEmailTypeFromData = '<?= addslashes($previewData['email_type']) ?>';
+        const currentDescription = <?= json_encode($previewData['description']) ?>;
+        const currentEmailTypeFromData = <?= json_encode($previewData['email_type']) ?>;
         // Use the email type from preview data since form fields don't exist on preview page
         const effectiveEmailType = currentEmailTypeFromData;
         <?php else: ?>
