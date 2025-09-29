@@ -23,7 +23,7 @@ $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['eve
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
 // If user is logged in, redirect to the full event page
-if (is_logged_in()) {
+if (current_user()) {
     $redirectUrl = '/event.php?id=' . $eventId;
     // Preserve any additional query parameters except event_id
     $queryParams = $_GET;
