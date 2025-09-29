@@ -100,6 +100,9 @@ header_html('Event');
   <h2 style="margin: 0;"><?=h($e['name'])?></h2>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <a class="button" href="/events.php">Back to Events</a>
+    <?php if ($isAdmin): ?>
+      <button type="button" class="button" id="copyEventDetailsBtn">Copy Event Details</button>
+    <?php endif; ?>
     <?= EventUIManager::renderAdminMenu((int)$e['id']) ?>
   </div>
 </div>
@@ -224,21 +227,13 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </div>
     <div>
       <h4>Public RSVPs</h4>
-      <?php if (empty($publicRsvps)): ?>
+      <?php if ($pubAdultsYes + $pubKidsYes === 0): ?>
         <p class="small">No public RSVPs yet.</p>
       <?php else: ?>
-        <ul>
-          <?php foreach ($publicRsvps as $pr): ?>
-            <li>
-              <?= h(trim(($pr['last_name'] ?? '').', '.($pr['first_name'] ?? ''))) ?>
-              — <?= (int)($pr['total_adults'] ?? 0) ?> adult<?= ((int)($pr['total_adults'] ?? 0) === 1 ? '' : 's') ?>,
-              <?= (int)($pr['total_kids'] ?? 0) ?> kid<?= ((int)($pr['total_kids'] ?? 0) === 1 ? '' : 's') ?>
-              <?php $pc = trim((string)($pr['comment'] ?? '')); if ($pc !== ''): ?>
-                <div class="small" style="font-style:italic;"><?= nl2br(h($pc)) ?></div>
-              <?php endif; ?>
-            </li>
-          <?php endforeach; ?>
-        </ul>
+        <p class="small">
+          <?= (int)$pubAdultsYes ?> adult<?= $pubAdultsYes === 1 ? '' : 's' ?>, 
+          <?= (int)$pubKidsYes ?> kid<?= $pubKidsYes === 1 ? '' : 's' ?>
+        </p>
       <?php endif; ?>
     </div>
   </div>
@@ -597,6 +592,133 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     </form>
   </div>
 </div>
+<?php endif; ?>
+
+<!-- Copy Event Details Modal (Admin only) -->
+<?php if ($isAdmin): ?>
+<div id="copyEventDetailsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content">
+    <button class="close" type="button" id="copyEventDetailsModalClose" aria-label="Close">&times;</button>
+    <h3>Event Details for Email</h3>
+    <div style="margin-bottom: 16px;">
+      <textarea id="eventDetailsText" rows="12" style="width: 100%; font-family: monospace; font-size: 14px;" readonly><?php
+        // Format the event details
+        echo "WHAT: " . trim((string)$e['name']) . "\n";
+        echo "WHEN: " . Settings::formatDateTimeRange($e['starts_at'], !empty($e['ends_at']) ? $e['ends_at'] : null) . "\n";
+        
+        // Format location - combine name and address, convert newlines to commas
+        $locName = trim((string)($e['location'] ?? ''));
+        $locAddr = trim((string)($e['location_address'] ?? ''));
+        if ($locName !== '' || $locAddr !== '') {
+          echo "WHERE: ";
+          $locParts = [];
+          if ($locName !== '') $locParts[] = $locName;
+          if ($locAddr !== '') {
+            // Convert newlines in address to commas
+            $locParts[] = preg_replace("/\r\n|\r|\n/", ", ", $locAddr);
+          }
+          echo implode(", ", $locParts) . "\n";
+        }
+        
+        echo "DETAILS:\n";
+        if (!empty($e['description'])) {
+          echo trim((string)$e['description']);
+        }
+      ?></textarea>
+    </div>
+    <div class="actions">
+      <button type="button" class="button primary" id="copyEventDetailsTextBtn">Copy to Clipboard</button>
+      <button type="button" class="button" id="copyEventDetailsCloseBtn">Close</button>
+    </div>
+    <div id="copyEventDetailsStatus" style="margin-top: 8px; font-size: 14px; color: #28a745; display: none;">
+      ✓ Copied to clipboard!
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const modal = document.getElementById('copyEventDetailsModal');
+  const openBtn = document.getElementById('copyEventDetailsBtn');
+  const closeBtn = document.getElementById('copyEventDetailsModalClose');
+  const closeBtn2 = document.getElementById('copyEventDetailsCloseBtn');
+  const copyBtn = document.getElementById('copyEventDetailsTextBtn');
+  const textarea = document.getElementById('eventDetailsText');
+  const status = document.getElementById('copyEventDetailsStatus');
+
+  const openModal = () => { 
+    if (modal) { 
+      modal.classList.remove('hidden'); 
+      modal.setAttribute('aria-hidden','false');
+      if (textarea) textarea.focus();
+    } 
+  };
+  
+  const closeModal = () => { 
+    if (modal) { 
+      modal.classList.add('hidden'); 
+      modal.setAttribute('aria-hidden','true'); 
+      if (status) status.style.display = 'none';
+    } 
+  };
+
+  if (openBtn) openBtn.addEventListener('click', openModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeModal);
+  if (closeBtn2) closeBtn2.addEventListener('click', closeModal);
+
+  // Copy to clipboard functionality
+  if (copyBtn && textarea) {
+    copyBtn.addEventListener('click', function() {
+      try {
+        // Modern approach
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(textarea.value).then(function() {
+            showCopySuccess();
+          }).catch(function() {
+            fallbackCopy();
+          });
+        } else {
+          fallbackCopy();
+        }
+      } catch (e) {
+        fallbackCopy();
+      }
+    });
+  }
+
+  function fallbackCopy() {
+    try {
+      textarea.select();
+      textarea.setSelectionRange(0, 99999); // For mobile devices
+      document.execCommand('copy');
+      showCopySuccess();
+    } catch (e) {
+      alert('Copy failed. Please manually select and copy the text.');
+    }
+  }
+
+  function showCopySuccess() {
+    if (status) {
+      status.style.display = 'block';
+      setTimeout(function() {
+        if (status) status.style.display = 'none';
+      }, 3000);
+    }
+  }
+
+  // Keyboard support
+  document.addEventListener('keydown', function(e){ 
+    if (e.key === 'Escape') closeModal(); 
+  });
+
+  // Close on backdrop click
+  if (modal) {
+    modal.addEventListener('click', function(e){ 
+      if (e.target === modal) closeModal(); 
+    });
+  }
+})();
+</script>
 <?php endif; ?>
 
 <?php if ($eviteUrl === '' && $isAdmin): ?>
