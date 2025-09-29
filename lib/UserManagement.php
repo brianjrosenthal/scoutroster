@@ -951,36 +951,36 @@ class UserManagement {
     // Registration status filtering
     if ($registrationStatus === 'registered') {
       // Use the same logic as youth.php by leveraging YouthManagement::searchRoster()
-      try {
-        $ctx = \UserContext::getLoggedInUserContext();
-        if (!$ctx || !$ctx->admin) {
-          // If no admin context, create a minimal one for the query
-          // This should not happen in practice since this is admin-only functionality
-          throw new RuntimeException('Admin context required for registered filter');
-        }
-        
-        // Get qualifying youth using the same logic as youth.php
-        $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
-        $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
-        
-        if (empty($qualifyingYouthIds)) {
-          // No qualifying youth means no parents to invite
-          return [];
-        }
-        
-        // Find parents of qualifying youth
-        $joins[] = "JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
-        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
-        $wheres[] = "pr_reg.youth_id IN ($placeholders)";
-        $params = array_merge($params, $qualifyingYouthIds);
-        
-      } catch (Throwable $e) {
-        // Fallback to old logic if YouthManagement fails
-        error_log("Failed to use YouthManagement::searchRoster for registered filter: " . $e->getMessage());
-        $joins[] = "LEFT JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
-        $joins[] = "LEFT JOIN youth y_reg ON y_reg.id = pr_reg.youth_id";
-        $wheres[] = "(u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y_reg.bsa_registration_number IS NOT NULL AND y_reg.bsa_registration_number <> '')";
+      $ctx = \UserContext::getLoggedInUserContext();
+      if (!$ctx || !$ctx->admin) {
+        throw new RuntimeException('Admin context required for registered filter');
       }
+      
+      // Debug logging
+      error_log("DEBUG: Getting qualifying youth using YouthManagement::searchRoster");
+      
+      // Get qualifying youth using the same logic as youth.php
+      $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
+      $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
+      
+      // Debug logging
+      error_log("DEBUG: Found " . count($qualifyingYouth) . " qualifying youth");
+      error_log("DEBUG: Youth IDs: " . implode(', ', $qualifyingYouthIds));
+      error_log("DEBUG: Looking for Aiden (167): " . (in_array(167, $qualifyingYouthIds) ? 'FOUND' : 'NOT FOUND'));
+      
+      if (empty($qualifyingYouthIds)) {
+        // No qualifying youth means no parents to invite
+        error_log("DEBUG: No qualifying youth found, returning empty array");
+        return [];
+      }
+      
+      // Find parents of qualifying youth
+      $joins[] = "JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
+      $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
+      $wheres[] = "pr_reg.youth_id IN ($placeholders)";
+      $params = array_merge($params, $qualifyingYouthIds);
+      
+      error_log("DEBUG: Added parent relationship join for " . count($qualifyingYouthIds) . " youth");
     } elseif ($registrationStatus === 'unregistered') {
       $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
       $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
@@ -1067,36 +1067,25 @@ class UserManagement {
     // Registration status filtering
     if ($registrationStatus === 'registered') {
       // Use the same logic as youth.php by leveraging YouthManagement::searchRoster()
-      try {
-        $ctx = \UserContext::getLoggedInUserContext();
-        if (!$ctx || !$ctx->admin) {
-          // If no admin context, create a minimal one for the query
-          // This should not happen in practice since this is admin-only functionality
-          throw new RuntimeException('Admin context required for registered filter');
-        }
-        
-        // Get qualifying youth using the same logic as youth.php
-        $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
-        $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
-        
-        if (empty($qualifyingYouthIds)) {
-          // No qualifying youth means no parents to count
-          return 0;
-        }
-        
-        // Find parents of qualifying youth
-        $joins[] = "JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
-        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
-        $wheres[] = "pr_reg.youth_id IN ($placeholders)";
-        $params = array_merge($params, $qualifyingYouthIds);
-        
-      } catch (Throwable $e) {
-        // Fallback to old logic if YouthManagement fails
-        error_log("Failed to use YouthManagement::searchRoster for registered filter: " . $e->getMessage());
-        $joins[] = "LEFT JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
-        $joins[] = "LEFT JOIN youth y_reg ON y_reg.id = pr_reg.youth_id";
-        $wheres[] = "(u.bsa_membership_number IS NOT NULL AND u.bsa_membership_number <> '') OR (y_reg.bsa_registration_number IS NOT NULL AND y_reg.bsa_registration_number <> '')";
+      $ctx = \UserContext::getLoggedInUserContext();
+      if (!$ctx || !$ctx->admin) {
+        throw new RuntimeException('Admin context required for registered filter');
       }
+      
+      // Get qualifying youth using the same logic as youth.php
+      $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
+      $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
+      
+      if (empty($qualifyingYouthIds)) {
+        // No qualifying youth means no parents to count
+        return 0;
+      }
+      
+      // Find parents of qualifying youth
+      $joins[] = "JOIN parent_relationships pr_reg ON pr_reg.adult_id = u.id";
+      $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
+      $wheres[] = "pr_reg.youth_id IN ($placeholders)";
+      $params = array_merge($params, $qualifyingYouthIds);
     } elseif ($registrationStatus === 'unregistered') {
       $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
       $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";

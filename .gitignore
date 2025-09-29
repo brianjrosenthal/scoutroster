@@ -6,3 +6,4 @@
 config.local.php
 *.sw*
 /cache/
+activity.log
