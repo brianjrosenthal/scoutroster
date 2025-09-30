@@ -30,3 +30,8 @@ define('INVITE_HMAC_KEY', '');
 // HMAC key for remember me tokens (REQUIRED for persistent login).
 // Set to a long random string, e.g., bin2hex(random_bytes(32)).
 define('REMEMBER_TOKEN_KEY', '');
+
+// Email debug mode - when enabled, emails are not actually sent but simulated
+// Set to true to enable debug mode (useful for testing real-time progress display)
+// IMPORTANT: Set to false or remove this line in production!
+define('EMAIL_DEBUG_MODE', false);

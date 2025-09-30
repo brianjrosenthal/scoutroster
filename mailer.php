@@ -115,6 +115,39 @@ function send_email(string $to, string $subject, string $html, string $toName = 
 }
 
 /**
+ * Debug mode email simulation - simulates email sending with realistic delays and occasional failures.
+ * Returns same format as real email functions: array with 'success' and 'error' keys.
+ */
+function send_email_debug_mode(
+  string $toEmail,
+  string $subject,
+  string $html,
+  string $icsContent,
+  string $icsFilename = 'invite.ics',
+  string $toName = ''
+): array {
+  if ($toName === '') $toName = $toEmail;
+  
+  // Simulate realistic email sending delay (2 seconds)
+  sleep(2);
+  
+  // Simulate occasional failures (10% failure rate for testing error handling)
+  $success = (rand(1, 10) > 1);
+  $error = $success ? null : 'Debug mode: Simulated SMTP timeout';
+  
+  // Still log the email attempt with debug indicator
+  $logBody = $html . "\n\n[ICS Attachment: " . $icsFilename . "] [DEBUG MODE - NOT ACTUALLY SENT]";
+  try {
+    $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+    EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, $success, $error);
+  } catch (\Throwable $e) {
+    // Don't let logging errors break email flow
+  }
+  
+  return ['success' => $success, 'error' => $error];
+}
+
+/**
  * Enhanced version of send_email_with_ics that returns detailed error information.
  * Returns array with 'success' (bool) and 'error' (string|null) keys.
  */
@@ -126,6 +159,11 @@ function send_email_with_ics_detailed(
   string $icsFilename = 'invite.ics',
   string $toName = ''
 ): array {
+  // Check if debug mode is enabled
+  if (defined('EMAIL_DEBUG_MODE') && EMAIL_DEBUG_MODE === true) {
+    return send_email_debug_mode($toEmail, $subject, $html, $icsContent, $icsFilename, $toName);
+  }
+  
   if ($toName === '') $toName = $toEmail;
   
   $logBody = $html . "\n\n[ICS Attachment: " . $icsFilename . "]";
