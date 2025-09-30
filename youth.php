@@ -95,6 +95,7 @@ header_html('Youth Roster');
   <h2>Youth Roster</h2>
   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
     <a class="button" href="/recommend.php">Recommend a friend!</a>
+    <a class="button" href="/youth_export.php?<?= http_build_query($_GET) ?>">Export CSV</a>
     <?php if (!empty($u['is_admin'])): ?>
       <a class="button" href="/admin_youth.php">Add Youth</a>
     <?php endif; ?>

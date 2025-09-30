@@ -82,3 +82,6 @@ When implementing modal dialogs that require server-side data or processing, fol
 Generally errors in lib classes should be thrown as exceptions and the high-level callers should catch the exception and decide what to do.  Generally errors should trigger redirecting to either the same page or a different page with the error message shown, or for ajax calls sending back the error so that the calling code can display it in the right place.
 
 Also - errors should not be swallowed!!! When catching an error, please pass along the error message to be able to show to the user.
+
+## Single concerns per file
+Some of the files in the current system have if branches at their top which handle form evaluations of the file.  This is not a pattern I want to continue.  If PHP file 1 is a form which evalutes, it should evaluate to PHP file 2.  Or if it calls an ajax query, that should be PHP file 3.  In other words, I want to prefer to not have one file have more than one purpose.
