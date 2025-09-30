@@ -38,7 +38,9 @@ try {
     // Look up the email data using class method
     $emailData = UnsentEmailData::findWithUserById($unsentEmailId);
     if (!$emailData) {
-        throw new RuntimeException('Email data not found or already processed');
+        // Use a specific error code for already processed emails to help JavaScript distinguish this case
+        echo json_encode(['success' => false, 'error' => 'ALREADY_PROCESSED', 'error_message' => 'Email already sent or processed']);
+        exit;
     }
     
     $eventId = (int)$emailData['event_id'];
@@ -85,7 +87,7 @@ try {
     
 } catch (Throwable $e) {
     // Log the error
-    error_log("send_single_email.php error: " . $e->getMessage());
+    error_log("send_single_event_invitation.php error: " . $e->getMessage());
     
     // If we have an unsent_email_id and context, try to update it as failed using class method
     if (!empty($unsentEmailId) && isset($ctx)) {
