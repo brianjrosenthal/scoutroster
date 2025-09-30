@@ -64,8 +64,8 @@ class EmailPreviewUI {
                 if (!previewContent) return;
                 
                 const selectedRsvpStatus = document.querySelector('input[name="preview_rsvp_status"]:checked')?.value || 'never';
-                const currentEmailType = document.querySelector('input[name="email_type"]:checked')?.value || '<?= addslashes($defaultEmailType) ?>';
-                const currentDescription = document.querySelector('textarea[name="description"]')?.value || '<?= addslashes($defaultDescription) ?>';
+                const currentEmailType = document.querySelector('input[name="email_type"]:checked')?.value || <?= json_encode($defaultEmailType) ?>;
+                const currentDescription = document.querySelector('textarea[name="description"]')?.value || <?= json_encode($defaultDescription) ?>;
                 
                 // Generate introduction text based on email type and mock RSVP status
                 let introText = '';
@@ -77,7 +77,7 @@ class EmailPreviewUI {
                 
                 // Generate button HTML based on mock RSVP status
                 let buttonHtml = '';
-                const baseUrl = '<?= addslashes($baseUrl) ?>';
+                const baseUrl = <?= json_encode($baseUrl) ?>;
                 const eventId = <?= $eventId ?>;
                 
                 if (selectedRsvpStatus === 'yes') {
@@ -92,8 +92,8 @@ class EmailPreviewUI {
                 }
                 
                 // Build the complete preview HTML
-                const eventName = '<?= addslashes((string)$event['name']) ?>';
-                const siteTitle = '<?= addslashes($siteTitle) ?>';
+                const eventName = <?= json_encode((string)$event['name']) ?>;
+                const siteTitle = <?= json_encode($siteTitle) ?>;
                 const introHtml = introText ? `<p style="margin:0 0 8px;color:#666;font-size:14px;">${introText}</p>` : '';
                 const descriptionHtml = currentDescription ? `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
                                                                 <div>${currentDescription.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</div>
