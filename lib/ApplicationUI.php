@@ -92,7 +92,10 @@ class ApplicationUI {
             // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
             $showPaymentNotifs = false;
             try {
-                $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                        FROM adult_leadership_position_assignments alpa
+                                        JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                        WHERE alpa.adult_id=?");
                 $stPos->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos = $stPos->fetchAll();
                 if (is_array($rowsPos)) {
@@ -110,7 +113,10 @@ class ApplicationUI {
             // Pending Registrations visible to approvers (Cubmaster, Committee Chair, Treasurer)
             $showPendingRegs = false;
             try {
-                $stPos2 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos2 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                         FROM adult_leadership_position_assignments alpa
+                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                         WHERE alpa.adult_id=?");
                 $stPos2->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos2 = $stPos2->fetchAll();
                 if (is_array($rowsPos2)) {
@@ -128,7 +134,10 @@ class ApplicationUI {
             // Registration Renewals visible to approvers (Cubmaster, Committee Chair, Treasurer)
             $showRenewals = false;
             try {
-                $stPos3 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos3 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                         FROM adult_leadership_position_assignments alpa
+                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                         WHERE alpa.adult_id=?");
                 $stPos3->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos3 = $stPos3->fetchAll();
                 if (is_array($rowsPos3)) {

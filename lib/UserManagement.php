@@ -646,9 +646,10 @@ class UserManagement {
   public static function isApprover(int $userId): bool {
     $st = self::pdo()->prepare(
       "SELECT 1
-       FROM adult_leadership_positions
-       WHERE adult_id = ?
-         AND position IN ('Cubmaster','Committee Chair','Treasurer')
+       FROM adult_leadership_position_assignments alpa
+       JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+       WHERE alpa.adult_id = ?
+         AND alp.name IN ('Cubmaster','Committee Chair','Treasurer')
        LIMIT 1"
     );
     $st->execute([$userId]);
@@ -658,9 +659,10 @@ class UserManagement {
   public static function isCubmaster(int $userId): bool {
     $st = self::pdo()->prepare(
       "SELECT 1
-       FROM adult_leadership_positions
-       WHERE adult_id = ?
-         AND position = 'Cubmaster'
+       FROM adult_leadership_position_assignments alpa
+       JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+       WHERE alpa.adult_id = ?
+         AND alp.name = 'Cubmaster'
        LIMIT 1"
     );
     $st->execute([$userId]);
