@@ -350,7 +350,7 @@ header_html('Send Event Invitations');
     const subjectField = document.querySelector('input[name="subject"]');
     const defaultSubject = '<?= addslashes($subjectDefault) ?>';
     const eventName = '<?= addslashes((string)$event['name']) ?>';
-    const eventDateTime = '<?= addslashes(date('D n/j \\a\\t g:i A', strtotime((string)$event['starts_at']))) ?>';
+    const eventDateTime = '<?= addslashes(date('D n/j', strtotime((string)$event['starts_at'])) . ' at ' . date('g:i A', strtotime((string)$event['starts_at']))) ?>';
     
     function updateSubjectField() {
         if (!subjectField) return;
@@ -516,7 +516,8 @@ header_html('Send Event Invitations');
         });
     }
     
-    // Email preview functionality is now handled by EmailPreviewUI class
+    // NOTE: Email preview functionality (radio buttons, description changes) 
+    // is handled by EmailPreviewUI class JavaScript above
 })();
 </script>
 
