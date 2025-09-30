@@ -204,6 +204,26 @@ final class RSVPManagement {
   }
 
   /**
+   * Get the RSVP answer for a user for an event (yes/maybe/no) or null if none.
+   * This is the standard method to replace the getRsvpStatus() function.
+   * 
+   * @param int $eventId Event ID
+   * @param int $userId User ID
+   * @return string|null RSVP answer ('yes', 'maybe', 'no') or null if no RSVP found
+   */
+  public static function getAnswerForUserEvent(int $eventId, int $userId): ?string {
+    if ($eventId <= 0 || $userId <= 0) return null;
+    
+    $st = self::pdo()->prepare("SELECT answer FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
+    $st->execute([$eventId, $userId]);
+    $row = $st->fetch();
+    if (!$row) return null;
+    
+    $ans = strtolower(trim((string)($row['answer'] ?? '')));
+    return in_array($ans, ['yes','maybe','no'], true) ? $ans : null;
+  }
+
+  /**
    * Sum n_guests across RSVPs for an event by answer.
    */
   public static function sumGuestsByAnswer(int $eventId, string $answer): int {

@@ -505,3 +505,26 @@ CREATE TABLE event_invitations_sent (
 CREATE INDEX idx_eis_event ON event_invitations_sent(event_id);
 CREATE INDEX idx_eis_user ON event_invitations_sent(user_id);
 CREATE INDEX idx_eis_last_sent ON event_invitations_sent(last_sent_at);
+
+-- Unsent email data for JavaScript-coordinated email sending
+CREATE TABLE unsent_email_data (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  user_id INT NOT NULL,
+  subject TEXT NOT NULL,
+  body LONGTEXT NOT NULL,
+  ics_content LONGTEXT DEFAULT NULL,
+  sent_status ENUM('', 'sent', 'failed') NOT NULL DEFAULT '',
+  error TEXT DEFAULT NULL,
+  sent_by INT NOT NULL,
+  sent_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ued_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ued_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_ued_sent_by FOREIGN KEY (sent_by) REFERENCES users(id) ON DELETE RESTRICT
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_ued_event ON unsent_email_data(event_id);
+CREATE INDEX idx_ued_sent_status ON unsent_email_data(sent_status);
+CREATE INDEX idx_ued_sent_by ON unsent_email_data(sent_by);
+CREATE INDEX idx_ued_created_at ON unsent_email_data(created_at);
