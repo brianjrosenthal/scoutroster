@@ -8,6 +8,11 @@ require_once __DIR__ . '/lib/UserContext.php';
  * Returns true on success, false on failure.
  */
 function send_smtp_mail(string $toEmail, string $toName, string $subject, string $html): bool {
+  // Check if debug mode is enabled
+  if (defined('EMAIL_DEBUG_MODE') && EMAIL_DEBUG_MODE === true) {
+    return send_smtp_mail_debug_mode($toEmail, $toName, $subject, $html);
+  }
+
   // Basic guardrails
   if (!defined('SMTP_HOST') || !defined('SMTP_PORT') || !defined('SMTP_USER') || !defined('SMTP_PASS')) {
     return false;
@@ -115,7 +120,33 @@ function send_email(string $to, string $subject, string $html, string $toName = 
 }
 
 /**
- * Debug mode email simulation - simulates email sending with realistic delays and occasional failures.
+ * Debug mode email simulation for basic emails - simulates email sending with realistic delays and occasional failures.
+ * Returns boolean like the real send_smtp_mail function.
+ */
+function send_smtp_mail_debug_mode(string $toEmail, string $toName, string $subject, string $html): bool {
+  if ($toName === '') $toName = $toEmail;
+  
+  // Simulate realistic email sending delay (2 seconds)
+  sleep(2);
+  
+  // Simulate occasional failures (10% failure rate for testing error handling)
+  $success = (rand(1, 10) > 1);
+  $error = $success ? null : 'Debug mode: Simulated SMTP timeout';
+  
+  // Still log the email attempt with debug indicator
+  $logBody = $html . "\n\n[DEBUG MODE - NOT ACTUALLY SENT]";
+  try {
+    $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+    EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, $success, $error);
+  } catch (\Throwable $e) {
+    // Don't let logging errors break email flow
+  }
+  
+  return $success;
+}
+
+/**
+ * Debug mode email simulation with ICS attachment - simulates email sending with realistic delays and occasional failures.
  * Returns same format as real email functions: array with 'success' and 'error' keys.
  */
 function send_email_debug_mode(
@@ -145,6 +176,39 @@ function send_email_debug_mode(
   }
   
   return ['success' => $success, 'error' => $error];
+}
+
+/**
+ * Debug mode email simulation for ICS emails (boolean return) - simulates email sending with realistic delays and occasional failures.
+ * Returns boolean like the real send_email_with_ics function.
+ */
+function send_email_with_ics_debug_mode(
+  string $toEmail,
+  string $subject,
+  string $html,
+  string $icsContent,
+  string $icsFilename = 'invite.ics',
+  string $toName = ''
+): bool {
+  if ($toName === '') $toName = $toEmail;
+  
+  // Simulate realistic email sending delay (2 seconds)
+  sleep(2);
+  
+  // Simulate occasional failures (10% failure rate for testing error handling)
+  $success = (rand(1, 10) > 1);
+  $error = $success ? null : 'Debug mode: Simulated SMTP timeout';
+  
+  // Still log the email attempt with debug indicator
+  $logBody = $html . "\n\n[ICS Attachment: " . $icsFilename . "] [DEBUG MODE - NOT ACTUALLY SENT]";
+  try {
+    $ctx = class_exists('UserContext') ? UserContext::getLoggedInUserContext() : null;
+    EmailLog::log($ctx, $toEmail, $toName, $subject, $logBody, $success, $error);
+  } catch (\Throwable $e) {
+    // Don't let logging errors break email flow
+  }
+  
+  return $success;
 }
 
 /**
@@ -489,6 +553,11 @@ function send_email_with_ics(
   string $icsFilename = 'invite.ics',
   string $toName = ''
 ): bool {
+  // Check if debug mode is enabled
+  if (defined('EMAIL_DEBUG_MODE') && EMAIL_DEBUG_MODE === true) {
+    return send_email_with_ics_debug_mode($toEmail, $subject, $html, $icsContent, $icsFilename, $toName);
+  }
+
   if ($toName === '') $toName = $toEmail;
   
   $logBody = $html . "\n\n[ICS Attachment: " . $icsFilename . "]";
