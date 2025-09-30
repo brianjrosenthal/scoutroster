@@ -333,25 +333,284 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
       throw new RuntimeException('No recipients after applying suppression policy. All users have already been invited according to your selected policy.');
     }
 
-    // Store preview data
-    $previewRecipients = $filteredRecipients;
-    $previewData = [
+    // Store data in session for GET-based confirmation and sending
+    $token = bin2hex(random_bytes(16)); // One-time use token
+    $_SESSION['email_send_data'] = [
+      'event_id' => $eventId,
       'filters' => $filters,
       'subject' => $subject,
       'organizer' => $organizer,
       'description' => $description,
       'email_type' => $emailType,
       'suppress_policy' => $suppressPolicy,
+      'recipients' => $filteredRecipients,
+      'suppressed_count' => $suppressedCount,
       'count' => count($filteredRecipients),
-      'suppressed_count' => $suppressedCount
+      'token' => $token,
+      'created_at' => time()
     ];
+
+    // Redirect to GET-based confirmation page
+    header('Location: /admin_event_invite.php?event_id=' . $eventId . '&action=confirm&token=' . $token);
+    exit;
 
   } catch (Throwable $e) {
     $error = $e->getMessage() ?: 'Failed to generate recipient list.';
   }
 }
 
-// Handle actual send - Real-time email sending with tracking
+// Handle GET-based confirmation page
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'confirm') {
+  $token = $_GET['token'] ?? '';
+  
+  // Validate session and token
+  if (!isset($_SESSION['email_send_data']) || $_SESSION['email_send_data']['token'] !== $token) {
+    // Invalid or expired session
+    $error = 'Session expired or invalid. Please start over.';
+  } else {
+    // Check session timeout (30 minutes)
+    $sessionAge = time() - $_SESSION['email_send_data']['created_at'];
+    if ($sessionAge > 1800) { // 30 minutes
+      unset($_SESSION['email_send_data']);
+      $error = 'Session expired. Please start over.';
+    } else {
+      // Load data from session for confirmation page
+      $previewData = $_SESSION['email_send_data'];
+      $previewRecipients = $previewData['recipients'];
+    }
+  }
+}
+
+// Handle GET-based real-time email sending
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'send') {
+  $token = $_GET['token'] ?? '';
+  
+  // Validate session and token
+  if (!isset($_SESSION['email_send_data']) || $_SESSION['email_send_data']['token'] !== $token) {
+    // Invalid or already used session
+    header('Content-Type: text/html; charset=UTF-8');
+    echo '<h2>Error: Invalid or expired session</h2>';
+    echo '<p>The send request is invalid or has already been used. Please <a href="/admin_event_invite.php?event_id=' . (int)$eventId . '">start over</a>.</p>';
+    exit;
+  }
+  
+  // Clear session data immediately to prevent reuse
+  $sendData = $_SESSION['email_send_data'];
+  unset($_SESSION['email_send_data']);
+  
+  // Disable all output buffering for real-time streaming
+  while (ob_get_level()) {
+    ob_end_clean();
+  }
+  
+  // Send headers for real-time streaming
+  header('Content-Type: text/html; charset=UTF-8');
+  header('Cache-Control: no-cache, must-revalidate, no-store');
+  header('Pragma: no-cache');
+  header('Expires: 0');
+  header('X-Accel-Buffering: no'); // Disable Nginx buffering
+  header('Connection: keep-alive');
+  
+  // Send initial HTML with padding to trigger browser display
+  echo str_repeat(' ', 1024); // 1KB padding for browser compatibility
+  echo '<!DOCTYPE html><html><head><title>Sending Invitations</title>';
+  echo '<style>body{font-family:system-ui,sans-serif;margin:20px;} .progress{margin:8px 0;} .success{color:#28a745;} .error{color:#dc3545;} .summary{background:#f8f9fa;padding:15px;border-radius:5px;margin-top:20px;}</style>';
+  echo '</head><body>';
+  echo '<h2>Sending Event Invitations</h2>';
+  
+  // Show debug mode indicator if active
+  if (defined('EMAIL_DEBUG_MODE') && EMAIL_DEBUG_MODE === true) {
+    echo '<div class="debug-notice" style="background: #fff3cd; color: #856404; padding: 12px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ffeaa7;">';
+    echo '🐛 <strong>DEBUG MODE ACTIVE</strong> - Emails are being simulated, not actually sent. Each email will take 2 seconds with occasional simulated failures.';
+    echo '</div>';
+  }
+  
+  echo '<div class="progress-container">';
+  flush();
+  
+  try {
+    // Extract data from session
+    $subject = $sendData['subject'];
+    $organizer = $sendData['organizer'];
+    $description = $sendData['description'];
+    $emailType = $sendData['email_type'];
+    $filteredRecipients = $sendData['recipients'];
+    $suppressedCount = $sendData['suppressed_count'];
+
+    if (empty($filteredRecipients)) {
+      throw new RuntimeException('No recipients to send to.');
+    }
+
+    // Build ICS (same for all recipients)
+    $tzId = Settings::timezoneId();
+    $eventUrl = $baseUrl . '/event.php?id=' . (int)$eventId;
+
+    $icsLines = [];
+    $icsLines[] = 'BEGIN:VCALENDAR';
+    $icsLines[] = 'PRODID:-//' . ics_escape_text($siteTitle) . '//EN';
+    $icsLines[] = 'VERSION:2.0';
+    $icsLines[] = 'CALSCALE:GREGORIAN';
+    $icsLines[] = 'METHOD:REQUEST';
+    $icsLines[] = 'BEGIN:VEVENT';
+    $icsLines[] = 'UID:event-' . (int)$eventId . '@' . $host;
+    $icsLines[] = 'DTSTAMP:' . gmdate('Ymd\THis\Z');
+    $icsLines[] = 'SUMMARY:' . ics_escape_text((string)$event['name']);
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
+    if ($locCombined !== '') {
+      $icsLines[] = 'LOCATION:' . ics_escape_text($locCombined);
+    }
+    $desc = trim((string)($event['description'] ?? ''));
+    $descWithUrl = $desc !== '' ? ($desc . "\n\n" . $eventUrl) : $eventUrl;
+    $icsLines[] = 'DESCRIPTION:' . ics_escape_text($descWithUrl);
+    $icsLines[] = 'DTSTART:' . dt_to_utc_str((string)$event['starts_at'], $tzId);
+    if (!empty($event['ends_at'])) {
+      $icsLines[] = 'DTEND:' . dt_to_utc_str((string)$event['ends_at'], $tzId);
+    }
+    $icsLines[] = 'URL:' . $eventUrl;
+    if ($organizer !== '') {
+      $icsLines[] = 'ORGANIZER;CN=' . ics_escape_text($siteTitle) . ':mailto:' . $organizer;
+    }
+    $icsLines[] = 'STATUS:CONFIRMED';
+    $icsLines[] = 'END:VEVENT';
+    $icsLines[] = 'END:VCALENDAR';
+    $icsContent = implode("\r\n", $icsLines);
+
+    // Calendar links (UTC Z strings)
+    $startZ = dt_to_utc_str((string)$event['starts_at'], $tzId);
+    $hasEnd = !empty($event['ends_at']);
+    $endZ = $hasEnd ? dt_to_utc_str((string)$event['ends_at'], $tzId) : null;
+
+    // Fallback end for calendar links if no end (1 hour)
+    if (!$endZ) {
+      try {
+        $dt = new DateTime((string)$event['starts_at'], new DateTimeZone($tzId));
+      } catch (Throwable $e) {
+        $dt = new DateTime((string)$event['starts_at']);
+      }
+      $dt->modify('+1 hour')->setTimezone(new DateTimeZone('UTC'));
+      $endZ = $dt->format('Ymd\THis\Z');
+    }
+
+    $locParam = $locCombined !== '' ? preg_replace("/\r\n|\r|\n/", ', ', $locCombined) : '';
+    $googleLink = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      . '&text=' . rawurlencode((string)$event['name'])
+      . '&dates=' . rawurlencode($startZ . '/' . $endZ)
+      . '&details=' . rawurlencode($descWithUrl)
+      . '&location=' . rawurlencode($locParam);
+    $outlookLink = 'https://outlook.live.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent'
+      . '&subject=' . rawurlencode((string)$event['name'])
+      . '&startdt=' . rawurlencode(dt_to_utc_iso((string)$event['starts_at'], $tzId))
+      . '&enddt=' . rawurlencode(dt_to_utc_iso($hasEnd ? (string)$event['ends_at'] : (string)$event['starts_at'], $tzId))
+      . '&body=' . rawurlencode($descWithUrl)
+      . '&location=' . rawurlencode($locParam);
+    $icsDownloadLink = $baseUrl . '/event_ics.php?event_id='.(int)$eventId . ($organizer !== '' ? ('&organizer='.rawurlencode($organizer)) : '');
+
+    // Email HTML template
+    $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
+    $locName = trim((string)($event['location'] ?? ''));
+    $locAddr = trim((string)($event['location_address'] ?? ''));
+    $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
+    $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
+
+    // Real-time email sending with tracking
+    $sent = 0;
+    $fail = 0;
+    $skipped = 0;
+    
+    echo '<p>Starting to send ' . count($filteredRecipients) . ' invitations...</p>';
+    flush();
+    
+    foreach ($filteredRecipients as $index => $r) {
+      $uid = (int)$r['id'];
+      $email = trim((string)$r['email']);
+      $name  = trim(((string)($r['first_name'] ?? '')).' '.((string)($r['last_name'] ?? '')));
+      $displayName = $name ?: 'Unknown';
+      
+      // Output real-time progress with better formatting
+      echo '<div class="progress">';
+      echo '<strong>' . ($index + 1) . '/' . count($filteredRecipients) . ':</strong> ';
+      echo 'Sending to ' . htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
+      echo ' &lt;' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '&gt;... ';
+      flush();
+      
+      $sig = invite_signature_build($uid, $eventId);
+      $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
+
+      // Use shared email template function
+      $html = generateEmailHTML($event, $siteTitle, $baseUrl, $deepLink, $whenText, $whereHtml, $description, $googleLink, $outlookLink, $icsDownloadLink, $emailType, $eventId, $uid, true);
+
+      // Use the detailed email function to get specific error information
+      $result = send_email_with_ics_detailed($email, $subject, $html, $icsContent, 'event_'.$eventId.'.ics', $name !== '' ? $name : $email);
+      
+      if ($result['success']) { 
+        $sent++;
+        echo '<span class="success">✓ sent successfully</span>';
+        
+        // Record the invitation in tracking table (skip in debug mode since no real email was sent)
+        if (!defined('EMAIL_DEBUG_MODE') || EMAIL_DEBUG_MODE !== true) {
+          try {
+            EventInvitationTracking::recordInvitationSent($eventId, $uid);
+          } catch (Throwable $trackingError) {
+            // Don't fail the whole process if tracking fails, but log it
+            error_log("Failed to record invitation tracking for user $uid, event $eventId: " . $trackingError->getMessage());
+          }
+        }
+      } else {
+        $fail++;
+        $errorMsg = $result['error'] ?? 'Unknown error';
+        echo '<span class="error">✗ failed: ' . htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') . '</span>';
+        
+        // Log the specific error to the error log as well
+        error_log("Email send failed to $email for event $eventId: $errorMsg");
+      }
+      
+      echo '</div>';
+      flush();
+      
+      // Add a small delay to make the progress visible (optional)
+      usleep(100000); // 0.1 second delay
+    }
+
+    // Final summary with styling
+    echo '</div>'; // Close progress-container
+    echo '<div class="summary">';
+    echo '<h3>📧 Email Sending Complete!</h3>';
+    echo '<p><strong>Total recipients:</strong> ' . count($filteredRecipients) . '</p>';
+    echo '<p><strong>Successfully sent:</strong> <span class="success">' . $sent . '</span></p>';
+    if ($fail > 0) {
+      echo '<p><strong>Failed:</strong> <span class="error">' . $fail . '</span></p>';
+    }
+    if ($suppressedCount > 0) {
+      echo '<p><strong>Suppressed (already invited):</strong> ' . $suppressedCount . '</p>';
+    }
+    echo '<div style="margin-top: 20px;">';
+    echo '<a href="/admin_event_invite.php?event_id=' . (int)$eventId . '" class="button" style="margin-right: 10px;">← Back to Event Invitations</a>';
+    echo '<a href="/event.php?id=' . (int)$eventId . '" class="button">Back to Event</a>';
+    echo '</div>';
+    echo '</div>';
+    echo '</body></html>';
+    
+    flush();
+    exit; // Exit here to prevent normal page rendering
+    
+  } catch (Throwable $e) {
+    echo '</div>'; // Close progress-container
+    echo '<div class="summary">';
+    echo '<h3>❌ Error</h3>';
+    echo '<p class="error">' . htmlspecialchars($e->getMessage(), ENT_QUOTES, 'UTF-8') . '</p>';
+    echo '<div style="margin-top: 20px;">';
+    echo '<a href="/admin_event_invite.php?event_id=' . (int)$eventId . '" class="button">← Back to Event Invitations</a>';
+    echo '</div>';
+    echo '</div>';
+    echo '</body></html>';
+    flush();
+    exit;
+  }
+}
+
+// Handle old POST send for backwards compatibility (can be removed later)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
   // Disable all output buffering for real-time streaming
   while (ob_get_level()) {
@@ -716,31 +975,10 @@ header_html('Send Event Invitations');
       </table>
     </div>
     
-    <form method="post" style="margin-top: 20px;">
-      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-      <input type="hidden" name="action" value="send">
-      <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-      <input type="hidden" name="subject" value="<?= h($previewData['subject']) ?>">
-      <input type="hidden" name="organizer" value="<?= h($previewData['organizer']) ?>">
-      <input type="hidden" name="description" value="<?= h($previewData['description']) ?>">
-      <input type="hidden" name="email_type" value="<?= h($previewData['email_type']) ?>">
-      
-      <!-- Pass through filter data -->
-      <input type="hidden" name="registration_status" value="<?= h($previewData['filters']['registration_status']) ?>">
-      <input type="hidden" name="rsvp_status" value="<?= h($previewData['filters']['rsvp_status']) ?>">
-      <input type="hidden" name="suppress_policy" value="<?= h($previewData['suppress_policy']) ?>">
-      <?php foreach ($previewData['filters']['grades'] as $grade): ?>
-        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
-      <?php endforeach; ?>
-      <?php foreach ($previewData['filters']['specific_adult_ids'] as $adultId): ?>
-        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
-      <?php endforeach; ?>
-      
-      <div class="actions">
-        <button class="primary" id="confirmSendBtn" style="background-color: #dc2626;">Confirm & Send <?= (int)$previewData['count'] ?> Invitations</button>
-        <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$eventId ?>">← Go Back to Edit</a>
-      </div>
-    </form>
+    <div class="actions" style="margin-top: 20px;">
+      <a class="primary button" href="/admin_event_invite.php?event_id=<?= (int)$eventId ?>&action=send&token=<?= h($previewData['token']) ?>" style="background-color: #dc2626; color: white; text-decoration: none;" id="confirmSendBtn">Confirm & Send <?= (int)$previewData['count'] ?> Invitations</a>
+      <a class="button" href="/admin_event_invite.php?event_id=<?= (int)$eventId ?>">← Go Back to Edit</a>
+    </div>
   </div>
 <?php else: ?>
   <!-- Initial Form -->
