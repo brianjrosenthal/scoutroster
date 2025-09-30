@@ -36,43 +36,6 @@ $baseUrl = $scheme . '://' . $host;
 
 $error = null;
 
-// Handle AJAX request for recipient count
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'count_recipients') {
-  header('Content-Type: application/json');
-  
-  try {
-    require_csrf();
-    
-    $filters = [
-      'registration_status' => $_POST['registration_status'] ?? 'all',
-      'grades' => $_POST['grades'] ?? [],
-      'rsvp_status' => $_POST['rsvp_status'] ?? 'all',
-      'event_id' => $eventId,
-      'specific_adult_ids' => $_POST['specific_adult_ids'] ?? []
-    ];
-    
-    // Normalize grades array
-    if (is_string($filters['grades'])) {
-      $filters['grades'] = explode(',', $filters['grades']);
-    }
-    $filters['grades'] = array_filter(array_map('intval', (array)$filters['grades']));
-    
-    // Normalize specific adult IDs
-    if (is_string($filters['specific_adult_ids'])) {
-      $filters['specific_adult_ids'] = explode(',', $filters['specific_adult_ids']);
-    }
-    $filters['specific_adult_ids'] = array_filter(array_map('intval', (array)$filters['specific_adult_ids']));
-    
-    $count = UserManagement::countAdultsWithFilters($filters);
-    
-    echo json_encode(['success' => true, 'count' => $count]);
-    exit;
-    
-  } catch (Throwable $e) {
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
-    exit;
-  }
-}
 
 // Helper functions for email preview
 function getRsvpStatus(int $eventId, int $userId): ?string {
@@ -424,9 +387,8 @@ header_html('Send Event Invitations');
         clearTimeout(countTimeout);
         countTimeout = setTimeout(() => {
             const formData = new FormData(form);
-            formData.set('action', 'count_recipients');
             
-            fetch(window.location.href, {
+            fetch('admin_event_invite_count_recipients.php', {
                 method: 'POST',
                 body: formData
             })
