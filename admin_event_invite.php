@@ -380,7 +380,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     echo '</div>';
   }
   
-  echo '<div class="progress-container">';
   flush();
   
   try {
@@ -562,14 +561,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
         $sent++;
         echo '<span class="success">✓ sent successfully</span>';
         
-        // Record the invitation in tracking table
-        try {
-          EventInvitationTracking::recordInvitationSent($eventId, $uid);
-        } catch (Throwable $trackingError) {
-          // Don't fail the whole process if tracking fails, but log it
-          error_log("Failed to record invitation tracking for user $uid, event $eventId: " . $trackingError->getMessage());
+        // Record the invitation in tracking table (skip in debug mode since no real email was sent)
+        if (!defined('EMAIL_DEBUG_MODE') || EMAIL_DEBUG_MODE !== true) {
+          try {
+            EventInvitationTracking::recordInvitationSent($eventId, $uid);
+          } catch (Throwable $trackingError) {
+            // Don't fail the whole process if tracking fails, but log it
+            error_log("Failed to record invitation tracking for user $uid, event $eventId: " . $trackingError->getMessage());
+          }
         }
-      } else { 
+      } else {
         $fail++;
         $errorMsg = $result['error'] ?? 'Unknown error';
         echo '<span class="error">✗ failed: ' . htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') . '</span>';
@@ -586,7 +587,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     }
 
     // Final summary with styling
-    echo '</div>'; // Close progress-container
     echo '<div class="summary">';
     echo '<h3>📧 Email Sending Complete!</h3>';
     echo '<p><strong>Total recipients:</strong> ' . count($filteredRecipients) . '</p>';
