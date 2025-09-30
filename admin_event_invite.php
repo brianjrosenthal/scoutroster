@@ -380,7 +380,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     echo '</div>';
   }
   
-  echo '<div class="progress-container">';
   flush();
   
   try {
@@ -588,7 +587,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     }
 
     // Final summary with styling
-    echo '</div>'; // Close progress-container
     echo '<div class="summary">';
     echo '<h3>📧 Email Sending Complete!</h3>';
     echo '<p><strong>Total recipients:</strong> ' . count($filteredRecipients) . '</p>';
