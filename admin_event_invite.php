@@ -353,21 +353,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'previ
 
 // Handle actual send - Real-time email sending with tracking
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send') {
-  // Configure output buffering for real-time display
-  if (ob_get_level()) {
-    ob_end_clean(); // Clear any existing output buffers
+  // Disable all output buffering for real-time streaming
+  while (ob_get_level()) {
+    ob_end_clean();
   }
   
-  // Disable implicit flush initially, we'll control it manually
-  ob_implicit_flush(false);
-  
-  // Start a new output buffer that we can control
-  ob_start();
-  
-  // Send headers to prevent caching and enable real-time display
+  // Send headers for real-time streaming
   header('Content-Type: text/html; charset=UTF-8');
-  header('Cache-Control: no-cache, must-revalidate');
+  header('Cache-Control: no-cache, must-revalidate, no-store');
   header('Pragma: no-cache');
+  header('Expires: 0');
+  header('X-Accel-Buffering: no'); // Disable Nginx buffering
+  header('Connection: keep-alive');
+  
+  // Send initial HTML with padding to trigger browser display
+  echo str_repeat(' ', 1024); // 1KB padding for browser compatibility
+  echo '<!DOCTYPE html><html><head><title>Sending Invitations</title>';
+  echo '<style>body{font-family:system-ui,sans-serif;margin:20px;} .progress{margin:8px 0;} .success{color:#28a745;} .error{color:#dc3545;} .summary{background:#f8f9fa;padding:15px;border-radius:5px;margin-top:20px;}</style>';
+  echo '</head><body>';
+  echo '<h2>Sending Event Invitations</h2>';
+  
+  // Show debug mode indicator if active
+  if (defined('EMAIL_DEBUG_MODE') && EMAIL_DEBUG_MODE === true) {
+    echo '<div class="debug-notice" style="background: #fff3cd; color: #856404; padding: 12px; margin-bottom: 15px; border-radius: 5px; border: 1px solid #ffeaa7;">';
+    echo '🐛 <strong>DEBUG MODE ACTIVE</strong> - Emails are being simulated, not actually sent. Each email will take 2 seconds with occasional simulated failures.';
+    echo '</div>';
+  }
+  
+  echo '<div class="progress-container">';
+  flush();
   
   try {
     require_csrf();
@@ -518,18 +532,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
     $sent = 0;
     $fail = 0;
     $skipped = 0;
-
-    // Enable real-time output
-    ob_implicit_flush(true);
     
-    foreach ($filteredRecipients as $r) {
+    echo '<p>Starting to send ' . count($filteredRecipients) . ' invitations...</p>';
+    flush();
+    
+    foreach ($filteredRecipients as $index => $r) {
       $uid = (int)$r['id'];
       $email = trim((string)$r['email']);
       $name  = trim(((string)($r['first_name'] ?? '')).' '.((string)($r['last_name'] ?? '')));
+      $displayName = $name ?: 'Unknown';
       
-      // Output real-time progress
-      echo "Sending email to " . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . "... ";
-      ob_flush();
+      // Output real-time progress with better formatting
+      echo '<div class="progress">';
+      echo '<strong>' . ($index + 1) . '/' . count($filteredRecipients) . ':</strong> ';
+      echo 'Sending to ' . htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8');
+      echo ' &lt;' . htmlspecialchars($email, ENT_QUOTES, 'UTF-8') . '&gt;... ';
       flush();
       
       $sig = invite_signature_build($uid, $eventId);
@@ -543,7 +560,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       
       if ($result['success']) { 
         $sent++;
-        echo "complete.<br>\n";
+        echo '<span class="success">✓ sent successfully</span>';
         
         // Record the invitation in tracking table
         try {
@@ -555,28 +572,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send'
       } else { 
         $fail++;
         $errorMsg = $result['error'] ?? 'Unknown error';
-        echo "failed: " . htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') . "<br>\n";
+        echo '<span class="error">✗ failed: ' . htmlspecialchars($errorMsg, ENT_QUOTES, 'UTF-8') . '</span>';
         
         // Log the specific error to the error log as well
         error_log("Email send failed to $email for event $eventId: $errorMsg");
       }
       
-      ob_flush();
+      echo '</div>';
       flush();
+      
+      // Add a small delay to make the progress visible (optional)
+      usleep(100000); // 0.1 second delay
     }
 
-    // Final summary
-    echo "<br><strong>Summary:</strong><br>\n";
-    echo "Total recipients: " . count($filteredRecipients) . "<br>\n";
-    echo "Successfully sent: $sent<br>\n";
-    echo "Failed: $fail<br>\n";
-    if ($suppressedCount > 0) {
-      echo "Suppressed (already invited): $suppressedCount<br>\n";
+    // Final summary with styling
+    echo '</div>'; // Close progress-container
+    echo '<div class="summary">';
+    echo '<h3>📧 Email Sending Complete!</h3>';
+    echo '<p><strong>Total recipients:</strong> ' . count($filteredRecipients) . '</p>';
+    echo '<p><strong>Successfully sent:</strong> <span class="success">' . $sent . '</span></p>';
+    if ($fail > 0) {
+      echo '<p><strong>Failed:</strong> <span class="error">' . $fail . '</span></p>';
     }
-    echo "<br><a href=\"/admin_event_invite.php?event_id=" . (int)$eventId . "\" class=\"button\">← Back to Event Invitations</a><br>\n";
-    echo "<a href=\"/event.php?id=" . (int)$eventId . "\" class=\"button\">Back to Event</a><br>\n";
+    if ($suppressedCount > 0) {
+      echo '<p><strong>Suppressed (already invited):</strong> ' . $suppressedCount . '</p>';
+    }
+    echo '<div style="margin-top: 20px;">';
+    echo '<a href="/admin_event_invite.php?event_id=' . (int)$eventId . '" class="button" style="margin-right: 10px;">← Back to Event Invitations</a>';
+    echo '<a href="/event.php?id=' . (int)$eventId . '" class="button">Back to Event</a>';
+    echo '</div>';
+    echo '</div>';
+    echo '</body></html>';
     
-    ob_flush();
     flush();
     exit; // Exit here to prevent normal page rendering
     
