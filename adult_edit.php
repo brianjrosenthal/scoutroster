@@ -930,17 +930,49 @@ header_html('Edit Adult');
   }
   
   function loadPackPositions() {
-    // For now, we'll start with empty and let the user assign positions
-    // In production, you'd fetch current positions via AJAX
     var packPositionsList = document.getElementById('packPositionsList');
     if (packPositionsList) {
       packPositionsList.innerHTML = '<p class="small">Loading positions...</p>';
     }
+    
+    // Fetch current positions via AJAX
+    var formData = new FormData();
+    formData.append('csrf', '<?= h(csrf_token()) ?>');
+    formData.append('adult_id', adultId);
+    
+    fetch('/adult_get_positions_ajax.php', { 
+      method: 'POST', 
+      body: formData, 
+      credentials: 'same-origin' 
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (json && json.ok) {
+        updatePackPositionsDisplay(json.pack_positions || []);
+        updateDenLeadersDisplay(json.den_assignments || []);
+      } else {
+        if (packPositionsList) {
+          packPositionsList.innerHTML = '<p class="error small">Failed to load positions</p>';
+        }
+        var denLeadersList = document.getElementById('denLeadersList');
+        if (denLeadersList) {
+          denLeadersList.innerHTML = '<p class="error small">Failed to load positions</p>';
+        }
+      }
+    })
+    .catch(function(){
+      if (packPositionsList) {
+        packPositionsList.innerHTML = '<p class="error small">Network error loading positions</p>';
+      }
+      var denLeadersList = document.getElementById('denLeadersList');
+      if (denLeadersList) {
+        denLeadersList.innerHTML = '<p class="error small">Network error loading positions</p>';
+      }
+    });
   }
   
   function loadDenLeaderPositions() {
-    // For now, we'll start with empty and let the user assign positions
-    // In production, you'd fetch current positions via AJAX
+    // This is now handled by loadPackPositions() to avoid duplicate AJAX calls
     var denLeadersList = document.getElementById('denLeadersList');
     if (denLeadersList) {
       denLeadersList.innerHTML = '<p class="small">Loading positions...</p>';
