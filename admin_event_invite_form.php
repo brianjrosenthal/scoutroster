@@ -7,6 +7,7 @@ require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/EventUIManager.php';
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
+require_once __DIR__ . '/lib/EmailPreviewUI.php';
 require_once __DIR__ . '/settings.php';
 
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
@@ -315,46 +316,10 @@ header_html('Send Event Invitations');
   </form>
 </div>
 
-<div class="card">
-  <h3>Email Preview</h3>
-  
-  <div style="margin-bottom: 16px; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
-    <label><strong>Preview as:</strong></label>
-    <div style="margin-left: 16px; margin-top: 8px;">
-      <label class="inline">
-        <input type="radio" name="preview_rsvp_status" value="never" checked> Never RSVP'd
-      </label>
-      <label class="inline">
-        <input type="radio" name="preview_rsvp_status" value="yes"> RSVP'd previously Yes
-      </label>
-    </div>
-  </div>
-  
-  <div id="emailPreviewContent">
-    <?php
-      // Generate preview using the same template as actual emails
-      $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
-      $locName = trim((string)($event['location'] ?? ''));
-      $locAddr = trim((string)($event['location_address'] ?? ''));
-      $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
-      $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
-      
-      $previewDescription = '';
-      $previewEmailType = 'none';
-      
-      // Use placeholder links for preview
-      $previewDeepLink = $baseUrl . '/event.php?id=' . (int)$eventId;
-      $googleLink = '#';
-      $outlookLink = '#';
-      $icsDownloadLink = '#';
-      
-      // Generate preview HTML without calendar links (default: never RSVP'd)
-      $previewHtml = generateEmailHTML($event, $siteTitle, $baseUrl, $previewDeepLink, $whenText, $whereHtml, $previewDescription, $googleLink, $outlookLink, $icsDownloadLink, $previewEmailType, $eventId, 0, false);
-      
-      echo $previewHtml;
-    ?>
-  </div>
-</div>
+<?php 
+  // Use shared EmailPreviewUI for consistent preview across all pages
+  EmailPreviewUI::renderEmailPreview($event, $eventId, $baseUrl, $siteTitle, $currentBody, $_POST['email_type'] ?? 'none');
+?>
 
 <?php if ($isAdmin): ?>
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
@@ -589,88 +554,7 @@ header_html('Send Event Invitations');
         });
     }
     
-    // Email preview functionality
-    const previewRsvpRadios = document.querySelectorAll('input[name="preview_rsvp_status"]');
-    const previewContent = document.getElementById('emailPreviewContent');
-    
-    function updateEmailPreview() {
-        if (!previewContent) return;
-        
-        const selectedRsvpStatus = document.querySelector('input[name="preview_rsvp_status"]:checked')?.value || 'never';
-        const currentEmailType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
-        const currentDescription = document.querySelector('textarea[name="description"]')?.value || '';
-        
-        // Generate introduction text based on email type and mock RSVP status
-        let introText = '';
-        if (currentEmailType === 'invitation') {
-            introText = "You're Invited to...";
-        } else if (currentEmailType === 'reminder') {
-            introText = selectedRsvpStatus === 'yes' ? 'Reminder:' : 'Reminder to RSVP for...';
-        }
-        
-        // Generate button HTML based on mock RSVP status
-        let buttonHtml = '';
-        const baseUrl = '<?= addslashes($baseUrl) ?>';
-        const eventId = <?= (int)$eventId ?>;
-        
-        if (selectedRsvpStatus === 'yes') {
-            buttonHtml = `<p style="margin:0 0 10px;color:#222;font-size:16px;font-weight:bold;">You RSVP'd Yes</p>
-                         <p style="margin:0 0 16px;">
-                           <a href="${baseUrl}/event.php?id=${eventId}" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View Details</a>
-                         </p>`;
-        } else {
-            buttonHtml = `<p style="margin:0 0 16px;">
-                           <a href="${baseUrl}/event.php?id=${eventId}" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
-                         </p>`;
-        }
-        
-        // Build the complete preview HTML
-        const eventName = '<?= addslashes((string)$event['name']) ?>';
-        const siteTitle = '<?= addslashes($siteTitle) ?>';
-        const introHtml = introText ? `<p style="margin:0 0 8px;color:#666;font-size:14px;">${introText}</p>` : '';
-        const descriptionHtml = currentDescription ? `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-                                                        <div>${currentDescription.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</div>
-                                                      </div>` : '';
-        
-        const previewHtml = `
-        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
-          <div style="text-align:center;">
-            ${introHtml}
-            <h2 style="margin:0 0 8px;">${eventName}</h2>
-            <p style="margin:0 0 16px;color:#444;">${siteTitle}</p>
-            ${buttonHtml}
-          </div>
-          <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fafafa;">
-            <div><strong>When:</strong> <?= h(Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null)) ?></div>
-            <?php if (!empty($event['location'])): ?>
-            <div><strong>Where:</strong> <?= h((string)$event['location']) ?></div>
-            <?php endif; ?>
-          </div>
-          ${descriptionHtml}
-          <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-            If the button does not work, open this link: <br><a href="${baseUrl}/event.php?id=${eventId}">${baseUrl}/event.php?id=${eventId}</a>
-          </p>
-        </div>`;
-        
-        previewContent.innerHTML = previewHtml;
-    }
-    
-    // Add event listeners
-    previewRsvpRadios.forEach(radio => {
-        radio.addEventListener('change', updateEmailPreview);
-    });
-    
-    emailTypeRadios.forEach(radio => {
-        radio.addEventListener('change', updateEmailPreview);
-    });
-    
-    const descriptionField = document.querySelector('textarea[name="description"]');
-    if (descriptionField) {
-        descriptionField.addEventListener('input', updateEmailPreview);
-    }
-    
-    // Initialize preview
-    updateEmailPreview();
+    // Email preview functionality is now handled by EmailPreviewUI class
 })();
 </script>
 

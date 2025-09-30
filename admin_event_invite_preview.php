@@ -12,6 +12,7 @@ require_once __DIR__ . '/lib/EventInvitationTracking.php';
 require_once __DIR__ . '/lib/UnsentEmailData.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/UserContext.php';
+require_once __DIR__ . '/lib/EmailPreviewUI.php';
 require_once __DIR__ . '/settings.php';
 
 if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
@@ -527,42 +528,10 @@ header_html('Preview Email Invitations');
   </div>
 </div>
 
-<div class="card">
-  <h3>Email Preview</h3>
-  <div id="emailPreviewContent">
-    <?php
-      // Generate a sample preview email using the first recipient
-      $sampleRecipient = $previewData['recipients'][0] ?? null;
-      if ($sampleRecipient) {
-        $uid = (int)$sampleRecipient['id'];
-        $sig = invite_signature_build($uid, $eventId);
-        $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
-
-        // Use actual values for calendar links
-        $sampleHtml = generateEmailHTML(
-          $event, 
-          $siteTitle, 
-          $baseUrl, 
-          $deepLink, 
-          $whenText, 
-          $whereHtml, 
-          $previewData['description'], 
-          $googleLink, 
-          $outlookLink, 
-          $icsDownloadLink, 
-          $previewData['emailType'], 
-          $eventId, 
-          $uid, 
-          true
-        );
-        
-        echo $sampleHtml;
-      } else {
-        echo '<p>No recipients to preview.</p>';
-      }
-    ?>
-  </div>
-</div>
+<?php 
+  // Use shared EmailPreviewUI for consistent preview across all pages
+  EmailPreviewUI::renderEmailPreview($event, $eventId, $baseUrl, $siteTitle, $previewData['description'], $previewData['emailType']);
+?>
 
 <?php if ($isAdmin): ?>
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
