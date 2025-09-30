@@ -647,6 +647,17 @@ header_html('Send Event Invitations');
       <ul style="margin: 8px 0;">
         <li><strong>Subject:</strong> <?= h($previewData['subject']) ?></li>
         <li><strong>To:</strong> <?= (int)$previewData['count'] ?> recipients</li>
+        <?php if ($previewData['suppressed_count'] > 0): ?>
+          <li><strong>Suppressed (already invited):</strong> <?= (int)$previewData['suppressed_count'] ?> recipients</li>
+          <li><strong>Suppression policy:</strong> 
+            <?php 
+            $policy = $previewData['suppress_policy'] ?? 'last_24_hours';
+            if ($policy === 'last_24_hours') echo 'Don\'t send if invited in last 24 hours';
+            elseif ($policy === 'ever_invited') echo 'Don\'t send if ever invited';
+            else echo 'No suppression policy';
+            ?>
+          </li>
+        <?php endif; ?>
         <?php if (!empty($previewData['organizer'])): ?>
           <li><strong>Organizer:</strong> <?= h($previewData['organizer']) ?></li>
         <?php endif; ?>
