@@ -583,103 +583,31 @@ header_html('Edit Adult');
 ?>
 
 <div class="card" style="margin-top:16px;">
-  <h3>Leadership Positions</h3>
+  <h3 style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+    Leadership Positions
+    <?php if ($canEditLeadership): ?>
+      <button type="button" class="button" id="editLeadershipBtn">Edit</button>
+    <?php endif; ?>
+  </h3>
+  
   <?php
+    require_once __DIR__.'/lib/LeadershipManagement.php';
     try {
-      $positions = UserManagement::listLeadershipPositions(UserContext::getLoggedInUserContext(), $id);
+      $allPositions = LeadershipManagement::listAdultAllPositions($id);
     } catch (Throwable $e) {
-      $positions = [];
+      $allPositions = [];
       if (!$err) $err = 'Unable to load leadership positions.';
     }
   ?>
-  <?php if (empty($positions)): ?>
+  
+  <?php if (empty($allPositions)): ?>
     <p class="small">No leadership positions.</p>
   <?php else: ?>
     <ul class="list">
-      <?php foreach ($positions as $p): ?>
-        <li>
-          <?php
-            $posTitle = (string)($p['position'] ?? '');
-            if (($posTitle === 'Den Leader' || $posTitle === 'Assistant Den Leader') && array_key_exists('class_of', $p) && $p['class_of'] !== null) {
-              $gi = GradeCalculator::gradeForClassOf((int)$p['class_of']);
-              $gl = GradeCalculator::gradeLabel((int)$gi);
-              echo h($posTitle.' (Grade '.$gl.')');
-            } else {
-              echo h($posTitle);
-            }
-          ?>
-          <?php if ($canEditLeadership): ?>
-            <form method="post" style="display:inline; margin-left:8px;" onsubmit="return confirm('Remove this position?');">
-              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-              <input type="hidden" name="action" value="lp_remove">
-              <input type="hidden" name="leadership_id" value="<?= (int)$p['id'] ?>">
-              <button class="button danger">Remove</button>
-            </form>
-          <?php endif; ?>
-        </li>
+      <?php foreach ($allPositions as $pos): ?>
+        <li><?= h($pos['display_name']) ?></li>
       <?php endforeach; ?>
     </ul>
-  <?php endif; ?>
-
-  <?php if ($canEditLeadership): ?>
-    <form method="post" class="stack" style="margin-top:8px;">
-      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-      <input type="hidden" name="action" value="lp_add">
-      <label>Position
-        <select name="position_type" id="position_type">
-          <option value="">-- Select --</option>
-          <option value="Cubmaster">Cubmaster</option>
-          <option value="Assistant Cubmaster">Assistant Cubmaster</option>
-          <option value="Committee Chair">Committee Chair</option>
-          <option value="Treasurer">Treasurer</option>
-          <option value="Social Chair">Social Chair</option>
-          <option value="Safety Chair">Safety Chair</option>
-          <option value="Den Leader">Den Leader</option>
-          <option value="Assistant Den Leader">Assistant Den Leader</option>
-          <option value="Other">Other</option>
-        </select>
-      </label>
-
-      <div id="lp_grade_wrap" style="display:none; margin-top:8px;">
-        <label>Grade
-          <select name="grade" id="lp_grade_select">
-            <option value="">-- Select Grade --</option>
-            <?php for ($i=0; $i<=5; $i++): $lbl = GradeCalculator::gradeLabel($i); ?>
-              <option value="<?= h($lbl) ?>"><?= $i === 0 ? 'K' : $i ?></option>
-            <?php endfor; ?>
-          </select>
-        </label>
-      </div>
-
-      <div id="lp_other_wrap" style="display:none; margin-top:8px;">
-        <label>Other title
-          <input type="text" name="position_other" maxlength="255" placeholder="Enter title">
-        </label>
-      </div>
-
-      <div class="actions" style="margin-top:8px;">
-        <button class="button">Add Position</button>
-      </div>
-      <p class="small">Duplicates are not allowed for the same adult.</p>
-    </form>
-    <script>
-      (function(){
-        const typeSel = document.getElementById('position_type');
-        const gradeWrap = document.getElementById('lp_grade_wrap');
-        const otherWrap = document.getElementById('lp_other_wrap');
-        function update() {
-          const v = (typeSel && typeSel.value) || '';
-          const needsGrade = (v === 'Den Leader' || v === 'Assistant Den Leader');
-          const needsOther = (v === 'Other');
-          if (gradeWrap) gradeWrap.style.display = needsGrade ? '' : 'none';
-          if (otherWrap) otherWrap.style.display = needsOther ? '' : 'none';
-        }
-        if (typeSel) {
-          typeSel.addEventListener('change', update);
-          update();
-        }
-      })();
-    </script>
   <?php endif; ?>
 </div>
 
@@ -866,6 +794,69 @@ header_html('Edit Adult');
 </div>
 <?php endif; ?>
 
+<!-- Leadership Positions Modal -->
+<?php if ($canEditLeadership): ?>
+<div id="leadershipModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:600px;">
+    <button class="close" type="button" id="leadershipModalClose" aria-label="Close">&times;</button>
+    <h3>Edit Leadership Positions</h3>
+    <div id="leadershipErr" class="error small" style="display:none;"></div>
+    <div id="leadershipSuccess" class="flash small" style="display:none;"></div>
+    
+    <!-- Pack Leadership Positions Section -->
+    <div class="stack" style="margin-bottom:24px;">
+      <h4>Pack Leadership Positions</h4>
+      <div id="packPositionsList">
+        <!-- Will be populated via JavaScript -->
+      </div>
+      
+      <div class="grid" style="grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <label>Assign New Position
+          <select id="packPositionSelect">
+            <option value="">-- Select Position --</option>
+            <?php
+              try {
+                $availablePositions = LeadershipManagement::listPackPositions();
+                foreach ($availablePositions as $pos) {
+                  echo '<option value="' . (int)$pos['id'] . '">' . h($pos['name']) . '</option>';
+                }
+              } catch (Throwable $e) {
+                // Ignore errors in modal
+              }
+            ?>
+          </select>
+        </label>
+        <button type="button" class="button" id="assignPackPositionBtn">Assign</button>
+      </div>
+    </div>
+    
+    <!-- Den Leader Positions Section -->
+    <div class="stack">
+      <h4>Den Leader Positions</h4>
+      <div id="denLeadersList">
+        <!-- Will be populated via JavaScript -->
+      </div>
+      
+      <div class="grid" style="grid-template-columns:1fr auto;gap:8px;align-items:end;">
+        <label>Assign New Grade
+          <select id="denLeaderGradeSelect">
+            <option value="">-- Select Grade --</option>
+            <?php for ($i = 0; $i <= 5; $i++): ?>
+              <option value="<?= $i ?>"><?= $i === 0 ? 'K' : $i ?></option>
+            <?php endfor; ?>
+          </select>
+        </label>
+        <button type="button" class="button" id="assignDenLeaderBtn">Assign</button>
+      </div>
+    </div>
+    
+    <div class="actions" style="margin-top:24px;">
+      <button class="button" type="button" id="leadershipModalCancel">Close</button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
+
 <script>
 (function(){
   // Add double-click protection to invite form
@@ -880,6 +871,293 @@ header_html('Edit Adult');
       }
       inviteBtn.disabled = true;
       inviteBtn.textContent = 'Sending invitation...';
+    });
+  }
+
+  // Leadership Positions Modal
+  var leadershipModal = document.getElementById('leadershipModal');
+  var leadershipEditBtn = document.getElementById('editLeadershipBtn');
+  var leadershipCloseBtn = document.getElementById('leadershipModalClose');
+  var leadershipCancelBtn = document.getElementById('leadershipModalCancel');
+  var leadershipErr = document.getElementById('leadershipErr');
+  var leadershipSuccess = document.getElementById('leadershipSuccess');
+  var adultId = <?= (int)$id ?>;
+  
+  function showLeadershipErr(msg){ 
+    if(leadershipErr){ 
+      leadershipErr.style.display=''; 
+      leadershipErr.textContent = msg || 'Operation failed.'; 
+    } 
+    if(leadershipSuccess){ leadershipSuccess.style.display='none'; }
+  }
+  
+  function showLeadershipSuccess(msg){ 
+    if(leadershipSuccess){ 
+      leadershipSuccess.style.display=''; 
+      leadershipSuccess.textContent = msg || 'Success'; 
+    } 
+    if(leadershipErr){ leadershipErr.style.display='none'; }
+  }
+  
+  function clearLeadershipMessages(){ 
+    if(leadershipErr){ leadershipErr.style.display='none'; leadershipErr.textContent=''; } 
+    if(leadershipSuccess){ leadershipSuccess.style.display='none'; leadershipSuccess.textContent=''; }
+  }
+  
+  function openLeadershipModal(){ 
+    if(leadershipModal){ 
+      leadershipModal.classList.remove('hidden'); 
+      leadershipModal.setAttribute('aria-hidden','false'); 
+      clearLeadershipMessages(); 
+      loadCurrentPositions();
+    } 
+  }
+  
+  function closeLeadershipModal(){ 
+    if(leadershipModal){ 
+      leadershipModal.classList.add('hidden'); 
+      leadershipModal.setAttribute('aria-hidden','true'); 
+      // Reload the page to refresh the positions display
+      window.location.reload();
+    } 
+  }
+  
+  function loadCurrentPositions() {
+    // This would ideally be loaded via AJAX, but for simplicity we'll use the page data
+    // In a production system, you'd want a dedicated AJAX endpoint to get current positions
+    loadPackPositions();
+    loadDenLeaderPositions();
+  }
+  
+  function loadPackPositions() {
+    var packPositionsList = document.getElementById('packPositionsList');
+    if (packPositionsList) {
+      packPositionsList.innerHTML = '<p class="small">Loading positions...</p>';
+    }
+    
+    // Fetch current positions via AJAX
+    var formData = new FormData();
+    formData.append('csrf', '<?= h(csrf_token()) ?>');
+    formData.append('adult_id', adultId);
+    
+    fetch('/adult_get_positions_ajax.php', { 
+      method: 'POST', 
+      body: formData, 
+      credentials: 'same-origin' 
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (json && json.ok) {
+        updatePackPositionsDisplay(json.pack_positions || []);
+        updateDenLeadersDisplay(json.den_assignments || []);
+      } else {
+        if (packPositionsList) {
+          packPositionsList.innerHTML = '<p class="error small">Failed to load positions</p>';
+        }
+        var denLeadersList = document.getElementById('denLeadersList');
+        if (denLeadersList) {
+          denLeadersList.innerHTML = '<p class="error small">Failed to load positions</p>';
+        }
+      }
+    })
+    .catch(function(){
+      if (packPositionsList) {
+        packPositionsList.innerHTML = '<p class="error small">Network error loading positions</p>';
+      }
+      var denLeadersList = document.getElementById('denLeadersList');
+      if (denLeadersList) {
+        denLeadersList.innerHTML = '<p class="error small">Network error loading positions</p>';
+      }
+    });
+  }
+  
+  function loadDenLeaderPositions() {
+    // This is now handled by loadPackPositions() to avoid duplicate AJAX calls
+    var denLeadersList = document.getElementById('denLeadersList');
+    if (denLeadersList) {
+      denLeadersList.innerHTML = '<p class="small">Loading positions...</p>';
+    }
+  }
+  
+  function updatePackPositionsDisplay(positions) {
+    var packPositionsList = document.getElementById('packPositionsList');
+    if (!packPositionsList) return;
+    
+    if (!positions || positions.length === 0) {
+      packPositionsList.innerHTML = '<p class="small">No pack leadership positions.</p>';
+      return;
+    }
+    
+    var html = '<ul class="list">';
+    positions.forEach(function(pos) {
+      html += '<li>' + escapeHtml(pos.name) + ' <a href="#" onclick="removePackPosition(' + pos.id + '); return false;" style="color: #007bff; margin-left: 8px;">Remove</a></li>';
+    });
+    html += '</ul>';
+    packPositionsList.innerHTML = html;
+  }
+  
+  function updateDenLeadersDisplay(assignments) {
+    var denLeadersList = document.getElementById('denLeadersList');
+    if (!denLeadersList) return;
+    
+    if (!assignments || assignments.length === 0) {
+      denLeadersList.innerHTML = '<p class="small">No den leader assignments.</p>';
+      return;
+    }
+    
+    var html = '<ul class="list">';
+    assignments.forEach(function(assignment) {
+      var gradeLabel = assignment.grade === 0 ? 'K' : assignment.grade;
+      html += '<li>Den Leader Grade ' + gradeLabel + ' <a href="#" onclick="removeDenLeader(' + assignment.grade + '); return false;" style="color: #007bff; margin-left: 8px;">Remove</a></li>';
+    });
+    html += '</ul>';
+    denLeadersList.innerHTML = html;
+  }
+  
+  function escapeHtml(text) {
+    var map = {
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+  }
+  
+  // Global functions for remove buttons
+  window.removePackPosition = function(positionId) {
+    if (!confirm('Remove this leadership position?')) return;
+    
+    var formData = new FormData();
+    formData.append('csrf', '<?= h(csrf_token()) ?>');
+    formData.append('adult_id', adultId);
+    formData.append('position_id', positionId);
+    
+    fetch('/adult_remove_leadership_position_ajax.php', { 
+      method: 'POST', 
+      body: formData, 
+      credentials: 'same-origin' 
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (json && json.ok) {
+        showLeadershipSuccess(json.message || 'Position removed successfully');
+        updatePackPositionsDisplay(json.positions || []);
+      } else {
+        showLeadershipErr((json && json.error) ? json.error : 'Failed to remove position.');
+      }
+    })
+    .catch(function(){ showLeadershipErr('Network error.'); });
+  };
+  
+  window.removeDenLeader = function(grade) {
+    var gradeLabel = grade === 0 ? 'K' : grade;
+    if (!confirm('Remove den leader assignment for grade ' + gradeLabel + '?')) return;
+    
+    var formData = new FormData();
+    formData.append('csrf', '<?= h(csrf_token()) ?>');
+    formData.append('adult_id', adultId);
+    formData.append('grade', grade);
+    
+    fetch('/adult_remove_den_leader_ajax.php', { 
+      method: 'POST', 
+      body: formData, 
+      credentials: 'same-origin' 
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(json){
+      if (json && json.ok) {
+        showLeadershipSuccess(json.message || 'Den leader assignment removed successfully');
+        updateDenLeadersDisplay(json.den_assignments || []);
+      } else {
+        showLeadershipErr((json && json.error) ? json.error : 'Failed to remove den leader assignment.');
+      }
+    })
+    .catch(function(){ showLeadershipErr('Network error.'); });
+  };
+  
+  // Event listeners
+  if (leadershipEditBtn) {
+    leadershipEditBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      openLeadershipModal();
+    });
+  }
+  
+  if (leadershipCloseBtn) leadershipCloseBtn.addEventListener('click', closeLeadershipModal);
+  if (leadershipCancelBtn) leadershipCancelBtn.addEventListener('click', closeLeadershipModal);
+  if (leadershipModal) leadershipModal.addEventListener('click', function(e){ if (e.target === leadershipModal) closeLeadershipModal(); });
+  
+  // Assign pack position
+  var assignPackPositionBtn = document.getElementById('assignPackPositionBtn');
+  if (assignPackPositionBtn) {
+    assignPackPositionBtn.addEventListener('click', function() {
+      var select = document.getElementById('packPositionSelect');
+      var positionId = select ? select.value : '';
+      
+      if (!positionId) {
+        showLeadershipErr('Please select a position.');
+        return;
+      }
+      
+      var formData = new FormData();
+      formData.append('csrf', '<?= h(csrf_token()) ?>');
+      formData.append('adult_id', adultId);
+      formData.append('position_id', positionId);
+      
+      fetch('/adult_assign_leadership_position_ajax.php', { 
+        method: 'POST', 
+        body: formData, 
+        credentials: 'same-origin' 
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(json){
+        if (json && json.ok) {
+          showLeadershipSuccess(json.message || 'Position assigned successfully');
+          updatePackPositionsDisplay(json.positions || []);
+          if (select) select.value = '';
+        } else {
+          showLeadershipErr((json && json.error) ? json.error : 'Failed to assign position.');
+        }
+      })
+      .catch(function(){ showLeadershipErr('Network error.'); });
+    });
+  }
+  
+  // Assign den leader
+  var assignDenLeaderBtn = document.getElementById('assignDenLeaderBtn');
+  if (assignDenLeaderBtn) {
+    assignDenLeaderBtn.addEventListener('click', function() {
+      var select = document.getElementById('denLeaderGradeSelect');
+      var grade = select ? select.value : '';
+      
+      if (grade === '') {
+        showLeadershipErr('Please select a grade.');
+        return;
+      }
+      
+      var formData = new FormData();
+      formData.append('csrf', '<?= h(csrf_token()) ?>');
+      formData.append('adult_id', adultId);
+      formData.append('grade', grade);
+      
+      fetch('/adult_assign_den_leader_ajax.php', { 
+        method: 'POST', 
+        body: formData, 
+        credentials: 'same-origin' 
+      })
+      .then(function(r){ return r.json(); })
+      .then(function(json){
+        if (json && json.ok) {
+          showLeadershipSuccess(json.message || 'Den leader assigned successfully');
+          updateDenLeadersDisplay(json.den_assignments || []);
+          if (select) select.value = '';
+        } else {
+          showLeadershipErr((json && json.error) ? json.error : 'Failed to assign den leader.');
+        }
+      })
+      .catch(function(){ showLeadershipErr('Network error.'); });
     });
   }
 

@@ -109,6 +109,10 @@ function clear_all_remember_tokens_for_user($user_id) {
   }
 }
 
+function current_user_optional() {
+  return current_user(); // Returns null if not logged in, doesn't redirect
+}
+
 function require_login() {
   if (!current_user()) {
     $req = $_SERVER['REQUEST_URI'] ?? '/index.php';

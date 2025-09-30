@@ -122,18 +122,59 @@ CREATE INDEX idx_pr_youth ON parent_relationships(youth_id);
 
 
 
--- Adult leadership positions
+-- Adult leadership positions (restructured system)
 CREATE TABLE adult_leadership_positions (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  adult_id INT NOT NULL,
-  position VARCHAR(255) NOT NULL,
-  class_of INT NULL,
+  name VARCHAR(255) NOT NULL,
+  sort_priority INT NOT NULL DEFAULT 0,
+  description TEXT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  CONSTRAINT fk_alp_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE
+  created_by INT NOT NULL,
+  CONSTRAINT fk_alp_created_by FOREIGN KEY (created_by) REFERENCES users(id)
 ) ENGINE=InnoDB;
 
-CREATE INDEX idx_alp_adult ON adult_leadership_positions(adult_id);
-CREATE UNIQUE INDEX uniq_alp_adult_position_class ON adult_leadership_positions(adult_id, position, class_of);
+CREATE INDEX idx_alp_sort ON adult_leadership_positions(sort_priority);
+
+-- Adult leadership position assignments
+CREATE TABLE adult_leadership_position_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  adult_leadership_position_id INT NOT NULL,
+  adult_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by INT NOT NULL,
+  CONSTRAINT fk_alpa_position FOREIGN KEY (adult_leadership_position_id) REFERENCES adult_leadership_positions(id) ON DELETE CASCADE,
+  CONSTRAINT fk_alpa_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_alpa_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  UNIQUE KEY uniq_alpa_position_adult (adult_leadership_position_id, adult_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_alpa_adult ON adult_leadership_position_assignments(adult_id);
+CREATE INDEX idx_alpa_position ON adult_leadership_position_assignments(adult_leadership_position_id);
+
+-- Adult den leader assignments
+CREATE TABLE adult_den_leader_assignments (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  class_of INT NOT NULL,
+  adult_id INT NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by INT NOT NULL,
+  CONSTRAINT fk_adla_adult FOREIGN KEY (adult_id) REFERENCES users(id) ON DELETE CASCADE,
+  CONSTRAINT fk_adla_created_by FOREIGN KEY (created_by) REFERENCES users(id),
+  UNIQUE KEY uniq_adla_class_adult (class_of, adult_id)
+) ENGINE=InnoDB;
+
+CREATE INDEX idx_adla_adult ON adult_den_leader_assignments(adult_id);
+CREATE INDEX idx_adla_class ON adult_den_leader_assignments(class_of);
+
+-- Default leadership positions
+INSERT INTO adult_leadership_positions (name, sort_priority, description, created_by) VALUES
+  ('Cubmaster', 1, 'Pack leader responsible for overall program delivery', 1),
+  ('Committee Chair', 2, 'Chair of the pack committee', 1),
+  ('Treasurer', 3, 'Manages pack finances', 1),
+  ('Assistant Cubmaster', 4, 'Assists the Cubmaster with program delivery', 1),
+  ('Social Chair', 5, 'Organizes social activities and events', 1),
+  ('Safety Chair', 6, 'Ensures safety protocols are followed', 1)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- Events
 CREATE TABLE events (

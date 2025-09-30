@@ -348,13 +348,10 @@ class UserManagement {
                    u.phone_home,
                    u.email,
                    u.suppress_email_directory,
-                   u.suppress_phone_directory,
-                   GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
+                   u.suppress_phone_directory
             FROM parent_relationships pr
             JOIN users u ON u.id = pr.adult_id
-            LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
             WHERE pr.youth_id IN ($placeholders)
-            GROUP BY pr.youth_id, u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.email, u.suppress_email_directory, u.suppress_phone_directory
             ORDER BY pr.youth_id, u.last_name, u.first_name";
 
     $st = self::pdo()->prepare($sql);
@@ -363,6 +360,10 @@ class UserManagement {
     while ($row = $st->fetch()) {
       $yid = (int)$row['youth_id'];
       if (!isset($map[$yid])) $map[$yid] = [];
+      
+      // Add positions using the new system
+      $row['positions'] = self::getAdultPositionsString((int)$row['adult_id']);
+      
       $map[$yid][] = $row;
     }
     return $map;
@@ -645,9 +646,10 @@ class UserManagement {
   public static function isApprover(int $userId): bool {
     $st = self::pdo()->prepare(
       "SELECT 1
-       FROM adult_leadership_positions
-       WHERE adult_id = ?
-         AND position IN ('Cubmaster','Committee Chair','Treasurer')
+       FROM adult_leadership_position_assignments alpa
+       JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+       WHERE alpa.adult_id = ?
+         AND alp.name IN ('Cubmaster','Committee Chair','Treasurer')
        LIMIT 1"
     );
     $st->execute([$userId]);
@@ -657,9 +659,10 @@ class UserManagement {
   public static function isCubmaster(int $userId): bool {
     $st = self::pdo()->prepare(
       "SELECT 1
-       FROM adult_leadership_positions
-       WHERE adult_id = ?
-         AND position = 'Cubmaster'
+       FROM adult_leadership_position_assignments alpa
+       JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+       WHERE alpa.adult_id = ?
+         AND alp.name = 'Cubmaster'
        LIMIT 1"
     );
     $st->execute([$userId]);
@@ -667,74 +670,87 @@ class UserManagement {
   }
 
   // =========================
-  // Leadership Positions
+  // Leadership Positions (legacy methods - now use LeadershipManagement)
   // =========================
 
   public static function listLeadershipPositions(?UserContext $ctx, int $adultId): array {
-    // Admins can view anyone; users can view their own
+    // Backward compatibility - convert new format to old format
+    require_once __DIR__ . '/LeadershipManagement.php';
+    
     if (!$ctx) { throw new RuntimeException('Login required'); }
     if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - listLeadershipPositions'); }
 
-    $st = self::pdo()->prepare('SELECT id, position, class_of, created_at FROM adult_leadership_positions WHERE adult_id=? ORDER BY position');
-    $st->execute([$adultId]);
-    return $st->fetchAll();
+    $allPositions = \LeadershipManagement::listAdultAllPositions($adultId);
+    $legacy = [];
+    
+    foreach ($allPositions as $pos) {
+      if ($pos['type'] === 'pack') {
+        $legacy[] = [
+          'id' => $pos['id'],
+          'position' => $pos['name'],
+          'class_of' => null,
+          'created_at' => $pos['created_at']
+        ];
+      } elseif ($pos['type'] === 'den_leader') {
+        $legacy[] = [
+          'id' => $pos['class_of'], // Use class_of as fake ID for backward compatibility
+          'position' => 'Den Leader',
+          'class_of' => $pos['class_of'],
+          'created_at' => $pos['created_at']
+        ];
+      }
+    }
+    
+    return $legacy;
   }
 
   public static function addLeadershipPosition(?UserContext $ctx, int $adultId, string $position, ?int $grade = null): void {
-    // Admins or self can add
-    if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - addLeadershipPosition'); }
-
+    // Legacy method - redirect to new system
+    require_once __DIR__ . '/LeadershipManagement.php';
+    
     $pos = trim($position);
     if ($pos === '') { throw new InvalidArgumentException('Position is required.'); }
-    if (mb_strlen($pos) > 255) { throw new InvalidArgumentException('Position must be 255 characters or fewer.'); }
-
-    // Compute class_of for den leadership roles when grade provided, otherwise NULL
-    $classOf = null;
+    
     if ($pos === 'Den Leader' || $pos === 'Assistant Den Leader') {
       if ($grade !== null) {
-        if ($grade < 0 || $grade > 5) {
-          throw new InvalidArgumentException('Grade must be between K and 5 for ' . $pos . '.');
-        }
-        $classOf = \GradeCalculator::schoolYearEndYear() + (5 - (int)$grade);
+        \LeadershipManagement::assignDenLeader($ctx, $adultId, $grade);
+      } else {
+        throw new InvalidArgumentException('Grade is required for Den Leader positions.');
       }
-    }
-
-    // Check duplicate considering class_of NULL-safe
-    $dup = self::pdo()->prepare(
-      'SELECT 1 FROM adult_leadership_positions
-       WHERE adult_id = ?
-         AND position = ?
-         AND ((class_of IS NULL AND ? IS NULL) OR class_of = ?)
-       LIMIT 1'
-    );
-    $dup->execute([$adultId, $pos, $classOf, $classOf]);
-    if ($dup->fetchColumn()) {
-      throw new InvalidArgumentException('Position already exists for this adult.');
-    }
-
-    // Insert
-    $ins = self::pdo()->prepare('INSERT INTO adult_leadership_positions (adult_id, position, class_of, created_at) VALUES (?, ?, ?, NOW())');
-    $ok = $ins->execute([$adultId, $pos, $classOf]);
-    if (!$ok) {
-      throw new RuntimeException('Unable to add position.');
+    } else {
+      // Try to find existing pack position by name
+      $packPositions = \LeadershipManagement::listPackPositions();
+      $positionId = null;
+      foreach ($packPositions as $packPos) {
+        if ($packPos['name'] === $pos) {
+          $positionId = (int)$packPos['id'];
+          break;
+        }
+      }
+      
+      if ($positionId) {
+        \LeadershipManagement::assignPackPosition($ctx, $adultId, $positionId);
+      } else {
+        // Create new position if it doesn't exist (for "Other" positions)
+        $positionId = \LeadershipManagement::createPackPosition($ctx, $pos, 99); // High sort priority for custom positions
+        \LeadershipManagement::assignPackPosition($ctx, $adultId, $positionId);
+      }
     }
   }
 
   public static function removeLeadershipPosition(?UserContext $ctx, int $adultId, int $leadershipId): void {
-    // Admins or self can remove
-    if (!$ctx) { throw new RuntimeException('Login required'); }
-    if (!$ctx->admin && $ctx->id !== $adultId) { throw new RuntimeException('Forbidden - removeLeadershipPosition'); }
-
-    // Ensure the position belongs to this adult
-    $st = self::pdo()->prepare('DELETE FROM adult_leadership_positions WHERE id=? AND adult_id=?');
-    $st->execute([$leadershipId, $adultId]);
-    // No error if 0 rows affected; treat as no-op
-
-    // Log removal
-    self::log('user.leadership_remove', $adultId, [
-      'leadership_id' => (int)$leadershipId,
-    ]);
+    // Legacy method - this is complex since we need to determine what type of position to remove
+    // For now, we'll throw an error directing users to use the new modal interface
+    throw new RuntimeException('Please use the new leadership position management interface to remove positions.');
+  }
+  // Helper method to get positions for display (used by youth.php and adults.php)
+  public static function getAdultPositionsString(int $adultId): string {
+    try {
+      require_once __DIR__ . '/LeadershipManagement.php';
+      return \LeadershipManagement::getAdultPositionString($adultId);
+    } catch (Throwable $e) {
+      return '';
+    }
   }
 
   // =========================
@@ -786,9 +802,6 @@ class UserManagement {
     $sql = "
       SELECT 
         u.*,
-        (SELECT GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ')
-           FROM adult_leadership_positions alp 
-           WHERE alp.adult_id = u.id) AS positions,
         y.id         AS child_id,
         y.first_name AS child_first_name,
         y.last_name  AS child_last_name,
@@ -845,7 +858,7 @@ class UserManagement {
             'email_verified_at' => $r['email_verified_at'] ?? null,
             'suppress_email_directory' => (int)($r['suppress_email_directory'] ?? 0),
             'suppress_phone_directory' => (int)($r['suppress_phone_directory'] ?? 0),
-            'positions' => trim((string)($r['positions'] ?? '')),
+            'positions' => self::getAdultPositionsString($aid), // Use new system
           ],
           'children' => [],
         ];
@@ -1216,9 +1229,10 @@ class UserManagement {
     $pos = trim($position);
     if ($pos === '') return null;
     $st = self::pdo()->prepare("SELECT u.first_name, u.last_name
-                                FROM adult_leadership_positions alp
-                                JOIN users u ON u.id = alp.adult_id
-                                WHERE LOWER(alp.position) = LOWER(?)
+                                FROM adult_leadership_position_assignments alpa
+                                JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                JOIN users u ON u.id = alpa.adult_id
+                                WHERE LOWER(alp.name) = LOWER(?)
                                 LIMIT 1");
     $st->execute([$pos]);
     $r = $st->fetch();

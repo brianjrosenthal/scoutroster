@@ -52,6 +52,7 @@ class ApplicationUI {
                         . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
                         . '<div id="avatarMenu" class="avatar-menu hidden" role="menu" aria-hidden="true">'
                         .   '<a href="/my_profile.php" role="menuitem">My Profile</a>'
+                        .   '<a href="/leadership.php" role="menuitem">Pack Leadership</a>'
                         .   '<a href="/reimbursements.php" role="menuitem">Reimbursements</a>'
                         .   '<a href="/forms.php" role="menuitem">Forms and Links</a>'
                         .   '<a href="/logout.php" role="menuitem">Logout</a>'
@@ -87,11 +88,15 @@ class ApplicationUI {
             echo $link('/admin_adults.php','Manage Adults');
             echo $link('/admin_imports.php','Import Data');
             echo $link('/admin_mailing_list.php','Mailing List');
+            echo $link('/admin/leadership_positions.php','Positions');
             echo $link('/admin_activity_log.php','Activity Log');
             // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
             $showPaymentNotifs = false;
             try {
-                $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                        FROM adult_leadership_position_assignments alpa
+                                        JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                        WHERE alpa.adult_id=?");
                 $stPos->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos = $stPos->fetchAll();
                 if (is_array($rowsPos)) {
@@ -109,7 +114,10 @@ class ApplicationUI {
             // Pending Registrations visible to approvers (Cubmaster, Committee Chair, Treasurer)
             $showPendingRegs = false;
             try {
-                $stPos2 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos2 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                         FROM adult_leadership_position_assignments alpa
+                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                         WHERE alpa.adult_id=?");
                 $stPos2->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos2 = $stPos2->fetchAll();
                 if (is_array($rowsPos2)) {
@@ -127,7 +135,10 @@ class ApplicationUI {
             // Registration Renewals visible to approvers (Cubmaster, Committee Chair, Treasurer)
             $showRenewals = false;
             try {
-                $stPos3 = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+                $stPos3 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                         FROM adult_leadership_position_assignments alpa
+                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                         WHERE alpa.adult_id=?");
                 $stPos3->execute([(int)($u['id'] ?? 0)]);
                 $rowsPos3 = $stPos3->fetchAll();
                 if (is_array($rowsPos3)) {
