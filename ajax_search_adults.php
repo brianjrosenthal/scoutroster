@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__.'/partials.php';
-require_admin();
+require_login();
 
 require_once __DIR__ . '/lib/UserManagement.php';
 

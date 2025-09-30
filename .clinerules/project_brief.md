@@ -85,3 +85,6 @@ Also - errors should not be swallowed!!! When catching an error, please pass alo
 
 ## Single concerns per file
 Some of the files in the current system have if branches at their top which handle form evaluations of the file.  This is not a pattern I want to continue.  If PHP file 1 is a form which evalutes, it should evaluate to PHP file 2.  Or if it calls an ajax query, that should be PHP file 3.  In other words, I want to prefer to not have one file have more than one purpose.
+
+## GET vs POST
+Web requests that don't modify data should generally be GET requests.  Web requests that modify persistent data (not logging to disk or traffic logging, but modifying important data in the database) should generally be POST requests.

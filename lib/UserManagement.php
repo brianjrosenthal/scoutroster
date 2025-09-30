@@ -1229,9 +1229,10 @@ class UserManagement {
     $pos = trim($position);
     if ($pos === '') return null;
     $st = self::pdo()->prepare("SELECT u.first_name, u.last_name
-                                FROM adult_leadership_positions alp
-                                JOIN users u ON u.id = alp.adult_id
-                                WHERE LOWER(alp.position) = LOWER(?)
+                                FROM adult_leadership_position_assignments alpa
+                                JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                JOIN users u ON u.id = alpa.adult_id
+                                WHERE LOWER(alp.name) = LOWER(?)
                                 LIMIT 1");
     $st->execute([$pos]);
     $r = $st->fetch();

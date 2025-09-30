@@ -990,7 +990,7 @@ header_html('Edit Adult');
     
     var html = '<ul class="list">';
     positions.forEach(function(pos) {
-      html += '<li>' + escapeHtml(pos.name) + ' <button type="button" class="button danger small" onclick="removePackPosition(' + pos.id + ')">Remove</button></li>';
+      html += '<li>' + escapeHtml(pos.name) + ' <a href="#" onclick="removePackPosition(' + pos.id + '); return false;" style="color: #007bff; margin-left: 8px;">Remove</a></li>';
     });
     html += '</ul>';
     packPositionsList.innerHTML = html;
@@ -1008,7 +1008,7 @@ header_html('Edit Adult');
     var html = '<ul class="list">';
     assignments.forEach(function(assignment) {
       var gradeLabel = assignment.grade === 0 ? 'K' : assignment.grade;
-      html += '<li>Den Leader Grade ' + gradeLabel + ' <button type="button" class="button danger small" onclick="removeDenLeader(' + assignment.grade + ')">Remove</button></li>';
+      html += '<li>Den Leader Grade ' + gradeLabel + ' <a href="#" onclick="removeDenLeader(' + assignment.grade + '); return false;" style="color: #007bff; margin-left: 8px;">Remove</a></li>';
     });
     html += '</ul>';
     denLeadersList.innerHTML = html;
