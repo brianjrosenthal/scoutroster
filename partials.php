@@ -11,6 +11,14 @@ function echo_r($o) {
   echo('</pre>');
 }
 
+function debug_expand_sql($sql, $params) {
+  $debugSql = $sql;
+  foreach ($params as $param) {
+    $debugSql = preg_replace('/\?/', "'" . addslashes($param) . "'", $debugSql, 1);
+  }
+  return $debugSql;
+}
+
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 

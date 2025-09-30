@@ -956,21 +956,12 @@ class UserManagement {
         throw new RuntimeException('Admin context required for registered filter');
       }
       
-      // Debug logging
-      error_log("DEBUG: Getting qualifying youth using YouthManagement::searchRoster");
-      
       // Get qualifying youth using the same logic as youth.php
       $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
       $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
       
-      // Debug logging
-      error_log("DEBUG: Found " . count($qualifyingYouth) . " qualifying youth");
-      error_log("DEBUG: Youth IDs: " . implode(', ', $qualifyingYouthIds));
-      error_log("DEBUG: Looking for Aiden (167): " . (in_array(167, $qualifyingYouthIds) ? 'FOUND' : 'NOT FOUND'));
-      
       if (empty($qualifyingYouthIds)) {
         // No qualifying youth means no parents to invite
-        error_log("DEBUG: No qualifying youth found, returning empty array");
         return [];
       }
       
@@ -979,8 +970,6 @@ class UserManagement {
       $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
       $wheres[] = "pr_reg.youth_id IN ($placeholders)";
       $params = array_merge($params, $qualifyingYouthIds);
-      
-      error_log("DEBUG: Added parent relationship join for " . count($qualifyingYouthIds) . " youth");
     } elseif ($registrationStatus === 'unregistered') {
       $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
       $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
