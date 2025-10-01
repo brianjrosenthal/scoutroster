@@ -168,6 +168,111 @@ class TestHelpers {
     // CSRF tokens are typically already embedded in forms in PHP applications
     // This is a placeholder in case manual CSRF handling is needed
   }
+
+  /**
+   * Create a test event using PHP script
+   * Returns the event ID for cleanup
+   */
+  async createTestEventViaPhp() {
+    const { execSync } = require('child_process');
+    const path = require('path');
+    
+    try {
+      const scriptPath = path.join(__dirname, 'create-test-event.php');
+      const result = execSync(`php "${scriptPath}"`, { 
+        encoding: 'utf8',
+        cwd: process.cwd()
+      });
+      
+      const response = JSON.parse(result.trim());
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create test event');
+      }
+      
+      console.log(`Created test event: ${response.event_name} (ID: ${response.event_id})`);
+      return response.event_id;
+      
+    } catch (error) {
+      console.error('Failed to create test event:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a test event using PHP script
+   * Returns true on success
+   */
+  async deleteTestEvent(eventId) {
+    if (!eventId) {
+      console.warn('No event ID provided for deletion');
+      return false;
+    }
+    
+    const { execSync } = require('child_process');
+    const path = require('path');
+    
+    try {
+      const scriptPath = path.join(__dirname, 'delete-test-event.php');
+      const result = execSync(`php "${scriptPath}" ${eventId}`, { 
+        encoding: 'utf8',
+        cwd: process.cwd()
+      });
+      
+      const response = JSON.parse(result.trim());
+      
+      if (!response.success) {
+        console.warn(`Failed to delete test event ${eventId}:`, response.error);
+        return false;
+      }
+      
+      console.log(`Deleted test event: ${response.event_name} (ID: ${eventId})`);
+      return true;
+      
+    } catch (error) {
+      console.warn(`Failed to delete test event ${eventId}:`, error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Clean up any leftover test events (safety net)
+   * Deletes all events with names containing "Test Event" or "TEST_EVENT_"
+   */
+  async cleanupAllTestEvents() {
+    const { execSync } = require('child_process');
+    const path = require('path');
+    
+    try {
+      const scriptPath = path.join(__dirname, 'cleanup-test-events.php');
+      const result = execSync(`php "${scriptPath}"`, { 
+        encoding: 'utf8',
+        cwd: process.cwd()
+      });
+      
+      const response = JSON.parse(result.trim());
+      
+      if (!response.success) {
+        console.warn('Failed to cleanup test events:', response.error);
+        return false;
+      }
+      
+      if (response.deleted_count > 0) {
+        console.log(`Cleaned up ${response.deleted_count} test events:`);
+        response.deleted_events.forEach(event => {
+          console.log(`  - ${event.name} (ID: ${event.id})`);
+        });
+      } else {
+        console.log('No test events found to cleanup');
+      }
+      
+      return true;
+      
+    } catch (error) {
+      console.warn('Failed to cleanup test events:', error.message);
+      return false;
+    }
+  }
 }
 
 module.exports = { TestHelpers };
