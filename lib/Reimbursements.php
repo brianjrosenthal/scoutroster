@@ -502,14 +502,16 @@ final class Reimbursements {
   // Expose leadership title for approvers (Cubmaster > Treasurer > Committee Chair)
   public static function getLeadershipTitleForUser(int $userId): string {
     $st = self::pdo()->prepare(
-      "SELECT position FROM adult_leadership_positions WHERE adult_id = ? AND position IN ('Cubmaster','Treasurer','Committee Chair')"
+      "SELECT alp.name FROM adult_leadership_positions alp
+       JOIN adult_leadership_position_assignments alpa ON alp.id = alpa.adult_leadership_position_id
+       WHERE alpa.adult_id = ? AND alp.name IN ('Cubmaster','Treasurer','Committee Chair')"
     );
     $st->execute([(int)$userId]);
     $priority = ['Cubmaster' => 3, 'Treasurer' => 2, 'Committee Chair' => 1];
     $best = null;
     $bestScore = -1;
     while ($r = $st->fetch()) {
-      $pos = (string)($r['position'] ?? '');
+      $pos = (string)($r['name'] ?? '');
       $score = $priority[$pos] ?? 0;
       if ($score > $bestScore) { $best = $pos; $bestScore = $score; }
     }
@@ -594,8 +596,9 @@ final class Reimbursements {
     $st = self::pdo()->prepare(
       "SELECT DISTINCT u.id, u.email, u.first_name, u.last_name
        FROM adult_leadership_positions alp
-       JOIN users u ON u.id = alp.adult_id
-       WHERE alp.position IN ('Treasurer','Cubmaster') AND u.email IS NOT NULL"
+       JOIN adult_leadership_position_assignments alpa ON alp.id = alpa.adult_leadership_position_id
+       JOIN users u ON u.id = alpa.adult_id
+       WHERE alp.name IN ('Treasurer','Cubmaster') AND u.email IS NOT NULL"
     );
     $st->execute();
     $out = [];

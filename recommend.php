@@ -49,8 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $stL = pdo()->prepare("
             SELECT u.first_name, u.last_name, u.email
             FROM adult_leadership_positions alp
-            JOIN users u ON u.id = alp.adult_id
-            WHERE LOWER(alp.position) = 'cubmaster'
+            JOIN adult_leadership_position_assignments alpa ON alp.id = alpa.adult_leadership_position_id
+            JOIN users u ON u.id = alpa.adult_id
+            WHERE LOWER(alp.name) = 'cubmaster'
             ORDER BY u.id ASC
             LIMIT 1
           ");
