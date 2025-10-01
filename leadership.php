@@ -57,7 +57,6 @@ header_html('Pack Leadership', $user);
 
 <?php if (!empty($keyPositions)): ?>
     <div class="card" style="margin-bottom:16px;">
-        <h3>Key Leadership</h3>
         <?php foreach ($keyPositions as $position): ?>
             <div style="margin-bottom:8px;">
                 <strong><?= h($position['name']) ?>:</strong>
