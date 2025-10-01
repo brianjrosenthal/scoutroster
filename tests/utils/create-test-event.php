@@ -42,7 +42,8 @@ try {
         'description' => 'This is a test event created by automated testing. It should be cleaned up automatically.',
         'allow_non_user_rsvp' => 1, // Enable public RSVP
         'needs_medical_form' => 0,
-        'evite_rsvp_url' => null, // No Evite URL so we see internal RSVP buttons
+        'rsvp_url' => null, // No external RSVP URL so we see internal RSVP buttons
+        'rsvp_url_label' => null,
         'google_maps_url' => null,
         'max_cub_scouts' => null
     ];

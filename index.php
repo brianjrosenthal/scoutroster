@@ -861,10 +861,11 @@ header_html('Home');
         <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
 
         <?php
-          $eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
-          if ($eviteUrl !== ''):
+          $rsvpUrl = trim((string)($e['rsvp_url'] ?? ''));
+          $rsvpLabel = trim((string)($e['rsvp_url_label'] ?? ''));
+          if ($rsvpUrl !== ''):
         ?>
-          <p><a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a></p>
+          <p><a class="button primary" target="_blank" rel="noopener" href="<?= h($rsvpUrl) ?>"><?= h($rsvpLabel !== '' ? $rsvpLabel : 'RSVP HERE') ?></a></p>
         <?php else: ?>
           <?php
             // Show current RSVP summary if user has one; otherwise show RSVP CTA

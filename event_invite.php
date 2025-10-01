@@ -69,7 +69,8 @@ if (!$event) {
   exit;
 }
 
-$eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));
+$rsvpUrl = trim((string)($event['rsvp_url'] ?? ''));
+$rsvpLabel = trim((string)($event['rsvp_url_label'] ?? ''));
 
  // Disallow after event ends (token invalid after event)
 try {
@@ -256,19 +257,19 @@ header_html('Event Invite');
   </div>
 <?php endif; ?>
 
-<?php if (!$saved && $eviteUrl !== ''): ?>
+<?php if (!$saved && $rsvpUrl !== ''): ?>
   <div class="card">
     <?php
       $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
       $displayName = $name !== '' ? $name : 'Guest';
     ?>
     <p><strong>Hello <?= h($displayName) ?>!</strong></p>
-    <p>RSVPs for this event are handled on Evite.</p>
-    <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+    <p>RSVPs for this event are handled externally.</p>
+    <a class="button primary" target="_blank" rel="noopener" href="<?= h($rsvpUrl) ?>"><?= h($rsvpLabel !== '' ? $rsvpLabel : 'RSVP HERE') ?></a>
   </div>
 <?php endif; ?>
 
-<?php if (!$saved && $eviteUrl === ''): ?>
+<?php if (!$saved && $rsvpUrl === ''): ?>
   <div class="card">
     <?php
       $name = trim(($invitee['first_name'] ?? '').' '.($invitee['last_name'] ?? ''));
@@ -407,9 +408,9 @@ header_html('Event Invite');
 <?= EventsUI::renderEventDetailsCard($event) ?>
 
 
-<?php if ($eviteUrl === ''): ?>
+<?php if ($rsvpUrl === ''): ?>
 
-<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $eviteUrl) ?>
+<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $rsvpUrl) ?>
 
 <!-- Event Volunteers -->
 <div class="card">

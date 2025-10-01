@@ -81,7 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = trim($_POST['description'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
     $needs_medical_form = isset($_POST['needs_medical_form']) ? 1 : 0;
-    $evite_rsvp_url = trim($_POST['evite_rsvp_url'] ?? '');
+    $rsvp_url = trim($_POST['rsvp_url'] ?? '');
+    $rsvp_url_label = trim($_POST['rsvp_url_label'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
     $errors = [];
@@ -101,7 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'description' => ($description !== '' ? $description : null),
           'allow_non_user_rsvp' => $allow_non_user_rsvp,
           'needs_medical_form' => $needs_medical_form,
-          'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+          'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
+          'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
           'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
         ];
         if ($id > 0) {
@@ -164,7 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'description' => $description,
         'allow_non_user_rsvp' => $allow_non_user_rsvp,
         'needs_medical_form' => $needs_medical_form,
-        'evite_rsvp_url' => ($evite_rsvp_url !== '' ? $evite_rsvp_url : null),
+        'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
+        'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
         'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
       ];
     }
@@ -227,10 +230,13 @@ header_html($pageTitle);
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
     </label>
-    <label>Evite RSVP Link
-      <input type="url" name="evite_rsvp_url" value="<?= h($editing['evite_rsvp_url'] ?? '') ?>" placeholder="https://www.evite.com/...">
+    <label>External RSVP URL
+      <input type="url" name="rsvp_url" value="<?= h($editing['rsvp_url'] ?? '') ?>" placeholder="https://www.evite.com/... or https://facebook.com/events/...">
     </label>
-    <p class="small">If provided, internal RSVP buttons are replaced by an "RSVP TO EVITE" button across logged-in, invite, and public pages.</p>
+    <label>RSVP Button Label
+      <input type="text" name="rsvp_url_label" value="<?= h($editing['rsvp_url_label'] ?? '') ?>" placeholder="RSVP Here" maxlength="100">
+    </label>
+    <p class="small">If External RSVP URL is provided, internal RSVP buttons are replaced by a button with your custom label (or "RSVP Here" if no label is specified) across logged-in, invite, and public pages.</p>
     <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
     <?php
       $imgUrl = '';
