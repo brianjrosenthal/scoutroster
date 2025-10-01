@@ -196,8 +196,9 @@ final class PaymentNotifications {
   public static function leaderRecipients(): array {
     $st = self::pdo()->prepare("SELECT DISTINCT u.email, u.first_name, u.last_name
                                 FROM adult_leadership_positions alp
-                                JOIN users u ON u.id = alp.adult_id
-                                WHERE alp.position IN ('Cubmaster','Committee Chair','Treasurer')
+                                JOIN adult_leadership_position_assignments alpa ON alp.id = alpa.adult_leadership_position_id
+                                JOIN users u ON u.id = alpa.adult_id
+                                WHERE alp.name IN ('Cubmaster','Committee Chair','Treasurer')
                                   AND u.email IS NOT NULL AND u.email <> ''");
     $st->execute();
     return $st->fetchAll() ?: [];
