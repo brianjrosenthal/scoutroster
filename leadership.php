@@ -73,6 +73,25 @@ header_html('Pack Leadership', $user);
     </div>
 <?php endif; ?>
 
+
+<?php if (!empty($otherPositions)): ?>
+    <div class="card" style="margin-bottom:16px;">
+        <h3>Program Chairs and Committees</h3>
+        <?php foreach ($otherPositions as $position): ?>
+            <div style="margin-bottom:8px;">
+                <strong><?= h($position['name']) ?>:</strong>
+                <?php
+                    $names = [];
+                    foreach ($position['holders'] as $holder) {
+                        $names[] = trim($holder['first_name'] . ' ' . $holder['last_name']);
+                    }
+                    echo h(implode(', ', $names));
+                ?>
+            </div>
+        <?php endforeach; ?>
+    </div>
+<?php endif; ?>
+
 <?php if (!empty($denLeaders)): ?>
     <div class="card" style="margin-bottom:16px;">
         <h3>Den Leaders</h3>
@@ -107,23 +126,6 @@ header_html('Pack Leadership', $user);
     </div>
 <?php endif; ?>
 
-<?php if (!empty($otherPositions)): ?>
-    <div class="card" style="margin-bottom:16px;">
-        <h3>Program Chairs</h3>
-        <?php foreach ($otherPositions as $position): ?>
-            <div style="margin-bottom:8px;">
-                <strong><?= h($position['name']) ?>:</strong>
-                <?php
-                    $names = [];
-                    foreach ($position['holders'] as $holder) {
-                        $names[] = trim($holder['first_name'] . ' ' . $holder['last_name']);
-                    }
-                    echo h(implode(', ', $names));
-                ?>
-            </div>
-        <?php endforeach; ?>
-    </div>
-<?php endif; ?>
 
 <?php if (!empty($openPositions)): ?>
     <div class="card" style="margin-bottom:16px;">
