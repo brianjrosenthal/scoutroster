@@ -66,7 +66,7 @@ header_html('Manage Leadership Positions');
                         <?php if ($isAdmin): ?>
                             <td><?= (int)$pos['sort_priority'] ?></td>
                         <?php endif; ?>
-                        <td><?= h($pos['description'] ?? '') ?></td>
+                        <td><?= nl2br(h($pos['description'] ?? '')) ?></td>
                         <td>
                             <?php 
                                 $count = (int)$pos['assignment_count'];
