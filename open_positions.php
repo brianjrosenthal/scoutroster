@@ -32,7 +32,7 @@ header_html('Open Volunteer Positions', $user);
 
 <?php if (!empty($openPositions)): ?>
     <div class="card" style="margin-bottom:16px;">
-        <p style="margin-bottom:16px;">We are looking to fill the following important program positions.  If you are interested, please reach out to Brian Rosenthal (brian.rosenthal@gmail.com) or Takford Mao (takfordmau@gmail.com)</p>
+        <p style="margin-bottom:16px;"><strong>We are looking to fill the following important program positions.</strong>  If you are interested, please reach out to Brian Rosenthal (brian.rosenthal@gmail.com) or Takford Mao (takfordmau@gmail.com)</p>
         <?php foreach ($openPositions as $position): ?>
             <div style="margin-bottom:16px;">
                 <strong><?= h($position['name']) ?></strong>
