@@ -504,13 +504,10 @@ function confirmDelete(positionId, positionName, assignmentCount) {
     }
     
     function searchAdults(query) {
-        var formData = new FormData();
-        formData.append('q', query);
-        formData.append('limit', '10');
+        var url = '/ajax_search_adults.php?q=' + encodeURIComponent(query);
         
-        fetch('/ajax_search_adults.php', { 
-            method: 'POST', 
-            body: formData, 
+        fetch(url, { 
+            method: 'GET', 
             credentials: 'same-origin' 
         })
         .then(function(r){ return r.json(); })
