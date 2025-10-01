@@ -457,4 +457,43 @@ class LeadershipManagement {
         
         return $denLeaders;
     }
+
+    /**
+     * Get all leadership email addresses for export (admin-only feature)
+     * Returns array of unique email addresses from both pack positions and den leaders
+     * Skips leaders without email addresses
+     */
+    public static function getAllLeaderEmailsForExport(): array {
+        $emails = [];
+        
+        // Get pack position holders with emails
+        $packSql = "SELECT DISTINCT u.email
+                    FROM adult_leadership_position_assignments alpa
+                    JOIN users u ON alpa.adult_id = u.id
+                    WHERE u.email IS NOT NULL AND u.email != ''";
+        
+        $st = self::pdo()->prepare($packSql);
+        $st->execute();
+        while ($row = $st->fetch()) {
+            $emails[] = trim(strtolower($row['email']));
+        }
+        
+        // Get den leaders with emails
+        $denSql = "SELECT DISTINCT u.email
+                   FROM adult_den_leader_assignments adla
+                   JOIN users u ON adla.adult_id = u.id
+                   WHERE u.email IS NOT NULL AND u.email != ''";
+        
+        $st = self::pdo()->prepare($denSql);
+        $st->execute();
+        while ($row = $st->fetch()) {
+            $emails[] = trim(strtolower($row['email']));
+        }
+        
+        // Remove duplicates and sort
+        $emails = array_unique($emails);
+        sort($emails);
+        
+        return array_values($emails);
+    }
 }

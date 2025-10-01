@@ -1208,10 +1208,11 @@ class UserManagement {
     $params[] = (int)$selfAdultId;
 
     $sql = "SELECT u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number,
-                   GROUP_CONCAT(DISTINCT alp.position ORDER BY alp.position SEPARATOR ', ') AS positions
+                   GROUP_CONCAT(DISTINCT alp.name ORDER BY alp.name SEPARATOR ', ') AS positions
             FROM users u
             JOIN parent_relationships pr ON pr.adult_id = u.id
-            LEFT JOIN adult_leadership_positions alp ON alp.adult_id = u.id
+            LEFT JOIN adult_leadership_position_assignments alpa ON alpa.adult_id = u.id
+            LEFT JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
             WHERE pr.youth_id IN ($placeholders) AND u.id <> ?
             GROUP BY u.id, u.first_name, u.last_name, u.photo_public_file_id, u.bsa_membership_number
             ORDER BY u.last_name, u.first_name";

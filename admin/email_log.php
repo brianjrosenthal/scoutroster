@@ -47,7 +47,7 @@ $offset = ($qPage - 1) * $qLimit;
 $rows = EmailLog::list($filters, $qLimit, $offset);
 
 // Populate selects
-$users = UserManagement::listUsers(); // id, first_name, last_name, email
+$users = UserManagement::listAllForSelect(); // id, first_name, last_name, email
 
 // Prefill user typeahead label if a specific user_id is selected
 $prefillLabel = '';
