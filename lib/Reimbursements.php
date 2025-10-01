@@ -24,7 +24,6 @@ final class Reimbursements {
 
   public static function isApprover(?UserContext $ctx): bool {
     if (!$ctx) return false;
-    if ($ctx->admin) return true;
     return UserManagement::isApprover($ctx->id);
   }
 
