@@ -39,7 +39,8 @@ if (current_user()) {
 $event = EventManagement::findById($eventId);
 if (!$event) { http_response_code(404); exit('Event not found'); }
 
-$eviteUrl = trim((string)($event['evite_rsvp_url'] ?? ''));
+$rsvpUrl = trim((string)($event['rsvp_url'] ?? ''));
+$rsvpLabel = trim((string)($event['rsvp_url_label'] ?? ''));
 
 # Public RSVP flag and event start checks
 $allowPublic = (int)($event['allow_non_user_rsvp'] ?? 1) === 1;
@@ -170,11 +171,11 @@ header_html('Event - Public RSVP');
   </div>
 <?php endif; ?>
 
-<?php if (!$saved && $eviteUrl !== ''): ?>
-  <?= EventsUI::renderEviteCard($eviteUrl) ?>
+<?php if (!$saved && $rsvpUrl !== ''): ?>
+  <?= EventsUI::renderExternalRsvpCard($rsvpUrl, $rsvpLabel) ?>
 <?php endif; ?>
 
-<?php if (!$saved && $eviteUrl === ''): ?>
+<?php if (!$saved && $rsvpUrl === ''): ?>
   <?php if (!$allowPublic): ?>
     <div class="card"><p class="error">Public RSVPs are disabled for this event.</p></div>
   <?php elseif ($eventStarted): ?>
@@ -193,9 +194,9 @@ header_html('Event - Public RSVP');
 
 <?= EventsUI::renderEventDetailsCard($event) ?>
 
-<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $eviteUrl) ?>
+<?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $rsvpUrl) ?>
 
-<?php if ($allowPublic && !$eventStarted && !$saved && $eviteUrl === ''): ?>
+<?php if ($allowPublic && !$eventStarted && !$saved && $rsvpUrl === ''): ?>
   <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
       <button class="close" type="button" id="rsvpModalClose" aria-label="Close">&times;</button>

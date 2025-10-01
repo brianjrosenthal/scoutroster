@@ -1,0 +1,46 @@
+BROWSER TESTS CATALOG - CUB SCOUT WEB APPLICATION
+=========================================================
+
+HOMEPAGE TESTS (8 tests):
+1. should display homepage for logged in user - Tests main homepage functionality, "My Family" section, navigation menu
+2. should redirect to login when not authenticated - Security test ensuring unauthorized access redirects to login
+3. should display family information correctly - Tests family grid display, handles both empty and populated families
+4. should handle RSVP section for upcoming events - Tests upcoming events display and RSVP action buttons
+5. should display reimbursement section for approvers - Tests admin-only reimbursement requests section
+6. should handle profile completion prompts - Tests profile photo upload section
+7. should display volunteer opportunities when available - Tests volunteer signup modal functionality
+8. should show registration section when applicable - Tests Cub Scout registration information display
+
+EVENT CREATION TESTS (9 tests):
+9. should create a new event as admin - Full event creation workflow: form filling, submission, verification
+10. should require authentication for event creation - Security test ensuring non-logged users cannot create events
+11. should require admin privileges for event creation - Authorization test ensuring regular users cannot create events
+12. should validate required fields - Tests HTML5 form validation for required fields
+13. should edit existing event - Event editing workflow: create event, edit details, verify changes
+14. should handle datetime inputs correctly - Tests default date/time values and validation
+15. should handle image upload for events - Tests file upload functionality and accepted file types
+16. should handle optional fields correctly - Tests creating events with minimal vs complete information
+17. should navigate back to events list - Tests "Back to Events" navigation functionality
+
+EVENT RSVP TESTS (10 tests):
+18. should RSVP Yes to an event - Full RSVP Yes workflow: modal interaction, family selection, comments, confirmation
+19. should RSVP Maybe to an event - RSVP Maybe workflow with different modal content
+20. should RSVP No to an event - RSVP No workflow and status display
+21. should edit existing RSVP - RSVP editing: create initial RSVP, edit details, change Yes/Maybe/No status
+22. should show RSVP counts on event page - Tests attendee summary display and lists
+23. should handle Evite URL override - Tests external Evite integration, hides internal RSVP buttons
+24. should require login for RSVP - Security test ensuring anonymous users cannot RSVP
+25. should handle modal close and reopen - UI interaction test for modal functionality
+26. should handle guest count validation - Tests input validation for guest numbers
+
+HELPER FUNCTIONS:
+- createTestEvent() - Creates test events for RSVP testing
+- loginAsAdmin() - Admin authentication
+- loginAsUser() - Regular user authentication  
+- logout() - User logout functionality
+- fillDateTime() - DateTime input helper
+- takeScreenshot() - Screenshot capture
+- waitForModal() - Modal interaction helper
+- getUniqueEventName() - Test data generation
+
+TOTAL: 26 tests covering homepage viewing, event creation, and event RSVP workflows

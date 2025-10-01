@@ -22,7 +22,8 @@ if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 $e = EventManagement::findById($id);
 if (!$e) { http_response_code(404); exit('Event not found'); }
 $allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
-$eviteUrl = trim((string)($e['evite_rsvp_url'] ?? ''));
+$rsvpUrl = trim((string)($e['rsvp_url'] ?? ''));
+$rsvpLabel = trim((string)($e['rsvp_url_label'] ?? ''));
 
 // Flash after RSVP save
 $flashSaved = !empty($_GET['rsvp']);
@@ -113,9 +114,9 @@ $myAnswer = strtolower((string)($myRsvp['answer'] ?? 'yes'));
 if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 ?>
 <div class="card">
-  <?php if ($eviteUrl !== ''): ?>
+  <?php if ($rsvpUrl !== ''): ?>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-      <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+      <a class="button primary" target="_blank" rel="noopener" href="<?= h($rsvpUrl) ?>"><?= h($rsvpLabel !== '' ? $rsvpLabel : 'RSVP HERE') ?></a>
     </div>
   <?php elseif ($myRsvp): ?>
     <div class="rsvp-status rsvp-<?= h($myAnswer) ?>">
@@ -182,7 +183,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
 </div>
 
-<?php if ($eviteUrl === ''): ?>
+<?php if ($rsvpUrl === ''): ?>
 <div class="card">
   <h3>RSVPs</h3>
   <p class="small">
@@ -501,11 +502,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
   </script>
 <?php endif; ?>
 
-<?php if ($eviteUrl === '' && $isAdmin): ?>
+<?php if ($rsvpUrl === '' && $isAdmin): ?>
   <?= EventUIManager::renderAdminModals((int)$e['id']) ?>
 <?php endif; ?>
 
-<?php if ($eviteUrl === ''): ?>
+<?php if ($rsvpUrl === ''): ?>
 <!-- RSVP modal (posts to rsvp_edit.php) -->
 <div id="rsvpModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content">
@@ -591,11 +592,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 </div>
 <?php endif; ?>
 
-<?php if ($eviteUrl === '' && $isAdmin): ?>
+<?php if ($isAdmin): ?>
   <?= EventUIManager::renderAdminMenuScript((int)$e['id']) ?>
 <?php endif; ?>
 
-<?php if ($eviteUrl === ''): ?>
+<?php if ($rsvpUrl === ''): ?>
 <script>
   (function(){
     const modal = document.getElementById('rsvpModal');

@@ -27,7 +27,8 @@ class EventUIManager {
             // Handle error gracefully
         }
         $allowPublic = $event ? ((int)($event['allow_non_user_rsvp'] ?? 1) === 1) : true;
-        $eviteUrl = $event ? trim((string)($event['evite_rsvp_url'] ?? '')) : '';
+        $rsvpUrl = $event ? trim((string)($event['rsvp_url'] ?? '')) : '';
+        $rsvpLabel = $event ? trim((string)($event['rsvp_url_label'] ?? '')) : '';
         
         // Check if user has required role for Event Compliance
         $showCompliance = false;
@@ -79,7 +80,7 @@ class EventUIManager {
                 <a href="/admin_event_invite.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'invite' ? ' background-color: #f5f5f5;' : '') . '">Invite</a>
                 <a href="/admin_event_volunteers.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'volunteers' ? ' background-color: #f5f5f5;' : '') . '">Manage Volunteers</a>';
         
-        if ($eviteUrl === '') {
+        if ($rsvpUrl === '') {
             $html .= '
                 <a href="#" id="adminCopyEmailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Emails</a>
                 <a href="#" id="adminCopyEventDetailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Event Details</a>

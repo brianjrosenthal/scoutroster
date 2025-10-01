@@ -1,0 +1,25 @@
+{
+  "name": "cub-scouts-browser-tests",
+  "version": "1.0.0",
+  "description": "Browser tests for Cub Scout web application",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:debug": "npx playwright test --debug",
+    "test:ui": "npx playwright test --ui",
+    "test:report": "npx playwright show-report",
+    "install-browsers": "npx playwright install"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "keywords": [
+    "testing",
+    "playwright",
+    "browser",
+    "cub-scouts"
+  ],
+  "dependencies": {
+    "dotenv": "^17.2.3"
+  }
+}

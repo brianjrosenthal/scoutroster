@@ -109,9 +109,9 @@ class EventsUI {
     /**
      * Render the Current RSVPs section (shared between event_public.php and event_invite.php)
      */
-    public static function renderCurrentRsvpsSection(int $eventId, array $event, string $eviteUrl = ''): string {
-        if ($eviteUrl !== '') {
-            return ''; // Don't show RSVPs section for Evite events
+    public static function renderCurrentRsvpsSection(int $eventId, array $event, string $rsvpUrl = ''): string {
+        if ($rsvpUrl !== '') {
+            return ''; // Don't show RSVPs section for external RSVP events
         }
         
         $rsvpData = self::loadRsvpData($eventId);
@@ -176,12 +176,14 @@ class EventsUI {
     }
     
     /**
-     * Render the Evite card (shared between event_public.php and event_invite.php)
+     * Render the external RSVP card (shared between event_public.php and event_invite.php)
      */
-    public static function renderEviteCard(string $eviteUrl, ?string $displayName = null): string {
-        if ($eviteUrl === '') {
+    public static function renderExternalRsvpCard(string $rsvpUrl, string $rsvpLabel = '', ?string $displayName = null): string {
+        if ($rsvpUrl === '') {
             return '';
         }
+        
+        $buttonLabel = $rsvpLabel !== '' ? $rsvpLabel : 'RSVP HERE';
         
         ob_start();
         ?>
@@ -191,8 +193,8 @@ class EventsUI {
           <?php else: ?>
             <p><strong>Hello!</strong></p>
           <?php endif; ?>
-          <p>RSVPs for this event are handled on Evite.</p>
-          <a class="button primary" target="_blank" rel="noopener" href="<?= h($eviteUrl) ?>">RSVP TO EVITE</a>
+          <p>RSVPs for this event are handled externally.</p>
+          <a class="button primary" target="_blank" rel="noopener" href="<?= h($rsvpUrl) ?>"><?= h($buttonLabel) ?></a>
         </div>
         <?php
         return ob_get_clean();

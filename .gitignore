@@ -7,3 +7,10 @@ config.local.php
 *.sw*
 /cache/
 activity.log
+
+# Test artifacts (exclude generated files, keep test code)
+tests/node_modules/
+tests/.env
+tests/playwright-report/
+tests/test-results/
+tests/package-lock.json
