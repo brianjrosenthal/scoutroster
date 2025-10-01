@@ -95,8 +95,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'creat
   }
 }
 
-// Listing (mine by default, ?all=1 if admin/approver)
-$includeAll = (!empty($_GET['all']) && ($isAdmin || $isApprover));
+// Listing (mine by default, ?all=1 if approver only)
+$includeAll = (!empty($_GET['all']) && $isApprover);
 $rows = Reimbursements::listMine($ctx, $includeAll);
 
 header_html('Expense Reimbursements');
@@ -119,7 +119,7 @@ header_html('Expense Reimbursements');
 
 <div class="card">
   <div class="actions">
-    <?php if ($isAdmin || $isApprover): ?>
+    <?php if ($isApprover): ?>
       <?php if ($includeAll): ?>
         <a class="button" href="/reimbursements.php">View my reimbursements</a>
       <?php else: ?>
