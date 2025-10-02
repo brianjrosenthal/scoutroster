@@ -25,7 +25,7 @@ foreach ($packPositions as $position) {
     $sortPriority = (int)$position['sort_priority'];
     $hasAssignments = !empty($position['holders']);
     
-    if ($sortPriority <= 2) {
+    if ($sortPriority <= 3) {
         if ($hasAssignments) {
             $keyPositions[] = $position;
         } else {
