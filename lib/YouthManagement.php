@@ -513,9 +513,10 @@ class YouthManagement {
   }
 
   /**
-   * List youths with a valid BSA Registration ID for renewal review, optionally filtered by status and grade.
+   * List youths needing registration action, optionally filtered by status and grade.
+   * New comprehensive logic for registration renewals dashboard.
    * filters:
-   *   - status: 'needs' | 'renewed' | 'all' (default 'all')
+   *   - status: 'all' | 'notification_needed' | 'action_needed' | 'processing_needed' (default 'all')
    *   - grade_label: 'K','1',..'5' (optional)
    *   - grade: int (0..5) alternative to grade_label
    */
@@ -532,27 +533,62 @@ class YouthManagement {
       $grade = (int)$filters['grade'];
     }
 
-    $params = [];
-    $sql = "SELECT id, first_name, last_name, preferred_name, suffix, class_of, bsa_registration_number, date_paid_until
-            FROM youth
-            WHERE (bsa_registration_number IS NOT NULL AND bsa_registration_number <> '')";
+    // Calculate end of next month for expiration logic
+    // If it's September 15th, we want to show registrations expiring before November 1st
+    $nextMonthEnd = date('Y-m-d', strtotime('last day of next month'));
 
-    if ($status === 'needs') {
-      $sql .= " AND (date_paid_until IS NULL OR date_paid_until < CURDATE())";
-    } elseif ($status === 'needs_no_siblings') {
-      $sql .= " AND (date_paid_until IS NULL OR date_paid_until < CURDATE()) AND sibling = 0";
-    } elseif ($status === 'renewed') {
-      $sql .= " AND (date_paid_until IS NOT NULL AND date_paid_until >= CURDATE())";
+    $params = [$nextMonthEnd];
+    $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
+                   y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
+                   CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
+                   CASE WHEN pr.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_registration,
+                   CASE 
+                     WHEN y.bsa_registration_expires_date IS NULL THEN 0
+                     WHEN y.bsa_registration_expires_date < CURDATE() THEN 1  -- expired
+                     WHEN y.bsa_registration_expires_date <= ? THEN 2  -- expiring soon
+                     ELSE 0  -- current
+                   END as expiration_status
+            FROM youth y
+            LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
+            LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
+            WHERE y.left_troop = 0 
+              AND y.sibling = 0
+              AND (
+                -- Has BSA ID and expires before end of next month OR is expired
+                (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
+                 AND (y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?))
+                -- OR doesn't have BSA ID but has pending registration
+                OR (y.bsa_registration_number IS NULL AND pr.id IS NOT NULL)
+                -- OR has pending payment notification
+                OR (pn.id IS NOT NULL)
+              )";
+    
+    $params[] = $nextMonthEnd;
+
+    // Apply status filters
+    if ($status === 'notification_needed') {
+      // BSA not current/expiring soon AND no pending actions
+      $sql .= " AND ((y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?)
+                     AND pn.id IS NULL AND pr.id IS NULL)";
+      $params[] = $nextMonthEnd;
+    } elseif ($status === 'action_needed') {
+      // BSA not current AND has pending registration or payment
+      $sql .= " AND ((y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?)
+                     AND (pn.id IS NOT NULL OR pr.id IS NOT NULL))";
+      $params[] = $nextMonthEnd;
+    } elseif ($status === 'processing_needed') {
+      // Has pending registration or payment
+      $sql .= " AND (pn.id IS NOT NULL OR pr.id IS NOT NULL)";
     }
 
     if ($grade !== null) {
       // Filter by class_of derived from grade
       $classOf = self::computeClassOfFromGrade((int)$grade);
-      $sql .= " AND class_of = ?";
+      $sql .= " AND y.class_of = ?";
       $params[] = $classOf;
     }
 
-    $sql .= " ORDER BY last_name, first_name";
+    $sql .= " ORDER BY y.last_name, y.first_name";
 
     $st = self::pdo()->prepare($sql);
     $st->execute($params);
