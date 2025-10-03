@@ -553,45 +553,39 @@ class YouthManagement {
             LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
             WHERE y.left_troop = 0 
               AND y.sibling = 0
+              -- Exclude youth with pending payments or registrations
+              AND pn.id IS NULL 
+              AND pr.id IS NULL
               AND (
                 -- Has BSA ID and expires before end of next month OR is expired
                 (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
                  AND (y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?))
-                -- OR doesn't have BSA ID but has pending registration
-                OR (y.bsa_registration_number IS NULL AND pr.id IS NOT NULL)
-                -- OR has pending payment notification
-                OR (pn.id IS NOT NULL)
+                -- OR has BSA ID but hasn't paid dues (regardless of registration expiration)
+                OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
+                    AND (y.date_paid_until IS NULL OR y.date_paid_until < CURDATE()))
               )";
     
     $params[] = $nextMonthEnd;
 
     // Apply status filters
-    if ($status === 'notification_needed') {
-      // BSA not current/expiring soon AND no pending actions
-      $sql .= " AND ((y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?)
-                     AND pn.id IS NULL AND pr.id IS NULL)";
-      $params[] = $nextMonthEnd;
-    } elseif ($status === 'action_needed') {
-      // BSA not current AND has pending registration or payment
-      $sql .= " AND ((y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?)
-                     AND (pn.id IS NOT NULL OR pr.id IS NOT NULL))";
-      $params[] = $nextMonthEnd;
-    } elseif ($status === 'processing_needed') {
-      // Has pending registration or payment
-      $sql .= " AND (pn.id IS NOT NULL OR pr.id IS NOT NULL)";
+    // Note: Since we now exclude youth with pending actions at the main level,
+    // all remaining youth need notification/contact from families
+    if ($status === 'notification_needed' || $status === 'all') {
+      // All remaining youth need family notification - no additional filtering needed
     }
+    // Note: 'action_needed' and 'processing_needed' filters are no longer applicable
+    // since we exclude youth with pending actions from the main query
 
     if ($grade !== null) {
-      // Filter by class_of derived from grade
-      $classOf = self::computeClassOfFromGrade((int)$grade);
+      // Filter by class_of (computed from grade)
+      $classOfFilter = self::computeClassOfFromGrade($grade);
       $sql .= " AND y.class_of = ?";
-      $params[] = $classOf;
+      $params[] = $classOfFilter;
     }
 
     $sql .= " ORDER BY y.last_name, y.first_name";
-
     $st = self::pdo()->prepare($sql);
     $st->execute($params);
-    return $st->fetchAll() ?: [];
+    return $st->fetchAll();
   }
 }
