@@ -163,10 +163,10 @@ class YouthManagement {
       $params[] = $classOfFilter;
     }
 
+    // Always exclude youth who have left the troop
+    $sql .= " AND y.left_troop = 0";
+
     if (!$includeUnregistered) {
-      // Exclude youth who have left the troop when "Include only registered members" is checked
-      $sql .= " AND y.left_troop = 0";
-      
       $sql .= " AND ("
             . " (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '')"
             . " OR (y.date_paid_until IS NOT NULL AND y.date_paid_until >= CURDATE())"

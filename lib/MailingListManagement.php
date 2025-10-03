@@ -171,7 +171,7 @@ class MailingListManagement {
     $sqlBase = "
       FROM users u
       LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
-      LEFT JOIN youth y ON y.id = pr.youth_id
+      LEFT JOIN youth y ON y.id = pr.youth_id AND y.left_troop = 0
       WHERE 1=1
     ";
 
@@ -198,7 +198,7 @@ class MailingListManagement {
         WHERE pr2.adult_id = u.id AND y2.left_troop = 0
       ))";
     }
-    // For 'all_inactive', we don't add any left_troop filtering - include everyone
+    // For 'all_inactive', we include everyone but still exclude youth who have left
 
     $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email " . $sqlBase . " ORDER BY u.last_name, u.first_name";
     $st = self::pdo()->prepare($sql);
@@ -254,7 +254,7 @@ class MailingListManagement {
       $sqlBase = "
         FROM users u
         LEFT JOIN parent_relationships pr ON pr.adult_id = u.id
-        LEFT JOIN youth y ON y.id = pr.youth_id
+        LEFT JOIN youth y ON y.id = pr.youth_id AND y.left_troop = 0
         WHERE 1=1
       ";
 
