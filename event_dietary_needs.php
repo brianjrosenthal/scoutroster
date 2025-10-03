@@ -8,9 +8,33 @@ require_login();
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
 
-if (!$isAdmin) {
+// Check if user has required role (Cubmaster, Treasurer, or Committee Chair)
+$hasRequiredRole = false;
+if ($isAdmin) {
+  try {
+    $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                             FROM adult_leadership_position_assignments alpa
+                             JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                             WHERE alpa.adult_id = ?");
+    $stPos->execute([(int)($me['id'] ?? 0)]);
+    $rowsPos = $stPos->fetchAll();
+    if (is_array($rowsPos)) {
+      foreach ($rowsPos as $pr) {
+        $p = trim((string)($pr['p'] ?? ''));
+        if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+          $hasRequiredRole = true; 
+          break; 
+        }
+      }
+    }
+  } catch (Throwable $e) {
+    $hasRequiredRole = false;
+  }
+}
+
+if (!$hasRequiredRole) {
   http_response_code(403);
-  exit('Access denied. This page is only available to administrators.');
+  exit('Access denied. This page is only available to Cubmaster, Treasurer, or Committee Chair.');
 }
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -260,7 +284,7 @@ header_html('Event Dietary Needs');
   <?php endif; ?>
 </div>
 
-<?php if ($isAdmin): ?>
+<?php if ($hasRequiredRole): ?>
   <?= EventUIManager::renderAdminModals((int)$e['id']) ?>
   <?= EventUIManager::renderAdminMenuScript((int)$e['id']) ?>
 <?php endif; ?>

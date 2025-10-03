@@ -30,8 +30,9 @@ class EventUIManager {
         $rsvpUrl = $event ? trim((string)($event['rsvp_url'] ?? '')) : '';
         $rsvpLabel = $event ? trim((string)($event['rsvp_url_label'] ?? '')) : '';
         
-        // Check if user has required role for Event Compliance
+        // Check if user has required role for Event Compliance and Dietary Needs
         $showCompliance = false;
+        $showDietaryNeeds = false;
         try {
             $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
                                      FROM adult_leadership_position_assignments alpa
@@ -44,12 +45,14 @@ class EventUIManager {
                     $p = trim((string)($pr['p'] ?? ''));
                     if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
                         $showCompliance = true; 
+                        $showDietaryNeeds = true;
                         break; 
                     }
                 }
             }
         } catch (Throwable $e) {
             $showCompliance = false;
+            $showDietaryNeeds = false;
         }
         
         $html = '
@@ -88,8 +91,19 @@ class EventUIManager {
                 <a href="#" id="adminCopyEmailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Emails</a>
                 <a href="#" id="adminCopyEventDetailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Event Details</a>
                 <a href="#" id="adminManageRsvpBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Manage RSVPs</a>
-                <a href="#" id="adminExportAttendeesBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Export Attendees</a>
+                <a href="#" id="adminExportAttendeesBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Export Attendees</a>';
+            
+        }
+        
+        // Add Key 3 (approvers) links section at the bottom
+        if ($showCompliance || $showDietaryNeeds) {
+            $html .= '
+                <div style="margin-top: 8px; padding: 4px 12px; font-size: 11px; font-weight: bold; color: #666; text-transform: uppercase; border-top: 1px solid #ddd; background-color: #f8f9fa;">Key 3 Links</div>';
+            
+            if ($showDietaryNeeds) {
+                $html .= '
                 <a href="/event_dietary_needs.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'dietary' ? ' background-color: #f5f5f5;' : '') . '">Dietary Needs</a>';
+            }
             
             if ($showCompliance) {
                 $html .= '
