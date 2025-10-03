@@ -42,4 +42,23 @@ header_html('Import Data');
   </div>
 </div>
 
+<div class="card">
+  <h3>Sync with Scouting.org Roster Export</h3>
+  <p>
+    Sync adult and youth records with the official Scouting.org roster export. Updates registration dates, safeguarding training, and contact information while preserving existing data.
+  </p>
+  <ol class="small">
+    <li>Upload the Scouting.org roster report (detects header automatically)</li>
+    <li>Map columns to database fields (smart defaults applied)</li>
+    <li>Validate changes and review notices</li>
+    <li>Commit updates with full audit logging</li>
+  </ol>
+  <div class="actions">
+    <a class="button primary" href="/admin_scoutingorg_upload.php">Open Scouting.org Sync</a>
+  </div>
+  <div class="small" style="margin-top:8px;">
+    <strong>Features:</strong> Adult/Youth detection, intelligent matching, audit trail, discrepancy reporting
+  </div>
+</div>
+
 <?php footer_html(); ?>
