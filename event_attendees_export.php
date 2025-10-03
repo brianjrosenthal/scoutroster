@@ -67,10 +67,11 @@ try {
     
     // Get leadership positions for adults
     $leadershipQuery = "
-        SELECT adult_id, GROUP_CONCAT(position ORDER BY position SEPARATOR ', ') as positions
-        FROM adult_leadership_positions 
-        WHERE adult_id IN (" . str_repeat('?,', count($adultAttendees) - 1) . "?)
-        GROUP BY adult_id
+        SELECT alpa.adult_id, GROUP_CONCAT(alp.name ORDER BY alp.name SEPARATOR ', ') as positions
+        FROM adult_leadership_position_assignments alpa
+        JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+        WHERE alpa.adult_id IN (" . str_repeat('?,', count($adultAttendees) - 1) . "?)
+        GROUP BY alpa.adult_id
     ";
     
     $leadershipPositions = [];
