@@ -33,7 +33,10 @@ class EventUIManager {
         // Check if user has required role for Event Compliance
         $showCompliance = false;
         try {
-            $stPos = pdo()->prepare("SELECT LOWER(position) AS p FROM adult_leadership_positions WHERE adult_id=?");
+            $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                     FROM adult_leadership_position_assignments alpa
+                                     JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                     WHERE alpa.adult_id = ?");
             $stPos->execute([(int)($me['id'] ?? 0)]);
             $rowsPos = $stPos->fetchAll();
             if (is_array($rowsPos)) {
