@@ -16,8 +16,8 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 function hq($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
 // Inputs
-$status = trim((string)($_GET['status'] ?? 'needs')); // needs|needs_no_siblings|renewed|all
-if (!in_array($status, ['needs','needs_no_siblings','renewed','all'], true)) { $status = 'needs'; }
+$status = trim((string)($_GET['status'] ?? 'all')); // all|notification_needed|action_needed|processing_needed
+if (!in_array($status, ['all','notification_needed','action_needed','processing_needed'], true)) { $status = 'all'; }
 
 $gLabel = trim((string)($_GET['g'] ?? '')); // Grade filter: K,0..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
@@ -85,10 +85,10 @@ header_html('Registration Renewals');
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Status
         <select name="status">
-          <option value="needs" <?= $status === 'needs' ? 'selected' : '' ?>>Needs Renewal</option>
-          <option value="needs_no_siblings" <?= $status === 'needs_no_siblings' ? 'selected' : '' ?>>Needs renewal (do not include unregistered siblings)</option>
-          <option value="renewed" <?= $status === 'renewed' ? 'selected' : '' ?>>Renewed</option>
           <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>All</option>
+          <option value="notification_needed" <?= $status === 'notification_needed' ? 'selected' : '' ?>>Notification of family needed</option>
+          <option value="action_needed" <?= $status === 'action_needed' ? 'selected' : '' ?>>Action needed to Scouting.org</option>
+          <option value="processing_needed" <?= $status === 'processing_needed' ? 'selected' : '' ?>>Processing Needed</option>
         </select>
       </label>
       <label>Grade
@@ -192,7 +192,10 @@ header_html('Registration Renewals');
               <th>Youth Name</th>
               <th>Adult(s)</th>
               <th>Grade</th>
-              <th>Paid Until</th>
+              <th>BSA Membership ID</th>
+              <th>Expiration Date</th>
+              <th>Paid Until Date</th>
+              <th>Pending Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -257,14 +260,67 @@ header_html('Registration Renewals');
               </td>
               <td>
                 <?php
+                  // BSA Membership ID
+                  $bsaId = (string)($y['bsa_registration_number'] ?? '');
+                  echo $bsaId !== '' ? hq($bsaId) : '<span style="color:#999">&mdash;</span>';
+                ?>
+              </td>
+              <td>
+                <?php
+                  // Expiration Date with color coding
+                  $expiresDate = (string)($y['bsa_registration_expires_date'] ?? '');
+                  $expirationStatus = (int)($y['expiration_status'] ?? 0);
+                  $today = date('Y-m-d');
+                  
+                  if ($expiresDate === '') {
+                    echo '<span style="color:#999">&mdash;</span>';
+                  } else {
+                    if ($expirationStatus === 1) {
+                      // Expired - red
+                      echo '<span style="color:#c00;font-weight:bold;">'.hq($expiresDate).'</span>';
+                    } elseif ($expirationStatus === 2) {
+                      // Expiring soon - orange
+                      echo '<span style="color:#e67e22;font-weight:bold;">'.hq($expiresDate).'</span>';
+                    } else {
+                      // Current - normal
+                      echo '<span>'.hq($expiresDate).'</span>';
+                    }
+                  }
+                ?>
+              </td>
+              <td>
+                <?php
+                  // Paid Until Date
                   $paid = (string)($y['date_paid_until'] ?? '');
                   $today = date('Y-m-d');
                   $isCurrent = ($paid !== '' && $paid >= $today);
+                  
                   if ($paid === '') {
-                    echo '<span style="color:#c00">&mdash;</span>';
+                    echo '<span style="color:#999">&mdash;</span>';
                   } else {
                     $style = $isCurrent ? '' : ' style="color:#c00"';
                     echo '<span'.$style.'>'.hq($paid).'</span>';
+                  }
+                ?>
+              </td>
+              <td>
+                <?php
+                  // Pending Actions with links
+                  $hasPendingPayment = !empty($y['has_pending_payment']);
+                  $hasPendingRegistration = !empty($y['has_pending_registration']);
+                  $actions = [];
+                  
+                  if ($hasPendingPayment) {
+                    $actions[] = '<a href="/admin/payment_notifications.php" style="color:#e67e22;">pending payment</a>';
+                  }
+                  if ($hasPendingRegistration) {
+                    $actions[] = '<a href="/admin/pending_registrations.php" style="color:#3498db;">pending registration</a>';
+                  }
+                  
+                  if (!empty($actions)) {
+                    echo implode('<br>', $actions);
+                  } else {
+                    echo '<span style="color:#999">&mdash;</span>';
                   }
                 ?>
               </td>
