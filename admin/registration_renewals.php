@@ -81,6 +81,23 @@ header_html('Registration Renewals');
 </div>
 
 <div class="card">
+  <h3>How to Use This Page</h3>
+  <p>This page helps treasurers and committee chairs manage Scout registrations and renewals. Use the <strong>Status</strong> filter below to focus on specific tasks:</p>
+  
+  <div style="margin: 16px 0;">
+    <h4 style="margin-bottom: 8px; color: #2c5aa0;">Status Filter Options:</h4>
+    <ul style="margin-left: 20px; line-height: 1.6;">
+      <li><strong>"All"</strong> - Shows everyone who needs some kind of action taken (registrations expiring soon, pending payments, or pending registrations)</li>
+      <li><strong>"Notification of family needed"</strong> - Shows families whose BSA registrations are expired or expiring soon, but who haven't submitted any payments or registration forms yet. These families need to be contacted about renewing.</li>
+      <li><strong>"Action needed to Scouting.org"</strong> - Shows Scouts whose BSA registrations are not current AND who have submitted payment notifications or registration forms. You need to log into Scouting.org and process their renewals.</li>
+      <li><strong>"Processing Needed"</strong> - Shows all pending payments and registration forms that need to be reviewed and processed, regardless of their current registration status.</li>
+    </ul>
+  </div>
+  
+  <p><strong>Key:</strong> Expiration dates are <span style="color:#c00; font-weight:bold;">red if expired</span> or <span style="color:#e67e22; font-weight:bold;">orange if expiring soon</span>. Click on "pending payment" or "pending registration" links in the last column to go directly to those admin pages.</p>
+</div>
+
+<div class="card">
   <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Status
