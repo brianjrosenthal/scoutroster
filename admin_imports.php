@@ -27,22 +27,6 @@ header_html('Import Data');
 </div>
 
 <div class="card">
-  <h3>Registration Dates Import</h3>
-  <p>
-    Update BSA Registration expiration dates in bulk from the official scouting.org export. This flow does not change other fields.
-  </p>
-  <ol class="small">
-    <li>Upload the registration export</li>
-    <li>Map columns</li>
-    <li>Validate and review changes</li>
-    <li>Commit to update expiration dates</li>
-  </ol>
-  <div class="actions">
-    <a class="button" href="/admin_regdates_upload.php">Open Reg Dates Import</a>
-  </div>
-</div>
-
-<div class="card">
   <h3>Sync with Scouting.org Roster Export</h3>
   <p>
     Sync adult and youth records with the official Scouting.org roster export. Updates registration dates, safeguarding training, and contact information while preserving existing data.
