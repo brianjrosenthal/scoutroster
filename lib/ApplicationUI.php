@@ -153,6 +153,7 @@ class ApplicationUI {
             if ($showRenewals) {
                 echo $link('/registration_renewals.php','Registration Renewals');
             }
+            echo $link('/admin_renewals_needed.php','BSA Renewals Needed');
             echo $link('/admin_recommendations.php','Recommendations');
             echo $link('/admin_settings.php','Settings');
             echo '</div>';
