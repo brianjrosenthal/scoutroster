@@ -89,71 +89,19 @@ class ApplicationUI {
             echo $link('/admin_imports.php','Import Data');
             echo $link('/admin_mailing_list.php','Mailing List');
             echo $link('/admin/leadership_positions.php','Positions');
-            echo $link('/admin_activity_log.php','Activity Log');
-            // Show "Payment notifs" only for Cubmaster or Treasurer, before Recommendations
-            $showPaymentNotifs = false;
+            
+            // Reports visible to approvers (Key 3 leaders: Cubmaster, Committee Chair, Treasurer)
+            require_once __DIR__ . '/UserManagement.php';
+            $showReports = false;
             try {
-                $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
-                                        FROM adult_leadership_position_assignments alpa
-                                        JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
-                                        WHERE alpa.adult_id=?");
-                $stPos->execute([(int)($u['id'] ?? 0)]);
-                $rowsPos = $stPos->fetchAll();
-                if (is_array($rowsPos)) {
-                    foreach ($rowsPos as $pr) {
-                        $p = trim((string)($pr['p'] ?? ''));
-                        if ($p === 'cubmaster' || $p === 'treasurer') { $showPaymentNotifs = true; break; }
-                    }
-                }
+                $showReports = UserManagement::isApprover((int)($u['id'] ?? 0));
             } catch (Throwable $e) {
-                $showPaymentNotifs = false;
+                $showReports = false;
             }
-            if ($showPaymentNotifs) {
-                echo $link('/payment_notifications_from_users.php','Payment notifs');
+            if ($showReports) {
+                echo $link('/admin/reports.php','Reports');
             }
-            // Pending Registrations visible to approvers (Cubmaster, Committee Chair, Treasurer)
-            $showPendingRegs = false;
-            try {
-                $stPos2 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
-                                         FROM adult_leadership_position_assignments alpa
-                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
-                                         WHERE alpa.adult_id=?");
-                $stPos2->execute([(int)($u['id'] ?? 0)]);
-                $rowsPos2 = $stPos2->fetchAll();
-                if (is_array($rowsPos2)) {
-                    foreach ($rowsPos2 as $pr2) {
-                        $p2 = trim((string)($pr2['p'] ?? ''));
-                        if ($p2 === 'cubmaster' || $p2 === 'committee chair' || $p2 === 'treasurer') { $showPendingRegs = true; break; }
-                    }
-                }
-            } catch (Throwable $e) {
-                $showPendingRegs = false;
-            }
-            if ($showPendingRegs) {
-                echo $link('/pending_registrations.php','Pending Registrations');
-            }
-            // Registration Renewals visible to approvers (Cubmaster, Committee Chair, Treasurer)
-            $showRenewals = false;
-            try {
-                $stPos3 = pdo()->prepare("SELECT LOWER(alp.name) AS p 
-                                         FROM adult_leadership_position_assignments alpa
-                                         JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
-                                         WHERE alpa.adult_id=?");
-                $stPos3->execute([(int)($u['id'] ?? 0)]);
-                $rowsPos3 = $stPos3->fetchAll();
-                if (is_array($rowsPos3)) {
-                    foreach ($rowsPos3 as $pr3) {
-                        $p3 = trim((string)($pr3['p'] ?? ''));
-                        if ($p3 === 'cubmaster' || $p3 === 'committee chair' || $p3 === 'treasurer') { $showRenewals = true; break; }
-                    }
-                }
-            } catch (Throwable $e) {
-                $showRenewals = false;
-            }
-            if ($showRenewals) {
-                echo $link('/registration_renewals.php','Registration Renewals');
-            }
-            echo $link('/admin_renewals_needed.php','BSA Renewals Needed');
+            
             echo $link('/admin_recommendations.php','Recommendations');
             echo $link('/admin_settings.php','Settings');
             echo '</div>';

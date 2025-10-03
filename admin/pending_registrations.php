@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/partials.php';
-require_once __DIR__ . '/settings.php';
-require_once __DIR__ . '/lib/PendingRegistrations.php';
-require_once __DIR__ . '/lib/YouthManagement.php';
-require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/../partials.php';
+require_once __DIR__ . '/../settings.php';
+require_once __DIR__ . '/../lib/PendingRegistrations.php';
+require_once __DIR__ . '/../lib/YouthManagement.php';
+require_once __DIR__ . '/../lib/UserManagement.php';
 require_login();
 
 $me = current_user();

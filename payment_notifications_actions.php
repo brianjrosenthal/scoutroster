@@ -106,7 +106,7 @@ try {
 
       // Redirect with success parameters instead of JSON response
       $youthId = (int)($notification['youth_id'] ?? 0);
-      $redirectUrl = '/payment_notifications_from_users.php?verified=1&youth_id=' . $youthId;
+      $redirectUrl = '/admin/payment_notifications.php?verified=1&youth_id=' . $youthId;
       
       // Preserve existing query parameters (filters, pagination)
       if (!empty($_POST['current_url_params'])) {

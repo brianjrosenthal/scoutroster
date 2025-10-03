@@ -1,7 +1,22 @@
 <?php
-require_once __DIR__ . '/partials.php';
-require_once __DIR__ . '/lib/UserContext.php';
+require_once __DIR__ . '/../partials.php';
+require_once __DIR__ . '/../lib/UserContext.php';
+require_once __DIR__ . '/../lib/UserManagement.php';
 require_admin();
+
+// Require approver permissions (Key 3 leaders: Cubmaster, Committee Chair, Treasurer)
+$ctx = UserContext::getLoggedInUserContext();
+if (!$ctx || !UserManagement::isApprover($ctx->id)) {
+    http_response_code(403);
+    header_html('BSA Renewals Needed - Access Denied');
+    echo '<div class="card">';
+    echo '<h2>Access Denied</h2>';
+    echo '<p class="error">This section is only available to Key 3 leaders (Cubmaster, Committee Chair, and Treasurer).</p>';
+    echo '<p><a class="button" href="/index.php">Return to Home</a></p>';
+    echo '</div>';
+    footer_html();
+    exit;
+}
 
 function hq($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
@@ -132,7 +147,7 @@ header_html('BSA Renewals Needed');
     </div>
     <div class="actions">
       <button class="primary">Filter</button>
-      <a class="button" href="/admin_renewals_needed.php">Reset</a>
+      <a class="button" href="/admin/renewals_needed.php">Reset</a>
       <?php if (!empty($emailList)): ?>
         <button type="button" class="button" id="copyEmailsBtn">Copy Emails</button>
         <span id="copyEmailsStatus" class="small" style="display:none;margin-left:8px;"></span>

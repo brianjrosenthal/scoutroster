@@ -67,7 +67,7 @@
     }
 
     // Activity Log: admin user typeahead for filtering
-    if (path.endsWith('/admin_activity_log.php')) {
+    if (path.endsWith('/admin/activity_log.php')) {
       const form = findForm();
       const input = document.getElementById('userTypeahead');
       const hidden = document.getElementById('userId');
