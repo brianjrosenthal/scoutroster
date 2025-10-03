@@ -1,8 +1,8 @@
 <?php
-require_once __DIR__ . '/partials.php';
-require_once __DIR__ . '/lib/GradeCalculator.php';
-require_once __DIR__ . '/lib/YouthManagement.php';
-require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/../partials.php';
+require_once __DIR__ . '/../lib/GradeCalculator.php';
+require_once __DIR__ . '/../lib/YouthManagement.php';
+require_once __DIR__ . '/../lib/UserManagement.php';
 require_login();
 
 $me = current_user();
@@ -104,7 +104,7 @@ header_html('Registration Renewals');
     </div>
     <div class="actions">
       <button class="primary">Filter</button>
-      <a class="button" href="/registration_renewals.php">Reset</a>
+      <a class="button" href="/admin/registration_renewals.php">Reset</a>
       <button type="button" class="button" id="copyEmailsBtn">Copy emails</button>
       <span id="copyEmailsStatus" class="small" style="display:none;margin-left:8px;"></span>
     </div>

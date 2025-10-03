@@ -74,7 +74,7 @@ try {
 
           $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
           $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-          $adminUrl = $scheme.'://'.$host.'/pending_registrations.php';
+          $adminUrl = $scheme.'://'.$host.'/admin/pending_registrations.php';
 
           $safePerson = htmlspecialchars($personName, ENT_QUOTES, 'UTF-8');
           $safeChild  = htmlspecialchars($childName,  ENT_QUOTES, 'UTF-8');

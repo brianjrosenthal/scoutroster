@@ -1,8 +1,23 @@
 <?php
-require_once __DIR__ . '/partials.php';
-require_once __DIR__ . '/lib/ActivityLog.php';
-require_once __DIR__ . '/lib/UserManagement.php';
+require_once __DIR__ . '/../partials.php';
+require_once __DIR__ . '/../lib/ActivityLog.php';
+require_once __DIR__ . '/../lib/UserManagement.php';
+require_once __DIR__ . '/../lib/UserContext.php';
 require_admin();
+
+// Require approver permissions (Key 3 leaders: Cubmaster, Committee Chair, Treasurer)
+$ctx = UserContext::getLoggedInUserContext();
+if (!$ctx || !UserManagement::isApprover($ctx->id)) {
+    http_response_code(403);
+    header_html('Activity Log - Access Denied');
+    echo '<div class="card">';
+    echo '<h2>Access Denied</h2>';
+    echo '<p class="error">This section is only available to Key 3 leaders (Cubmaster, Committee Chair, and Treasurer).</p>';
+    echo '<p><a class="button" href="/index.php">Return to Home</a></p>';
+    echo '</div>';
+    footer_html();
+    exit;
+}
 
 function int_param(string $key, int $default = 0): int {
   $v = $_GET[$key] ?? null;
@@ -90,7 +105,7 @@ function build_url(array $overrides): string {
   if (empty($base['limit'])) unset($base['limit']);
   if (empty($base['page'])) unset($base['page']);
   $qs = http_build_query($base);
-  return '/admin_activity_log.php' . ($qs ? ('?' . $qs) : '');
+  return '/admin/activity_log.php' . ($qs ? ('?' . $qs) : '');
 }
 
 header_html('Activity Log');
@@ -128,7 +143,7 @@ header_html('Activity Log');
     </label>
     <div>
       <button class="button primary" type="submit">Filter</button>
-      <a class="button" href="/admin_activity_log.php">Reset</a>
+      <a class="button" href="/admin/activity_log.php">Reset</a>
     </div>
   </form>
 </div>
