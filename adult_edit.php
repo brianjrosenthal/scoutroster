@@ -164,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === 'mark
   }
 }
 
+
 // Handle POST (update)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST['action'] === 'save_profile')) {
   require_csrf();
@@ -312,7 +313,15 @@ header_html('Edit Adult');
   if (isset($_GET['medical_forms'])) { $msg = 'Medical Forms Expiration updated.'; }
   if (isset($_GET['child_added'])) { $msg = 'Child added.'; }
   if (isset($_GET['created'])) { $msg = trim((string)($u['first_name'] ?? '') . ' ' . (string)($u['last_name'] ?? '')) . ' created successfully.'; }
-  if (isset($_GET['err'])) { $err = 'Photo upload failed.'; }
+  if (isset($_GET['err'])) { 
+    // Handle specific error messages from delete operation or photo upload
+    $errorParam = trim((string)$_GET['err']);
+    if ($errorParam !== '') {
+      $err = $errorParam;
+    } else {
+      $err = 'Operation failed.';
+    }
+  }
 ?>
 <?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
 <?php if ($err): ?><p class="error"><?=h($err)?></p><?php endif; ?>
@@ -854,6 +863,21 @@ header_html('Edit Adult');
       <button class="button" type="button" id="leadershipModalCancel">Close</button>
     </div>
   </div>
+</div>
+<?php endif; ?>
+
+<!-- Delete Adult Section (Approvers Only) -->
+<?php if (\UserManagement::isApprover((int)($me['id'] ?? 0)) && (int)$id !== (int)($me['id'] ?? 0)): ?>
+<div class="card" style="margin-top:24px;border-left:4px solid #dc3545;">
+  <h3 style="color:#dc3545;">Delete this adult</h3>
+  <p><strong>Warning:</strong> This action cannot be undone. Deleting this adult will permanently remove their account and all associated data.</p>
+  <p class="small">Note: If this adult has RSVPs or other references in the system, the deletion may fail. You may need to remove those references first.</p>
+  
+  <form method="post" action="/adult_delete_action.php" style="margin-top:16px;" onsubmit="return confirm('Are you absolutely sure you want to delete this adult? This action cannot be undone.');">
+    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="adult_id" value="<?= (int)$id ?>">
+    <button class="button danger" type="submit">Delete Adult</button>
+  </form>
 </div>
 <?php endif; ?>
 

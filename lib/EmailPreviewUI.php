@@ -115,7 +115,7 @@ class EmailPreviewUI {
                   </div>
                   ${descriptionHtml}
                   <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-                    If the button does not work, open this link: <br><a href="${baseUrl}/event.php?id=${eventId}">${baseUrl}/event.php?id=${eventId}</a>
+                    If the button does not work, open this link: <br><a href="${baseUrl}/event.php?id=${eventId}">${baseUrl}/event.php?id=${eventId}</a><br><a href="#" onclick="return false;" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>
                   </p>
                 </div>`;
                 
@@ -245,7 +245,7 @@ class EmailPreviewUI {
           </div>') : '')
           . $calendarLinksHtml
           . '<p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-            If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a>
+            If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a><br><a href="#" onclick="return false;" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>
           </p>
         </div>';
     }

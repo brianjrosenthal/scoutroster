@@ -51,6 +51,12 @@ header_html('Adults Roster');
   <?php endif; ?>
 </div>
 
+<?php
+  $msg = null;
+  if (isset($_GET['deleted'])) { $msg = 'Adult deleted successfully.'; }
+?>
+<?php if ($msg): ?><p class="flash"><?=h($msg)?></p><?php endif; ?>
+
 <div class="card">
   <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">

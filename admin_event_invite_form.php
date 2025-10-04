@@ -36,6 +36,11 @@ $baseUrl = $scheme . '://' . $host;
 
 $error = null;
 
+// Check for error messages from query string (e.g., from redirects)
+if (isset($_GET['error']) && trim($_GET['error']) !== '') {
+    $error = trim($_GET['error']);
+}
+
 
 // Helper functions for email preview
 function getRsvpStatus(int $eventId, int $userId): ?string {
@@ -79,6 +84,41 @@ function generateRsvpButtonHtml(int $eventId, int $userId, string $deepLink): st
   }
 }
 
+// Helper function to generate unsubscribe link
+function generateUnsubscribeLink(int $userId, string $baseUrl): string {
+  if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
+    return '';
+  }
+  
+  // Encrypt user ID and timestamp
+  $timestamp = (string)time();
+  
+  // Simple XOR encryption for demo - in production, use proper encryption
+  $encryptData = function($data, $key) {
+    $keyLen = strlen($key);
+    $encrypted = '';
+    for ($i = 0; $i < strlen($data); $i++) {
+      $encrypted .= chr(ord($data[$i]) ^ ord($key[$i % $keyLen]));
+    }
+    return base64_encode($encrypted);
+  };
+  
+  $encryptedUserId = $encryptData((string)$userId, INVITE_HMAC_KEY);
+  $encryptedTimestamp = $encryptData($timestamp, INVITE_HMAC_KEY);
+  
+  // Generate signature
+  $signature = hash_hmac('sha256', $encryptedUserId . $encryptedTimestamp, INVITE_HMAC_KEY);
+  
+  // Build URL
+  $params = http_build_query([
+    'uid' => $encryptedUserId,
+    'ts' => $encryptedTimestamp,
+    'sig' => $signature
+  ]);
+  
+  return $baseUrl . '/unsubscribe.php?' . $params;
+}
+
 function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, string $deepLink, string $whenText, string $whereHtml, string $description, string $googleLink, string $outlookLink, string $icsDownloadLink, string $emailType = 'none', int $eventId = 0, int $userId = 0, bool $includeCalendarLinks = true): string {
   $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
   $safeEvent = htmlspecialchars((string)$event['name'], ENT_QUOTES, 'UTF-8');
@@ -108,6 +148,16 @@ function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, str
   // Generate context-aware button HTML
   $buttonHtml = generateRsvpButtonHtml($eventId, $userId, $deepLink);
   
+  // Generate unsubscribe link
+  $unsubscribeHtml = '';
+  if ($userId > 0) {
+    $unsubscribeLink = generateUnsubscribeLink($userId, $baseUrl);
+    if ($unsubscribeLink !== '') {
+      $safeUnsubscribe = htmlspecialchars($unsubscribeLink, ENT_QUOTES, 'UTF-8');
+      $unsubscribeHtml = '<br><a href="'. $safeUnsubscribe .'" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>';
+    }
+  }
+  
   return '
   <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
     <div style="text-align:center;">
@@ -125,7 +175,7 @@ function generateEmailHTML(array $event, string $siteTitle, string $baseUrl, str
     </div>') : '')
     . $calendarLinksHtml
     . '<p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-      If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a>
+      If the button does not work, open this link: <br><a href="'. $safeDeep .'">'. $safeDeep .'</a>'. $unsubscribeHtml .'
     </p>
   </div>';
 }
