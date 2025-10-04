@@ -132,6 +132,31 @@ class MailingListManagement {
   }
 
   /**
+   * Filter out unsubscribed adults from a list of adults.
+   * Returns only adults who are not unsubscribed from emails.
+   */
+  private static function filterUnsubscribedAdults(array $adults): array {
+    if (empty($adults)) {
+      return [];
+    }
+    
+    // Get user IDs
+    $userIds = array_column($adults, 'id');
+    if (empty($userIds)) {
+      return [];
+    }
+    
+    // Get unsubscribe status for all users
+    $unsubscribeStatus = \UserManagement::getUnsubscribeStatusForUsers($userIds);
+    
+    // Filter out unsubscribed users
+    return array_filter($adults, function($adult) use ($unsubscribeStatus) {
+      $userId = (int)$adult['id'];
+      return empty($unsubscribeStatus[$userId]);
+    });
+  }
+
+  /**
    * Return distinct adults [id, first_name, last_name, email] obeying filters.
    */
   public static function searchAdults(array $filters): array {
@@ -139,7 +164,8 @@ class MailingListManagement {
 
     if ($f['registered'] === 'yes') {
       // Return only parents of registered youth
-      return self::getParentsOfRegisteredYouth($filters);
+      $adults = self::getParentsOfRegisteredYouth($filters);
+      return self::filterUnsubscribedAdults($adults);
     }
     
     if ($f['registered'] === 'no') {
@@ -151,14 +177,16 @@ class MailingListManagement {
       $registeredIds = array_column($registeredParents, 'id');
       $registeredLookup = array_flip($registeredIds);
       
-      // Filter out registered parents
-      return array_filter($allAdults, function($adult) use ($registeredLookup) {
+      // Filter out registered parents and unsubscribed adults
+      $filteredAdults = array_filter($allAdults, function($adult) use ($registeredLookup) {
         return !isset($registeredLookup[$adult['id']]);
       });
+      return self::filterUnsubscribedAdults($filteredAdults);
     }
     
     // For 'all' and 'all_inactive'
-    return self::getAllAdultsWithFilters($filters);
+    $adults = self::getAllAdultsWithFilters($filters);
+    return self::filterUnsubscribedAdults($adults);
   }
   
   /**

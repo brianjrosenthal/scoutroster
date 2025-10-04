@@ -58,6 +58,9 @@ CREATE TABLE users (
   password_reset_token_hash CHAR(64) DEFAULT NULL,
   password_reset_expires_at DATETIME DEFAULT NULL,
 
+  -- Unsubscribe from emails
+  unsubscribed TINYINT(1) NOT NULL DEFAULT 0,
+
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 

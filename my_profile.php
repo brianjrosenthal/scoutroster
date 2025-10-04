@@ -235,6 +235,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       echo json_encode(['ok' => false, 'error' => 'Error updating dietary preferences.']);
     }
     exit;
+  } elseif ($action === 'update_unsubscribe') {
+    // Update unsubscribe status via separate function
+    $unsubscribed = !empty($_POST['unsubscribed']) ? 1 : 0;
+    
+    try {
+      $ctx = UserContext::getLoggedInUserContext();
+      $ok = UserManagement::updateUnsubscribeStatus($ctx, (int)$me['id'], (bool)$unsubscribed);
+      if ($ok) {
+        $msg = 'Email preferences updated.';
+        // Refresh $me
+        $me = UserManagement::findFullById((int)$me['id']);
+      } else {
+        $err = 'Failed to update email preferences.';
+      }
+    } catch (Throwable $e) {
+      $err = 'Error updating email preferences.';
+    }
   } elseif ($action === 'add_parent') {
     // Link another parent to a child (existing or invite)
     $yid = (int)($_POST['youth_id'] ?? 0);
@@ -434,6 +451,23 @@ header_html('My Profile');
     <div class="actions">
       <button class="primary">Save Profile</button>
       <a class="button" href="/change_password.php">Change Password</a>
+    </div>
+  </form>
+</div>
+
+<div class="card">
+  <h3>Email Preferences</h3>
+  <form method="post" class="stack">
+    <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
+    <input type="hidden" name="action" value="update_unsubscribe">
+    <label class="inline">
+      <input type="hidden" name="unsubscribed" value="0">
+      <input type="checkbox" name="unsubscribed" value="1" <?= !empty($me['unsubscribed']) ? 'checked' : '' ?>>
+      Unsubscribed from emails
+      <div class="small">This removes you from most of the emails that this system sends out.</div>
+    </label>
+    <div class="actions">
+      <button class="primary">Save Email Preferences</button>
     </div>
   </form>
 </div>

@@ -1,3 +1,5 @@
 {"ts":"2025-09-23T15:40:16+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"Test User","cc_email":null,"subject":"Test Subject","body_length":52,"success":true,"error_message":null}
 {"ts":"2025-09-23T15:40:18+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"Test User","cc_email":null,"subject":"Test Subject","body_length":52,"success":true,"error_message":null}
 {"ts":"2025-09-23T15:40:19+00:00","sent_by_user_id":null,"to_email":"test@example.com","to_name":"test@example.com","cc_email":null,"subject":"Test Log Subject","body_length":53,"success":true,"error_message":null}
+{"ts":"2025-10-04T13:32:54+00:00","sent_by_user_id":2,"to_email":"brian.rosenthal@gmail.com","to_name":"Brian Rosenthal","cc_email":null,"subject":"Reminder: \"Cub Scout Pumpkin Carving\", Sun 10/5 at 3:00 PM","body_length":4592,"success":true,"error_message":null}
+{"ts":"2025-10-04T13:35:59+00:00","sent_by_user_id":2,"to_email":"brian.rosenthal@gmail.com","to_name":"Brian Rosenthal","cc_email":null,"subject":"Reminder: \"Cub Scout Pumpkin Carving\", Sun 10/5 at 3:00 PM","body_length":4559,"success":true,"error_message":null}

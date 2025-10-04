@@ -1019,6 +1019,9 @@ class UserManagement {
       $params = array_merge($params, $specificAdultIds);
     }
 
+    // Add unsubscribe filter
+    $wheres[] = "u.unsubscribed = 0";
+
     // Build final query
     if (!empty($joins)) {
       $sql .= " " . implode(" ", $joins);
@@ -1240,5 +1243,60 @@ class UserManagement {
     if (!$r) return null;
     $name = trim((string)($r['first_name'] ?? '') . ' ' . (string)($r['last_name'] ?? ''));
     return $name !== '' ? $name : null;
+  }
+
+  // =========================
+  // Email Unsubscribe Management
+  // =========================
+
+  /**
+   * Update the unsubscribed status for a user.
+   * This is a separate function from updateProfile to handle unsubscribe functionality distinctly.
+   */
+  public static function updateUnsubscribeStatus(?UserContext $ctx, int $userId, bool $unsubscribed): bool {
+    self::assertCanUpdate($ctx, $userId);
+    
+    $st = self::pdo()->prepare("UPDATE users SET unsubscribed = ? WHERE id = ?");
+    $ok = $st->execute([$unsubscribed ? 1 : 0, $userId]);
+    
+    if ($ok) {
+      self::log('user.update_unsubscribe_status', $userId, ['unsubscribed' => $unsubscribed]);
+    }
+    
+    return $ok;
+  }
+
+  /**
+   * Check if a user is unsubscribed from emails.
+   */
+  public static function isUnsubscribed(int $userId): bool {
+    $st = self::pdo()->prepare("SELECT unsubscribed FROM users WHERE id = ? LIMIT 1");
+    $st->execute([$userId]);
+    $row = $st->fetch();
+    return !empty($row['unsubscribed']);
+  }
+
+  /**
+   * Get unsubscribe status for multiple users at once.
+   * Returns array with userId => boolean mapping.
+   */
+  public static function getUnsubscribeStatusForUsers(array $userIds): array {
+    $userIds = array_values(array_unique(array_filter(array_map(static function($v) {
+      $n = (int)$v;
+      return $n > 0 ? $n : null;
+    }, $userIds))));
+
+    if (empty($userIds)) return [];
+
+    $placeholders = implode(',', array_fill(0, count($userIds), '?'));
+    $st = self::pdo()->prepare("SELECT id, unsubscribed FROM users WHERE id IN ($placeholders)");
+    $st->execute($userIds);
+    
+    $result = [];
+    while ($row = $st->fetch()) {
+      $result[(int)$row['id']] = !empty($row['unsubscribed']);
+    }
+    
+    return $result;
   }
 }
