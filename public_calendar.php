@@ -50,7 +50,12 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
 header_html('Upcoming Events', $user);
 ?>
 
-<h2>Upcoming Events</h2>
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+  <h2 style="margin: 0;">Upcoming Events</h2>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" href="https://www.scarsdalepack440.com" target="_blank" rel="noopener">Main Website</a>
+  </div>
+</div>
 
 <?php if (empty($events)): ?>
   <div class="card">
