@@ -198,9 +198,6 @@ header_html($pageTitle);
     <input type="hidden" name="csrf" value="<?=h(csrf_token())?>">
     <input type="hidden" name="action" value="save">
     <input type="hidden" name="id" value="<?= (int)($editing['id'] ?? 0) ?>">
-    <label>Name
-      <input type="text" name="name" value="<?=h($editing['name'] ?? '')?>" required>
-    </label>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>Starts at
         <input type="datetime-local" name="starts_at" value="<?=h(to_datetime_local_value($editing['starts_at'] ?? $defaultStartsAt))?>" required>
@@ -209,6 +206,9 @@ header_html($pageTitle);
         <input type="datetime-local" name="ends_at" value="<?=h(to_datetime_local_value($editing['ends_at'] ?? $defaultEndsAt))?>">
       </label>
     </div>
+    <label>Name
+      <input type="text" name="name" value="<?=h($editing['name'] ?? '')?>" required>
+    </label>
     <label>
       <input type="checkbox" name="allow_non_user_rsvp" <?php $v = $editing['allow_non_user_rsvp'] ?? 1; echo ((int)$v === 1 ? 'checked' : ''); ?>>
       Allow public RSVP (non-user)
