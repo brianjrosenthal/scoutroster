@@ -24,22 +24,43 @@ if ($view === 'upcoming') {
   $events = EventManagement::listPast(500);
 }
 
+/**
+ * Format time smartly: hide :00 minutes, show non-zero minutes
+ * Example: 6:00PM becomes 6PM, 6:30PM stays 6:30PM
+ */
+function formatTime(int $timestamp): string {
+  $formatted = date('g:iA', $timestamp);
+  // Remove :00 from times on the hour
+  return preg_replace('/:00(AM|PM)/', '$1', $formatted);
+}
+
 // Helper to render start/end per spec
 function renderEventWhen(string $startsAt, ?string $endsAt): string {
   $s = strtotime($startsAt);
   if ($s === false) return $startsAt;
-  $base = date('F j, Y gA', $s);
-  if (!$endsAt) return $base;
+  
+  $dateStr = date('F j, Y', $s);
+  $startTime = formatTime($s);
+  
+  if (!$endsAt) {
+    return $dateStr . ' ' . $startTime;
+  }
 
   $e = strtotime($endsAt);
-  if ($e === false) return $base;
-
-  if (date('Y-m-d', $s) === date('Y-m-d', $e)) {
-    // Same-day end time
-    return $base . ' (ends at ' . date('gA', $e) . ')';
+  if ($e === false) {
+    return $dateStr . ' ' . $startTime;
   }
-  // Different-day end time
-  return $base . ' (ends on ' . date('F j, Y', $e) . ' at ' . date('gA', $e) . ')';
+
+  $endTime = formatTime($e);
+  
+  if (date('Y-m-d', $s) === date('Y-m-d', $e)) {
+    // Same-day event: show as "Date StartTime - EndTime"
+    return $dateStr . ' ' . $startTime . ' - ' . $endTime;
+  }
+  
+  // Different-day event: show full end date
+  $endDateStr = date('F j, Y', $e);
+  return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime;
 }
 
 /**
