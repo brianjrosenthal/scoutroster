@@ -53,6 +53,14 @@ header_html('Reports');
       </div>
     </div>
     
+    <div class="card" style="margin: 0;">
+      <h4>Registered Adult Leaders</h4>
+      <p>View all registered adult leaders with their BSA registration numbers, expiration dates, and safeguarding youth training status.</p>
+      <div class="actions">
+        <a class="button primary" href="/admin/registered_adult_leaders.php">View Registered Adult Leaders</a>
+      </div>
+    </div>
+    
   </div>
 </div>
 
