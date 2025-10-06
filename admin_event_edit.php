@@ -264,14 +264,48 @@ header_html($pageTitle);
   <?= EventUIManager::renderAdminMenuScript((int)$editing['id']) ?>
 <?php endif; ?>
 
+<style>
+.location-typeahead {
+  position: relative;
+}
+.location-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-top: none;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: none;
+}
+.location-dropdown.active {
+  display: block;
+}
+.location-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+}
+.location-dropdown-item:hover {
+  background: #f5f5f5;
+}
+.location-dropdown-item:last-child {
+  border-bottom: none;
+}
+</style>
+
 <script>
 (function() {
+  // ===== Date/Time Auto-Update Logic =====
   const startsAtInput = document.querySelector('input[name="starts_at"]');
   const endsAtInput = document.querySelector('input[name="ends_at"]');
   
-  if (!startsAtInput || !endsAtInput) return;
-  
-  startsAtInput.addEventListener('change', function() {
+  if (startsAtInput && endsAtInput) {
+    startsAtInput.addEventListener('change', function() {
     const startsAtValue = startsAtInput.value;
     const endsAtValue = endsAtInput.value;
     
@@ -315,7 +349,119 @@ header_html($pageTitle);
       
       endsAtInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
     }
-  });
+    });
+  }
+  
+  // ===== Location Typeahead Logic =====
+  const locationInput = document.querySelector('input[name="location"]');
+  const locationAddressTextarea = document.querySelector('textarea[name="location_address"]');
+  const googleMapsUrlInput = document.querySelector('input[name="google_maps_url"]');
+  
+  if (locationInput && locationAddressTextarea && googleMapsUrlInput) {
+    // Create dropdown container
+    const locationLabel = locationInput.closest('label');
+    locationLabel.classList.add('location-typeahead');
+    
+    const dropdown = document.createElement('div');
+    dropdown.className = 'location-dropdown';
+    locationLabel.appendChild(dropdown);
+    
+    let searchTimeout;
+    let currentLocations = [];
+    
+    // Debounced search function
+    function searchLocations(query) {
+      clearTimeout(searchTimeout);
+      
+      if (query.length < 2) {
+        dropdown.classList.remove('active');
+        return;
+      }
+      
+      searchTimeout = setTimeout(() => {
+        fetch('/ajax_location_search.php?q=' + encodeURIComponent(query))
+          .then(response => response.json())
+          .then(locations => {
+            currentLocations = locations;
+            displayLocations(locations);
+          })
+          .catch(error => {
+            console.error('Location search error:', error);
+            dropdown.classList.remove('active');
+          });
+      }, 300);
+    }
+    
+    // Display locations in dropdown
+    function displayLocations(locations) {
+      dropdown.innerHTML = '';
+      
+      if (locations.length === 0) {
+        dropdown.classList.remove('active');
+        return;
+      }
+      
+      locations.forEach((location, index) => {
+        const item = document.createElement('div');
+        item.className = 'location-dropdown-item';
+        item.textContent = location.location;
+        item.setAttribute('data-index', index);
+        
+        item.addEventListener('click', () => {
+          selectLocation(location);
+        });
+        
+        dropdown.appendChild(item);
+      });
+      
+      dropdown.classList.add('active');
+    }
+    
+    // Select a location and populate fields
+    function selectLocation(location) {
+      locationInput.value = location.location;
+      locationAddressTextarea.value = location.location_address || '';
+      googleMapsUrlInput.value = location.google_maps_url || '';
+      dropdown.classList.remove('active');
+    }
+    
+    // Event listeners
+    locationInput.addEventListener('input', (e) => {
+      searchLocations(e.target.value);
+    });
+    
+    locationInput.addEventListener('focus', (e) => {
+      if (e.target.value.length >= 2 && currentLocations.length > 0) {
+        displayLocations(currentLocations);
+      }
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!locationLabel.contains(e.target)) {
+        dropdown.classList.remove('active');
+      }
+    });
+    
+    // Handle keyboard navigation
+    locationInput.addEventListener('keydown', (e) => {
+      const items = dropdown.querySelectorAll('.location-dropdown-item');
+      const activeItem = dropdown.querySelector('.location-dropdown-item:hover');
+      
+      if (e.key === 'Escape') {
+        dropdown.classList.remove('active');
+      } else if (e.key === 'ArrowDown' && items.length > 0) {
+        e.preventDefault();
+        const firstItem = items[0];
+        firstItem.style.background = '#f5f5f5';
+        firstItem.scrollIntoView({ block: 'nearest' });
+      } else if (e.key === 'Enter' && activeItem) {
+        e.preventDefault();
+        const index = parseInt(activeItem.getAttribute('data-index'));
+        selectLocation(currentLocations[index]);
+      }
+    });
+  }
 })();
 </script>
 
