@@ -264,4 +264,60 @@ header_html($pageTitle);
   <?= EventUIManager::renderAdminMenuScript((int)$editing['id']) ?>
 <?php endif; ?>
 
+<script>
+(function() {
+  const startsAtInput = document.querySelector('input[name="starts_at"]');
+  const endsAtInput = document.querySelector('input[name="ends_at"]');
+  
+  if (!startsAtInput || !endsAtInput) return;
+  
+  startsAtInput.addEventListener('change', function() {
+    const startsAtValue = startsAtInput.value;
+    const endsAtValue = endsAtInput.value;
+    
+    if (!startsAtValue) return;
+    
+    // Parse the starts_at datetime
+    const startsAt = new Date(startsAtValue);
+    if (isNaN(startsAt.getTime())) return;
+    
+    let shouldUpdate = false;
+    
+    // Check if ends_at is empty
+    if (!endsAtValue) {
+      shouldUpdate = true;
+    } else {
+      const endsAt = new Date(endsAtValue);
+      const now = new Date();
+      
+      // Check if ends_at is in the past
+      if (endsAt < now) {
+        shouldUpdate = true;
+      } else {
+        // Check if ends_at is more than 1 week ahead of starts_at
+        const oneWeekInMs = 7 * 24 * 60 * 60 * 1000;
+        const timeDiff = endsAt.getTime() - startsAt.getTime();
+        if (timeDiff > oneWeekInMs) {
+          shouldUpdate = true;
+        }
+      }
+    }
+    
+    if (shouldUpdate) {
+      // Calculate new ends_at: starts_at + 1.5 hours (90 minutes)
+      const newEndsAt = new Date(startsAt.getTime() + (90 * 60 * 1000));
+      
+      // Format as datetime-local value: YYYY-MM-DDTHH:MM
+      const year = newEndsAt.getFullYear();
+      const month = String(newEndsAt.getMonth() + 1).padStart(2, '0');
+      const day = String(newEndsAt.getDate()).padStart(2, '0');
+      const hours = String(newEndsAt.getHours()).padStart(2, '0');
+      const minutes = String(newEndsAt.getMinutes()).padStart(2, '0');
+      
+      endsAtInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+    }
+  });
+})();
+</script>
+
 <?php footer_html(); ?>
