@@ -15,6 +15,7 @@ try {
   $pdo = pdo();
   
   // Search for locations that match the query (case-insensitive)
+  // Only return locations that have a non-empty location_address
   // Group by location and get the most recent address/google_maps_url for each
   $sql = "
     SELECT 
@@ -26,6 +27,8 @@ try {
     WHERE location LIKE ? 
       AND location IS NOT NULL 
       AND location != ''
+      AND location_address IS NOT NULL
+      AND location_address != ''
     GROUP BY location, location_address, google_maps_url
     ORDER BY last_used DESC
     LIMIT 10

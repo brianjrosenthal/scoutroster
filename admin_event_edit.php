@@ -368,6 +368,7 @@ header_html($pageTitle);
     
     let searchTimeout;
     let currentLocations = [];
+    let dropdownClosedBySelection = false;
     
     // Debounced search function
     function searchLocations(query) {
@@ -389,11 +390,16 @@ header_html($pageTitle);
             console.error('Location search error:', error);
             dropdown.classList.remove('active');
           });
-      }, 300);
+      }, 1000);
     }
     
     // Display locations in dropdown
     function displayLocations(locations) {
+      // Don't show dropdown if it was closed by selection
+      if (dropdownClosedBySelection) {
+        return;
+      }
+      
       dropdown.innerHTML = '';
       
       if (locations.length === 0) {
@@ -419,6 +425,7 @@ header_html($pageTitle);
     
     // Select a location and populate fields
     function selectLocation(location) {
+      dropdownClosedBySelection = true;
       locationInput.value = location.location;
       locationAddressTextarea.value = location.location_address || '';
       googleMapsUrlInput.value = location.google_maps_url || '';
@@ -427,10 +434,16 @@ header_html($pageTitle);
     
     // Event listeners
     locationInput.addEventListener('input', (e) => {
+      // Reset the flag when user actively changes the location
+      dropdownClosedBySelection = false;
       searchLocations(e.target.value);
     });
     
     locationInput.addEventListener('focus', (e) => {
+      // Don't show dropdown if it was closed by selection
+      if (dropdownClosedBySelection) {
+        return;
+      }
       if (e.target.value.length >= 2 && currentLocations.length > 0) {
         displayLocations(currentLocations);
       }
