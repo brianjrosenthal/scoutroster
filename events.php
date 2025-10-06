@@ -17,6 +17,12 @@ $isAdmin = !empty($u['is_admin']);
 $view = $_GET['view'] ?? 'upcoming';
 if ($view !== 'past') $view = 'upcoming';
 
+/**
+ * Layout: cards (default) or list
+ */
+$layout = $_GET['layout'] ?? 'cards';
+if ($layout !== 'list') $layout = 'cards';
+
 $events = [];
 if ($view === 'upcoming') {
   $events = EventManagement::listUpcoming(500);
@@ -79,11 +85,16 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
 ?>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;"><?= $view === 'past' ? 'Previous Events' : 'Upcoming Events' ?></h2>
-  <div style="display: flex; gap: 8px; align-items: center;">
-    <?php if ($view === 'past'): ?>
-      <a class="button" href="/events.php">View Upcoming</a>
+  <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <?php if ($layout === 'cards'): ?>
+      <a class="button" href="/events.php?view=<?= h($view) ?>&layout=list">List View</a>
     <?php else: ?>
-      <a class="button" href="/events.php?view=past">View Previous</a>
+      <a class="button" href="/events.php?view=<?= h($view) ?>&layout=cards">Card View</a>
+    <?php endif; ?>
+    <?php if ($view === 'past'): ?>
+      <a class="button" href="/events.php?layout=<?= h($layout) ?>">View Upcoming</a>
+    <?php else: ?>
+      <a class="button" href="/events.php?view=past&layout=<?= h($layout) ?>">View Previous</a>
     <?php endif; ?>
     <?php if ($isAdmin): ?>
       <a class="button" href="/admin_event_edit.php">Add Event</a>
@@ -93,7 +104,49 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
 
 <?php if (empty($events)): ?>
   <p class="small"><?= $view === 'past' ? 'No previous events.' : 'No upcoming events.' ?></p>
+<?php elseif ($layout === 'list'): ?>
+  <!-- List View -->
+  <div class="card">
+    <table class="events-list">
+      <thead>
+        <tr>
+          <th>Event</th>
+          <th>Date & Time</th>
+          <th>Location</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($events as $e): ?>
+          <tr>
+            <td><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></td>
+            <td><?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></td>
+            <td><?= h($e['location'] ?? '-') ?></td>
+            <td>
+              <?php
+                $rsvpUrl = trim((string)($e['rsvp_url'] ?? ''));
+                if ($rsvpUrl !== ''):
+                  $rsvpLabel = trim((string)($e['rsvp_url_label'] ?? ''));
+              ?>
+                <a href="<?= h($rsvpUrl) ?>" target="_blank" rel="noopener"><?= h($rsvpLabel !== '' ? $rsvpLabel : 'rsvp') ?></a>
+              <?php else: ?>
+                <?php
+                  $summary = RSVPManagement::getRsvpSummaryForUserEvent((int)$e['id'], (int)$u['id']);
+                  if ($summary):
+                ?>
+                  <a href="/event.php?id=<?= (int)$e['id'] ?>">view</a> | <a href="/event.php?id=<?= (int)$e['id'] ?>&open_rsvp=1">edit rsvp</a>
+                <?php else: ?>
+                  <a href="/event.php?id=<?= (int)$e['id'] ?>">view</a> | <a href="/event.php?id=<?= (int)$e['id'] ?>&open_rsvp=1">rsvp</a>
+                <?php endif; ?>
+              <?php endif; ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
 <?php else: ?>
+  <!-- Card View -->
   <div class="grid">
     <?php foreach ($events as $e): ?>
       <div class="card">
@@ -142,7 +195,7 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
             }
         ?>
             <p>
-              You RSVP’d <?= h(ucfirst((string)$summary['answer'])) ?> for
+              You RSVP'd <?= h(ucfirst((string)$summary['answer'])) ?> for
               <?= (int)$ad ?> adult<?= $ad === 1 ? '' : 's' ?> and
               <?= (int)$kids ?> kid<?= $kids === 1 ? '' : 's' ?>
               <?= $guests > 0 ? ', and '.(int)$guests.' other guest'.($guests === 1 ? '' : 's') : '' ?>.

@@ -106,3 +106,16 @@ header nav .nav-right{margin-left:auto}
 
 /* Email token authentication status */
 .email-auth-status{color:#ccc;font-size:12px;font-style:italic}
+
+/* Events list view */
+.events-list{width:100%;border-collapse:collapse}
+.events-list th{text-align:left;padding:12px 8px;border-bottom:2px solid #e8e8ef;font-weight:600;color:#555;font-size:12px;text-transform:uppercase}
+.events-list td{padding:12px 8px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+.events-list tr:last-child td{border-bottom:none}
+.events-list tr:hover{background:#f9f9fb}
+.events-list td:first-child{font-weight:500}
+.events-list a{text-decoration:none;color:#2563eb}
+.events-list a:hover{text-decoration:underline}
+@media (max-width:768px){
+  .events-list th:nth-child(3),.events-list td:nth-child(3){display:none}
+}
