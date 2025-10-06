@@ -288,10 +288,9 @@ header_html($pageTitle);
       shouldUpdate = true;
     } else {
       const endsAt = new Date(endsAtValue);
-      const now = new Date();
       
-      // Check if ends_at is in the past
-      if (endsAt < now) {
+      // Check if ends_at is before the new starts_at
+      if (endsAt < startsAt) {
         shouldUpdate = true;
       } else {
         // Check if ends_at is more than 1 week ahead of starts_at
