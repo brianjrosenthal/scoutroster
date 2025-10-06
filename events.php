@@ -110,8 +110,8 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
     <table class="events-list">
       <thead>
         <tr>
-          <th>Event</th>
           <th>Date & Time</th>
+          <th>Event</th>
           <th>Location</th>
           <th>Actions</th>
         </tr>
@@ -119,8 +119,8 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
       <tbody>
         <?php foreach ($events as $e): ?>
           <tr>
-            <td><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></td>
             <td><?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></td>
+            <td><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></td>
             <td><?= h($e['location'] ?? '-') ?></td>
             <td>
               <?php
