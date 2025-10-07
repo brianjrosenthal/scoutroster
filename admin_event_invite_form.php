@@ -205,7 +205,7 @@ header_html('Send Event Invitations');
     <fieldset>
       <legend>Filter adults by:</legend>
       <?php
-        $regStatus = $_POST['registration_status'] ?? 'all';
+        $regStatus = $_POST['registration_status'] ?? 'registered';
         $selectedGrades = $_POST['grades'] ?? [];
         $rsvpStatus = $_POST['rsvp_status'] ?? 'all';
         $specificAdultIds = $_POST['specific_adult_ids'] ?? [];
