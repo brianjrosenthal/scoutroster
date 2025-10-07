@@ -426,7 +426,7 @@ class LeadershipManagement {
                     u.photo_public_file_id
                 FROM adult_den_leader_assignments adla
                 JOIN users u ON adla.adult_id = u.id
-                ORDER BY adla.class_of DESC, u.last_name ASC, u.first_name ASC";
+                ORDER BY adla.class_of DESC, u.first_name ASC, u.last_name ASC";
         
         $st = self::pdo()->prepare($sql);
         $st->execute();
