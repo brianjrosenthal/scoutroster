@@ -54,34 +54,38 @@ if ($type === 'adults' || $type === 'both') {
     }
     
     $queries[] = "SELECT 'Adult' as type, id, first_name, last_name, bsa_membership_number as bsa_id, 
-                         bsa_registration_expires_on as expires_date, NULL as paid_until, email, phone_cell
+                         bsa_registration_expires_on as expires_date, NULL as paid_until, 
+                         0 as has_pending_payment, email, phone_cell
                   FROM users 
                   WHERE " . implode(' AND ', $whereConditions);
 }
 
 if ($type === 'youth' || $type === 'both') {
     $whereConditions = [
-        "bsa_registration_number IS NOT NULL",
-        "bsa_registration_number != ''",
-        "(left_troop IS NULL OR left_troop = 0)"
+        "y.bsa_registration_number IS NOT NULL",
+        "y.bsa_registration_number != ''",
+        "(y.left_troop IS NULL OR y.left_troop = 0)"
     ];
     
     if ($status === 'expired') {
-        $whereConditions[] = "bsa_registration_expires_date < ?";
+        $whereConditions[] = "y.bsa_registration_expires_date < ?";
         $params[] = $today;
     } elseif ($status === 'expiring') {
-        $whereConditions[] = "bsa_registration_expires_date >= ?";
-        $whereConditions[] = "bsa_registration_expires_date <= ?";
+        $whereConditions[] = "y.bsa_registration_expires_date >= ?";
+        $whereConditions[] = "y.bsa_registration_expires_date <= ?";
         $params[] = $today;
         $params[] = $todayPlus30;
     } else { // both
-        $whereConditions[] = "bsa_registration_expires_date <= ?";
+        $whereConditions[] = "y.bsa_registration_expires_date <= ?";
         $params[] = $todayPlus30;
     }
     
-    $queries[] = "SELECT 'Youth' as type, id, first_name, last_name, bsa_registration_number as bsa_id, 
-                         bsa_registration_expires_date as expires_date, date_paid_until as paid_until, NULL as email, NULL as phone_cell
-                  FROM youth 
+    $queries[] = "SELECT 'Youth' as type, y.id, y.first_name, y.last_name, y.bsa_registration_number as bsa_id, 
+                         y.bsa_registration_expires_date as expires_date, y.date_paid_until as paid_until, 
+                         CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
+                         NULL as email, NULL as phone_cell
+                  FROM youth y
+                  LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
                   WHERE " . implode(' AND ', $whereConditions);
 }
 
@@ -257,8 +261,12 @@ header_html('BSA Renewals Needed');
         
         // Format paid_until
         $paidUntil = $row['paid_until'] ?? null;
+        $hasPendingPayment = !empty($row['has_pending_payment']);
+        
         if ($row['type'] === 'Adult') {
           $paidUntilDisplay = '<span style="color:#999;">N/A</span>';
+        } elseif ($hasPendingPayment) {
+          $paidUntilDisplay = '<span style="color:#e67e22;">pending</span>';
         } elseif ($paidUntil === null || $paidUntil === '') {
           $paidUntilDisplay = '<span style="color:#999;">&mdash;</span>';
         } else {
@@ -312,8 +320,12 @@ header_html('BSA Renewals Needed');
         
         // Format paid_until
         $paidUntil = $row['paid_until'] ?? null;
+        $hasPendingPayment = !empty($row['has_pending_payment']);
+        
         if ($row['type'] === 'Adult') {
           $paidUntilDisplay = '<span style="color:#999;">N/A</span>';
+        } elseif ($hasPendingPayment) {
+          $paidUntilDisplay = '<span style="color:#e67e22;">pending</span>';
         } elseif ($paidUntil === null || $paidUntil === '') {
           $paidUntilDisplay = '<span style="color:#999;">&mdash;</span>';
         } else {
