@@ -54,7 +54,7 @@ if ($type === 'adults' || $type === 'both') {
     }
     
     $queries[] = "SELECT 'Adult' as type, id, first_name, last_name, bsa_membership_number as bsa_id, 
-                         bsa_registration_expires_on as expires_date, email, phone_cell
+                         bsa_registration_expires_on as expires_date, NULL as paid_until, email, phone_cell
                   FROM users 
                   WHERE " . implode(' AND ', $whereConditions);
 }
@@ -80,7 +80,7 @@ if ($type === 'youth' || $type === 'both') {
     }
     
     $queries[] = "SELECT 'Youth' as type, id, first_name, last_name, bsa_registration_number as bsa_id, 
-                         bsa_registration_expires_date as expires_date, NULL as email, NULL as phone_cell
+                         bsa_registration_expires_date as expires_date, date_paid_until as paid_until, NULL as email, NULL as phone_cell
                   FROM youth 
                   WHERE " . implode(' AND ', $whereConditions);
 }
@@ -240,6 +240,7 @@ header_html('BSA Renewals Needed');
         <th>Name</th>
         <th>BSA ID</th>
         <th>Expired Date</th>
+        <th>Paid Until</th>
         <th>Days Overdue</th>
         <th>Contact</th>
       </tr>
@@ -253,12 +254,28 @@ header_html('BSA Renewals Needed');
         if (!empty($row['email'])) $contact[] = hq($row['email']);
         if (!empty($row['phone_cell'])) $contact[] = hq($row['phone_cell']);
         $contactStr = implode('<br>', $contact);
+        
+        // Format paid_until
+        $paidUntil = $row['paid_until'] ?? null;
+        if ($row['type'] === 'Adult') {
+          $paidUntilDisplay = '<span style="color:#999;">N/A</span>';
+        } elseif ($paidUntil === null || $paidUntil === '') {
+          $paidUntilDisplay = '<span style="color:#999;">&mdash;</span>';
+        } else {
+          // Check if paid_until is overdue
+          if ($paidUntil < $today) {
+            $paidUntilDisplay = '<span style="color:#c00;">'.hq($paidUntil).'</span>';
+          } else {
+            $paidUntilDisplay = hq($paidUntil);
+          }
+        }
       ?>
       <tr>
         <td><strong><?= hq($row['type']) ?></strong></td>
         <td><?= hq($fullName) ?></td>
         <td><?= hq($row['bsa_id']) ?></td>
         <td style="color: #c00;"><?= hq($row['expires_date']) ?></td>
+        <td><?= $paidUntilDisplay ?></td>
         <td style="color: #c00;"><?= (int)$daysOverdue ?></td>
         <td><?= $contactStr ?></td>
       </tr>
@@ -278,6 +295,7 @@ header_html('BSA Renewals Needed');
         <th>Name</th>
         <th>BSA ID</th>
         <th>Expires Date</th>
+        <th>Paid Until</th>
         <th>Days Remaining</th>
         <th>Contact</th>
       </tr>
@@ -291,12 +309,28 @@ header_html('BSA Renewals Needed');
         if (!empty($row['email'])) $contact[] = hq($row['email']);
         if (!empty($row['phone_cell'])) $contact[] = hq($row['phone_cell']);
         $contactStr = implode('<br>', $contact);
+        
+        // Format paid_until
+        $paidUntil = $row['paid_until'] ?? null;
+        if ($row['type'] === 'Adult') {
+          $paidUntilDisplay = '<span style="color:#999;">N/A</span>';
+        } elseif ($paidUntil === null || $paidUntil === '') {
+          $paidUntilDisplay = '<span style="color:#999;">&mdash;</span>';
+        } else {
+          // Check if paid_until is overdue
+          if ($paidUntil < $today) {
+            $paidUntilDisplay = '<span style="color:#c00;">'.hq($paidUntil).'</span>';
+          } else {
+            $paidUntilDisplay = hq($paidUntil);
+          }
+        }
       ?>
       <tr>
         <td><strong><?= hq($row['type']) ?></strong></td>
         <td><?= hq($fullName) ?></td>
         <td><?= hq($row['bsa_id']) ?></td>
         <td style="color: #f0ad4e;"><?= hq($row['expires_date']) ?></td>
+        <td><?= $paidUntilDisplay ?></td>
         <td style="color: #f0ad4e;"><?= (int)$daysRemaining ?></td>
         <td><?= $contactStr ?></td>
       </tr>
