@@ -987,6 +987,18 @@ class UserManagement {
       $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
       $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
       $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+    } elseif ($registrationStatus === 'leadership') {
+      // Include adults who hold pack-wide leadership positions OR are den leaders
+      $wheres[] = "(
+        EXISTS (
+          SELECT 1 FROM adult_leadership_position_assignments alpa
+          WHERE alpa.adult_id = u.id
+        )
+        OR EXISTS (
+          SELECT 1 FROM adult_den_leader_assignments adla
+          WHERE adla.adult_id = u.id
+        )
+      )";
     }
 
     // Grade filtering
@@ -1095,6 +1107,18 @@ class UserManagement {
       $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
       $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
       $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+    } elseif ($registrationStatus === 'leadership') {
+      // Include adults who hold pack-wide leadership positions OR are den leaders
+      $wheres[] = "(
+        EXISTS (
+          SELECT 1 FROM adult_leadership_position_assignments alpa
+          WHERE alpa.adult_id = u.id
+        )
+        OR EXISTS (
+          SELECT 1 FROM adult_den_leader_assignments adla
+          WHERE adla.adult_id = u.id
+        )
+      )";
     }
 
     // Grade filtering
