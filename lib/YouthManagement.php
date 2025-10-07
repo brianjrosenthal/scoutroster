@@ -537,7 +537,7 @@ class YouthManagement {
     // If it's September 15th, we want to show registrations expiring before November 1st
     $nextMonthEnd = date('Y-m-d', strtotime('last day of next month'));
 
-    $params = [$nextMonthEnd];
+    $params = [];
     
     // Build different queries based on status filter
     if ($status === 'processing_needed') {
@@ -648,7 +648,6 @@ class YouthManagement {
                     )
                   )
                 )";
-      $params[] = $nextMonthEnd;
       $params[] = $nextMonthEnd;
       $params[] = $nextMonthEnd;
     }
