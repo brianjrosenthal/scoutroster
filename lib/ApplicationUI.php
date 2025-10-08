@@ -48,14 +48,31 @@ class ApplicationUI {
             $avatar = $photoUrl !== ''
                 ? '<img class="nav-avatar" src="'.h($photoUrl).'" alt="'.h(trim(($u['first_name'] ?? '').' '.($u['last_name'] ?? ''))).'" />'
                 : '<span class="nav-avatar nav-avatar-initials" aria-hidden="true">'.h($initials).'</span>';
+            
+            // Check if user is an approver for Email Snippets link
+            require_once __DIR__ . '/UserManagement.php';
+            $isApprover = false;
+            try {
+                $isApprover = UserManagement::isApprover((int)($u['id'] ?? 0));
+            } catch (Throwable $e) {
+                $isApprover = false;
+            }
+            
+            $avatarMenu = '<a href="/my_profile.php" role="menuitem">My Profile</a>'
+                        . '<a href="/leadership.php" role="menuitem">Pack Leadership</a>'
+                        . '<a href="/reimbursements.php" role="menuitem">Reimbursements</a>'
+                        . '<a href="/forms.php" role="menuitem">Forms and Links</a>';
+            
+            if ($isApprover) {
+                $avatarMenu .= '<a href="/email_snippets.php" role="menuitem">Email Snippets</a>';
+            }
+            
+            $avatarMenu .= '<a href="/logout.php" role="menuitem">Logout</a>';
+            
             $navRight[] = '<div class="nav-avatar-wrap">'
                         . '<a href="#" id="avatarToggle" class="nav-avatar-link" aria-expanded="false" title="Account">'.$avatar.'</a>'
                         . '<div id="avatarMenu" class="avatar-menu hidden" role="menu" aria-hidden="true">'
-                        .   '<a href="/my_profile.php" role="menuitem">My Profile</a>'
-                        .   '<a href="/leadership.php" role="menuitem">Pack Leadership</a>'
-                        .   '<a href="/reimbursements.php" role="menuitem">Reimbursements</a>'
-                        .   '<a href="/forms.php" role="menuitem">Forms and Links</a>'
-                        .   '<a href="/logout.php" role="menuitem">Logout</a>'
+                        . $avatarMenu
                         . '</div>'
                         . '</div>';
             
