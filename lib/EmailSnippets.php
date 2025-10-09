@@ -263,7 +263,7 @@ class EmailSnippets {
     } else {
       // Different days: "November 7, 2025 1pm - November 8, 2025 9am"
       $endDateStr = $endDT->format('F j, Y');
-      return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . ' - ' . $endDateStr . ' ' . $endTimeStr . $endAmPm . '}';
+      return $dateStr . ' ' . $startTimeStr . $startAmPm . ' - ' . $endDateStr . ' ' . $endTimeStr . $endAmPm;
     }
   }
 
