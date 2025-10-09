@@ -233,7 +233,7 @@ class EmailSnippets {
     
     // If no end time, just return start
     if (!$endsAt || trim($endsAt) === '') {
-      return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . '}';
+      return $dateStr . ' ' . $startTimeStr . $startAmPm;
     }
     
     $endDT = new DateTime($endsAt);
@@ -255,10 +255,10 @@ class EmailSnippets {
       // Same day: "October 23, 2025 3-4:30pm" or "October 23, 2025 11am-1pm"
       if ($startAmPm === $endAmPm) {
         // Same am/pm: omit from start time
-        return '{' . $dateStr . ' ' . $startTimeStr . '-' . $endTimeStr . $endAmPm . '}';
+        return $dateStr . ' ' . $startTimeStr . '-' . $endTimeStr . $endAmPm;
       } else {
         // Different am/pm: include both
-        return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . '-' . $endTimeStr . $endAmPm . '}';
+        return $dateStr . ' ' . $startTimeStr . $startAmPm . '-' . $endTimeStr . $endAmPm;
       }
     } else {
       // Different days: "November 7, 2025 1pm - November 8, 2025 9am"
