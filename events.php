@@ -46,29 +46,28 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   if ($s === false) return $startsAt;
   
   $dayAbbr = date('D', $s);
-  $dateStr = $dayAbbr . ' ' . date('F j, Y', $s);
+  $dateStr = date('F j, Y', $s);
   $startTime = formatTime($s);
   
   if (!$endsAt) {
-    return $dateStr . ' ' . $startTime;
+    return $dateStr . ' ' . $startTime . ' (' . $dayAbbr . ')';
   }
 
   $e = strtotime($endsAt);
   if ($e === false) {
-    return $dateStr . ' ' . $startTime;
+    return $dateStr . ' ' . $startTime . ' (' . $dayAbbr . ')';
   }
 
   $endTime = formatTime($e);
   
   if (date('Y-m-d', $s) === date('Y-m-d', $e)) {
-    // Same-day event: show as "Date StartTime - EndTime"
-    return $dateStr . ' ' . $startTime . ' - ' . $endTime;
+    // Same-day event: show as "Date StartTime - EndTime (Day)"
+    return $dateStr . ' ' . $startTime . ' - ' . $endTime . ' (' . $dayAbbr . ')';
   }
   
-  // Different-day event: show full end date
-  $endDayAbbr = date('D', $e);
-  $endDateStr = $endDayAbbr . ' ' . date('F j, Y', $e);
-  return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime;
+  // Different-day event: show full end date with start day
+  $endDateStr = date('F j, Y', $e);
+  return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime . ' (' . $dayAbbr . ')';
 }
 
 /**
