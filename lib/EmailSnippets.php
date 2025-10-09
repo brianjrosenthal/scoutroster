@@ -219,7 +219,7 @@ class EmailSnippets {
     $startDT = new DateTime($startsAt);
     
     // Format start date: "October 23, 2025"
-    $dateStr = $startDT->format('F j');
+    $dateStr = $startDT->format('F j,');
     
     // Format start time
     $startHour = (int)$startDT->format('G'); // 24-hour format
