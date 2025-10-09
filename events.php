@@ -45,7 +45,8 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   $s = strtotime($startsAt);
   if ($s === false) return $startsAt;
   
-  $dateStr = date('F j, Y', $s);
+  $dayAbbr = date('D', $s);
+  $dateStr = $dayAbbr . ' ' . date('F j, Y', $s);
   $startTime = formatTime($s);
   
   if (!$endsAt) {
@@ -65,7 +66,8 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   }
   
   // Different-day event: show full end date
-  $endDateStr = date('F j, Y', $e);
+  $endDayAbbr = date('D', $e);
+  $endDateStr = $endDayAbbr . ' ' . date('F j, Y', $e);
   return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime;
 }
 
