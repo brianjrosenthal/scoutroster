@@ -239,7 +239,7 @@ header_html('Expense Reimbursements');
       <span class="small">No bank account information please.</span>
     </label>
 
-    <label>Attach a file (optional)
+    <label>Attach a file (optional, you can add more later by editing the reimbursement)
       <input type="file" name="file" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp">
     </label>
     <div class="actions">
