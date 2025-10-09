@@ -25,6 +25,14 @@ try {
   $snippets = [];
 }
 
+// Generate dynamic snippets
+$upcomingEventsList = '';
+try {
+  $upcomingEventsList = EmailSnippets::generateUpcomingEventsList($ctx);
+} catch (Exception $e) {
+  $upcomingEventsList = 'Error loading upcoming events: ' . h($e->getMessage());
+}
+
 header_html('Email Snippets');
 ?>
 
@@ -32,6 +40,21 @@ header_html('Email Snippets');
 <p class="error"><?= h($error) ?></p>
 <?php endif; ?>
 
+<!-- Dynamic Snippets Section -->
+<div style="margin-bottom: 40px;">
+  <h2>Dynamic Snippets</h2>
+  <p style="color: #666; font-size: 14px; margin-bottom: 16px;">These snippets are automatically generated and updated in real-time.</p>
+  
+  <div class="snippet-item" style="margin-bottom: 20px; padding: 12px; border: 1px solid #ddd; border-radius: 4px;">
+    <div>
+      <strong>Upcoming Events (list)</strong>
+      <span style="color: #666; font-size: 14px; margin-left: 8px;">(next 3 months)</span>
+    </div>
+    <div style="margin-top: 8px; white-space: pre-wrap; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;"><?= h($upcomingEventsList) ?></div>
+  </div>
+</div>
+
+<!-- Saved Snippets Section -->
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
   <h2>Saved Snippets</h2>
   <button id="addSnippetBtn" style="padding: 8px 16px;">Add Snippet</button>

@@ -200,4 +200,103 @@ class EmailSnippets {
     
     return $ok;
   }
+
+  // =========================
+  // Dynamic Snippets
+  // =========================
+
+  /**
+   * Format a date/time range according to specific rules:
+   * - Drop minutes if :00
+   * - Drop am/pm if start and end have same am/pm
+   * - Don't repeat date if same day
+   * 
+   * @param string $startsAt Start datetime (Y-m-d H:i:s)
+   * @param string|null $endsAt End datetime (Y-m-d H:i:s) or null
+   * @return string Formatted date/time string
+   */
+  private static function formatEventDateTime(string $startsAt, ?string $endsAt): string {
+    $startDT = new DateTime($startsAt);
+    
+    // Format start date: "October 23, 2025"
+    $dateStr = $startDT->format('F j, Y');
+    
+    // Format start time
+    $startHour = (int)$startDT->format('G'); // 24-hour format
+    $startMin = (int)$startDT->format('i');
+    $startAmPm = $startDT->format('a'); // am or pm
+    
+    $startTimeStr = $startHour > 12 ? ($startHour - 12) : ($startHour == 0 ? 12 : $startHour);
+    if ($startMin > 0) {
+      $startTimeStr .= ':' . str_pad((string)$startMin, 2, '0', STR_PAD_LEFT);
+    }
+    
+    // If no end time, just return start
+    if (!$endsAt || trim($endsAt) === '') {
+      return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . '}';
+    }
+    
+    $endDT = new DateTime($endsAt);
+    
+    // Check if same day
+    $sameDay = $startDT->format('Y-m-d') === $endDT->format('Y-m-d');
+    
+    // Format end time
+    $endHour = (int)$endDT->format('G');
+    $endMin = (int)$endDT->format('i');
+    $endAmPm = $endDT->format('a');
+    
+    $endTimeStr = $endHour > 12 ? ($endHour - 12) : ($endHour == 0 ? 12 : $endHour);
+    if ($endMin > 0) {
+      $endTimeStr .= ':' . str_pad((string)$endMin, 2, '0', STR_PAD_LEFT);
+    }
+    
+    if ($sameDay) {
+      // Same day: "October 23, 2025 3-4:30pm" or "October 23, 2025 11am-1pm"
+      if ($startAmPm === $endAmPm) {
+        // Same am/pm: omit from start time
+        return '{' . $dateStr . ' ' . $startTimeStr . '-' . $endTimeStr . $endAmPm . '}';
+      } else {
+        // Different am/pm: include both
+        return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . '-' . $endTimeStr . $endAmPm . '}';
+      }
+    } else {
+      // Different days: "November 7, 2025 1pm - November 8, 2025 9am"
+      $endDateStr = $endDT->format('F j, Y');
+      return '{' . $dateStr . ' ' . $startTimeStr . $startAmPm . ' - ' . $endDateStr . ' ' . $endTimeStr . $endAmPm . '}';
+    }
+  }
+
+  /**
+   * Generate a formatted list of upcoming events for the next 3 months
+   * 
+   * @param UserContext|null $ctx User context for authorization
+   * @return string Formatted list of events ready to copy/paste
+   * @throws RuntimeException if user is not an approver
+   */
+  public static function generateUpcomingEventsList(?UserContext $ctx): string {
+    self::assertApprover($ctx);
+    
+    require_once __DIR__ . '/EventManagement.php';
+    
+    // Get events for next 3 months
+    $threeMonthsFromNow = date('Y-m-d H:i:s', strtotime('+3 months'));
+    $events = EventManagement::listBetween(date('Y-m-d H:i:s'), $threeMonthsFromNow);
+    
+    if (empty($events)) {
+      return 'No upcoming events in the next 3 months.';
+    }
+    
+    $lines = ['Upcoming Events:'];
+    
+    foreach ($events as $event) {
+      $dateTime = self::formatEventDateTime($event['starts_at'], $event['ends_at'] ?? null);
+      $name = $event['name'];
+      $location = !empty($event['location']) ? ', at ' . $event['location'] : '';
+      
+      $lines[] = '- ' . $dateTime . ' - ' . $name . $location;
+    }
+    
+    return implode("\n", $lines);
+  }
 }
