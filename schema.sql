@@ -189,6 +189,7 @@ CREATE TABLE events (
   location VARCHAR(255) DEFAULT NULL,
   location_address TEXT DEFAULT NULL,
   description TEXT DEFAULT NULL,
+  evaluation TEXT DEFAULT NULL,
   max_cub_scouts INT DEFAULT NULL,
   allow_non_user_rsvp TINYINT(1) NOT NULL DEFAULT 1,
   needs_medical_form TINYINT(1) NOT NULL DEFAULT 0,

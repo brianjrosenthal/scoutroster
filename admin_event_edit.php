@@ -79,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $location  = trim($_POST['location'] ?? '');
     $location_address = trim($_POST['location_address'] ?? '');
     $description = trim($_POST['description'] ?? '');
+    $evaluation = trim($_POST['evaluation'] ?? '');
     $allow_non_user_rsvp = isset($_POST['allow_non_user_rsvp']) ? 1 : 0;
     $needs_medical_form = isset($_POST['needs_medical_form']) ? 1 : 0;
     $rsvp_url = trim($_POST['rsvp_url'] ?? '');
@@ -100,11 +101,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'location' => ($location !== '' ? $location : null),
           'location_address' => ($location_address !== '' ? $location_address : null),
           'description' => ($description !== '' ? $description : null),
+          'evaluation' => ($evaluation !== '' ? $evaluation : null),
           'allow_non_user_rsvp' => $allow_non_user_rsvp,
           'needs_medical_form' => $needs_medical_form,
           'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
           'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
-          'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
+          'google_maps_url' => ($google_maps_url !=='' ? $google_maps_url : null),
         ];
         if ($id > 0) {
           $ok = EventManagement::update($ctx, $id, $data);
@@ -230,6 +232,22 @@ header_html($pageTitle);
     <label>Description
       <textarea name="description" rows="4"><?=h($editing['description'] ?? '')?></textarea>
     </label>
+    <?php
+      // Only show evaluation field if event is in the past
+      $showEvaluation = false;
+      if ($editing && !empty($editing['starts_at'])) {
+        $startsAt = strtotime($editing['starts_at']);
+        if ($startsAt !== false && $startsAt < time()) {
+          $showEvaluation = true;
+        }
+      }
+    ?>
+    <?php if ($showEvaluation): ?>
+    <label>Evaluation
+      <textarea name="evaluation" rows="4" placeholder="What did we learn from this event?"><?=h($editing['evaluation'] ?? '')?></textarea>
+    </label>
+    <p class="small">Capture lessons learned and reflections from this event.</p>
+    <?php endif; ?>
     <label>External RSVP URL
       <input type="url" name="rsvp_url" value="<?= h($editing['rsvp_url'] ?? '') ?>" placeholder="https://www.evite.com/... or https://facebook.com/events/...">
     </label>
