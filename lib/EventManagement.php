@@ -101,7 +101,7 @@ final class EventManagement {
    * Create an event. Data keys:
    * - name (required)
    * - starts_at (required, 'Y-m-d H:i:s')
-   * - ends_at, location, location_address, description, max_cub_scouts (int|null),
+   * - ends_at, location, location_address, description, evaluation, max_cub_scouts (int|null),
    *   allow_non_user_rsvp (0|1), rsvp_url, rsvp_url_label, google_maps_url
    */
   public static function create(\UserContext $ctx, array $data): int {
@@ -117,6 +117,7 @@ final class EventManagement {
     $location = self::nn($data['location'] ?? null);
     $location_address = self::nn($data['location_address'] ?? null);
     $description = self::nn($data['description'] ?? null);
+    $evaluation = self::nn($data['evaluation'] ?? null);
     $max_cub_scouts = isset($data['max_cub_scouts']) && $data['max_cub_scouts'] !== '' ? (int)$data['max_cub_scouts'] : null;
     $allow_non_user_rsvp = self::boolInt($data['allow_non_user_rsvp'] ?? 0);
     $needs_medical_form = self::boolInt($data['needs_medical_form'] ?? 0);
@@ -125,11 +126,11 @@ final class EventManagement {
     $google_maps_url = self::nn($data['google_maps_url'] ?? null);
 
     $sql = "INSERT INTO events
-      (name, starts_at, ends_at, location, location_address, description, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, google_maps_url)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+      (name, starts_at, ends_at, location, location_address, description, evaluation, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, google_maps_url)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute([
-      $name, $starts_at, $ends_at, $location, $location_address, $description,
+      $name, $starts_at, $ends_at, $location, $location_address, $description, $evaluation,
       $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $rsvp_url, $rsvp_url_label, $google_maps_url,
     ]);
     if (!$ok) throw new \RuntimeException('Failed to create event.');
@@ -147,7 +148,7 @@ final class EventManagement {
     self::assertAdmin($ctx);
 
     $allowed = [
-      'name','starts_at','ends_at','location','location_address','description',
+      'name','starts_at','ends_at','location','location_address','description','evaluation',
       'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','rsvp_url','rsvp_url_label','google_maps_url'
     ];
     $set = [];
