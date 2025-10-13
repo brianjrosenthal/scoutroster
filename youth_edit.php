@@ -175,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
   $leftTroop = !empty($_POST['left_troop']) ? 1 : 0;
+  $includeInMostEmails = !empty($_POST['include_in_most_emails']) ? 1 : 0;
 
   // Admin/Approver optional fields
   $regExpires = trim($_POST['bsa_registration_expires_date'] ?? '');
@@ -245,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       ];
       if ($isAdmin) {
         $data['bsa_registration_number'] = ($bsa !== '' ? $bsa : null);
+        $data['include_in_most_emails'] = $includeInMostEmails;
       }
       // bsa_registration_expires_date is import-only and not editable here
       // date_paid_until is managed via the "Mark Paid for this year" modal action, not via the main form
@@ -450,6 +452,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php endif; ?>
       <label class="inline"><input type="checkbox" name="sibling" value="1" <?= !empty($y['sibling']) ? 'checked' : '' ?>> Sibling</label>
       <label class="inline"><input type="checkbox" name="left_troop" value="1" <?= !empty($y['left_troop']) ? 'checked' : '' ?>> Left Troop</label>
+      <?php if ($isAdmin): ?>
+        <label class="inline"><input type="checkbox" name="include_in_most_emails" value="1" <?= !empty($y['include_in_most_emails']) ? 'checked' : '' ?>> Include in most emails (Active Lead)</label>
+      <?php endif; ?>
     </div>
 
     <h3>Address</h3>
