@@ -190,6 +190,7 @@ class MembershipReport {
         y.left_troop
       FROM youth y
       WHERE y.left_troop = 0
+        AND y.sibling = 0
         AND y.bsa_registration_number IS NOT NULL
         AND y.bsa_registration_number != ''
     ";

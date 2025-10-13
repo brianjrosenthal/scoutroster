@@ -205,7 +205,7 @@ header_html('Send Event Invitations');
     <fieldset>
       <legend>Filter adults by:</legend>
       <?php
-        $regStatus = $_POST['registration_status'] ?? 'registered';
+        $regStatus = $_POST['registration_status'] ?? 'registered_plus_leads';
         $selectedGrades = $_POST['grades'] ?? [];
         $rsvpStatus = $_POST['rsvp_status'] ?? 'all';
         $specificAdultIds = $_POST['specific_adult_ids'] ?? [];
@@ -225,7 +225,8 @@ header_html('Send Event Invitations');
       <div style="margin-bottom: 16px;">
         <label><strong>Core Group:</strong></label>
         <div style="margin-left: 16px;">
-          <label class="inline"><input type="radio" name="registration_status" value="registered" <?= ($regStatus==='registered' || ($regStatus!=='all' && $regStatus!=='leadership' && $regStatus!=='unregistered'))?'checked':'' ?>> Registered only</label>
+          <label class="inline"><input type="radio" name="registration_status" value="registered_plus_leads" <?= $regStatus==='registered_plus_leads'?'checked':'' ?>> Registered + Active Leads</label>
+          <label class="inline"><input type="radio" name="registration_status" value="registered" <?= $regStatus==='registered'?'checked':'' ?>> Registered only</label>
           <label class="inline"><input type="radio" name="registration_status" value="all" <?= $regStatus==='all'?'checked':'' ?>> All</label>
           <label class="inline"><input type="radio" name="registration_status" value="leadership" <?= $regStatus==='leadership'?'checked':'' ?>> Leadership</label>
           <label class="inline"><input type="radio" name="registration_status" value="unregistered" <?= $regStatus==='unregistered'?'checked':'' ?>> Unregistered only</label>

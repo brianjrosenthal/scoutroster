@@ -15,13 +15,13 @@ class MailingListManagement {
    * Build filters array:
    * - q: ?string
    * - class_of: ?int
-   * - registered: 'all' | 'all_inactive' | 'yes' | 'no'
+   * - registered: 'all' | 'all_inactive' | 'yes' | 'no' | 'registered_plus_leads'
    */
   public static function normalizeFilters(array $filters): array {
     $out = [
       'q' => null,
       'class_of' => null,
-      'registered' => 'all',
+      'registered' => 'registered_plus_leads',  // Changed default
     ];
     if (isset($filters['q'])) {
       $q = trim((string)$filters['q']);
@@ -36,10 +36,10 @@ class MailingListManagement {
     }
     if (isset($filters['registered'])) {
       $r = strtolower(trim((string)$filters['registered']));
-      if (in_array($r, ['yes', 'no', 'all_inactive'], true)) {
+      if (in_array($r, ['yes', 'no', 'all_inactive', 'registered_plus_leads', 'all'], true)) {
         $out['registered'] = $r;
       } else {
-        $out['registered'] = 'all';
+        $out['registered'] = 'registered_plus_leads';  // Changed default
       }
     }
     return $out;
@@ -132,6 +132,42 @@ class MailingListManagement {
   }
 
   /**
+   * Get adults who are parents of youth marked with include_in_most_emails = 1
+   */
+  private static function getParentsOfActiveLeads(array $filters): array {
+    $f = self::normalizeFilters($filters);
+    $params = [];
+    
+    $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email 
+            FROM users u
+            JOIN parent_relationships pr ON pr.adult_id = u.id
+            JOIN youth y ON y.id = pr.youth_id
+            WHERE y.include_in_most_emails = 1
+              AND y.left_troop = 0";
+    
+    // Apply search filter if provided
+    if (!empty($f['q'])) {
+      $tokens = \Search::tokenize($f['q']);
+      $sql .= \Search::buildAndLikeClause(
+        ['u.first_name','u.last_name','u.email'],
+        $tokens,
+        $params
+      );
+    }
+    
+    // Apply grade filter if provided
+    if ($f['class_of'] !== null) {
+      $sql .= " AND y.class_of = ?";
+      $params[] = (int)$f['class_of'];
+    }
+    
+    $sql .= " ORDER BY u.last_name, u.first_name";
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll() ?: [];
+  }
+
+  /**
    * Filter out unsubscribed adults from a list of adults.
    * Returns only adults who are not unsubscribed from emails.
    */
@@ -165,6 +201,24 @@ class MailingListManagement {
     if ($f['registered'] === 'yes') {
       // Return only parents of registered youth
       $adults = self::getParentsOfRegisteredYouth($filters);
+      return self::filterUnsubscribedAdults($adults);
+    }
+    
+    if ($f['registered'] === 'registered_plus_leads') {
+      // Return parents of registered youth PLUS parents of active leads
+      $registeredParents = self::getParentsOfRegisteredYouth($filters);
+      $activeLeadParents = self::getParentsOfActiveLeads($filters);
+      
+      // Merge and deduplicate by user ID
+      $adultsById = [];
+      foreach ($registeredParents as $adult) {
+        $adultsById[(int)$adult['id']] = $adult;
+      }
+      foreach ($activeLeadParents as $adult) {
+        $adultsById[(int)$adult['id']] = $adult;
+      }
+      
+      $adults = array_values($adultsById);
       return self::filterUnsubscribedAdults($adults);
     }
     

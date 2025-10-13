@@ -95,6 +95,7 @@ CREATE TABLE youth (
   class_of INT NOT NULL,     -- grade computed from class_of
   sibling TINYINT(1) NOT NULL DEFAULT 0,
   left_troop TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Indicates if the youth has left the troop (decided not to continue with scouts)',
+  include_in_most_emails TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Include this youth''s family in most email communications (active leads)',
 
   -- Dietary preferences
   dietary_vegetarian TINYINT(1) NOT NULL DEFAULT 0,
@@ -110,6 +111,7 @@ CREATE TABLE youth (
 
 CREATE INDEX idx_youth_class_of ON youth(class_of);
 CREATE INDEX idx_youth_last_first ON youth(last_name, first_name);
+CREATE INDEX idx_youth_include_in_most_emails ON youth(include_in_most_emails);
 
 -- Parent relationships (adult is parent/guardian of youth)
 CREATE TABLE parent_relationships (
