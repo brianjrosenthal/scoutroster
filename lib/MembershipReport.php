@@ -172,9 +172,11 @@ class MembershipReport {
    * @return array Array of youth who haven't renewed
    */
   public static function getNonRenewedMembers(): array {
-    $nextJune1st = self::getNextJune1st();
-    $lastJune1st = self::getLastJune1st();
-
+    // First get all current member IDs
+    $currentMembers = self::getMembers();
+    $currentMemberIds = array_column($currentMembers, 'id');
+    
+    // Build the query with NOT IN clause
     $sql = "
       SELECT DISTINCT
         y.id,
@@ -190,36 +192,18 @@ class MembershipReport {
       WHERE y.left_troop = 0
         AND y.bsa_registration_number IS NOT NULL
         AND y.bsa_registration_number != ''
-        AND NOT (
-          -- Exclude those who meet current member criteria
-          (y.bsa_registration_expires_date > :next_june_1st_1)
-          OR
-          EXISTS (
-            SELECT 1 FROM payment_notifications_from_users pn
-            WHERE pn.youth_id = y.id 
-              AND pn.status != 'deleted'
-              AND pn.created_at >= :last_june_1st_1
-          )
-          OR
-          EXISTS (
-            SELECT 1 FROM pending_registrations pr
-            WHERE pr.youth_id = y.id 
-              AND pr.status != 'deleted'
-              AND pr.created_at >= :last_june_1st_2
-          )
-          OR
-          (y.date_paid_until > :next_june_1st_2)
-        )
-      ORDER BY y.class_of DESC, y.last_name, y.first_name
     ";
+    
+    // Add NOT IN clause if there are current members to exclude
+    if (!empty($currentMemberIds)) {
+      $placeholders = str_repeat('?,', count($currentMemberIds) - 1) . '?';
+      $sql .= " AND y.id NOT IN ($placeholders)";
+    }
+    
+    $sql .= " ORDER BY y.class_of DESC, y.last_name, y.first_name";
 
     $stmt = self::pdo()->prepare($sql);
-    $stmt->execute([
-      ':next_june_1st_1' => $nextJune1st,
-      ':next_june_1st_2' => $nextJune1st,
-      ':last_june_1st_1' => $lastJune1st,
-      ':last_june_1st_2' => $lastJune1st,
-    ]);
+    $stmt->execute($currentMemberIds);
 
     $nonRenewed = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
