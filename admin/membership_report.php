@@ -36,6 +36,7 @@ if (isset($_GET['export']) && $_GET['export'] === 'csv') {
 // Get membership data
 $counts = MembershipReport::getMembershipCounts();
 $membersByGrade = MembershipReport::getMembersByGrade();
+$nonRenewedByGrade = MembershipReport::getNonRenewedByGrade();
 
 header_html('Membership Report');
 ?>
@@ -51,7 +52,7 @@ header_html('Membership Report');
 
 <div class="card">
   <h3>Membership Summary</h3>
-  <p><strong>Total Members: <?php echo $counts['total']; ?></strong></p>
+  <p><strong>Total Members: <?php echo $counts['total']; ?><?php if ($counts['non_renewed_total'] > 0): ?> (not yet renewed: <?php echo $counts['non_renewed_total']; ?>)<?php endif; ?></strong></p>
   
   <?php if (!empty($counts['by_grade'])): ?>
     <h4>By Grade:</h4>
@@ -70,10 +71,12 @@ header_html('Membership Report');
         return (int)$b - (int)$a;
       });
       
-      foreach ($grades as $grade => $count): ?>
+      foreach ($grades as $grade => $count): 
+        $notRenewed = $counts['non_renewed_by_grade'][$grade] ?? 0;
+      ?>
         <li style="margin: 4px 0;">
           <strong>Grade <?php echo htmlspecialchars($grade); ?>:</strong> 
-          <?php echo $count; ?> <?php echo $count === 1 ? 'Scout' : 'Scouts'; ?>
+          <?php echo $count; ?> <?php echo $count === 1 ? 'Scout' : 'Scouts'; ?><?php if ($notRenewed > 0): ?> (not yet renewed: <?php echo $notRenewed; ?>)<?php endif; ?>
         </li>
       <?php endforeach; ?>
     </ul>
@@ -137,6 +140,60 @@ header_html('Membership Report');
     <?php endforeach; ?>
   <?php endif; ?>
 </div>
+
+<?php if (!empty($nonRenewedByGrade)): ?>
+<div class="card">
+  <h3>Members Last Year That Haven't Renewed</h3>
+  <p>These Scouts had a BSA registration previously but haven't completed their renewal for this year.</p>
+  
+  <?php
+  // Sort grades in descending order
+  uksort($nonRenewedByGrade, function($a, $b) {
+    if ($a === 'K') return 1;
+    if ($b === 'K') return -1;
+    if (strpos($a, 'Pre-K') === 0) return 1;
+    if (strpos($b, 'Pre-K') === 0) return -1;
+    return (int)$b - (int)$a;
+  });
+  
+  foreach ($nonRenewedByGrade as $grade => $members): ?>
+    <h4>Grade <?php echo htmlspecialchars($grade); ?></h4>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>BSA Registration ID</th>
+          <th>Registration Expires</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php foreach ($members as $member): ?>
+          <tr>
+            <td>
+              <a href="/youth_edit.php?id=<?php echo $member['id']; ?>">
+                <?php echo htmlspecialchars($member['display_name'] . ' ' . $member['last_name']); ?>
+              </a>
+            </td>
+            <td>
+              <?php echo htmlspecialchars($member['bsa_registration_number']); ?>
+            </td>
+            <td>
+              <?php 
+              if (!empty($member['bsa_registration_expires_date'])) {
+                $expDate = new DateTime($member['bsa_registration_expires_date']);
+                echo $expDate->format('M j, Y');
+              } else {
+                echo '<em>N/A</em>';
+              }
+              ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <h3>Membership Criteria</h3>

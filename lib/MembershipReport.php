@@ -163,15 +163,133 @@ class MembershipReport {
   }
 
   /**
-   * Get membership counts overall and by grade.
+   * Get youth who have not renewed this year but were members last year.
+   * These are youth who:
+   * - Have a BSA registration number (indicating previous membership)
+   * - Have not left the troop
+   * - Do NOT meet current member criteria
+   * 
+   * @return array Array of youth who haven't renewed
+   */
+  public static function getNonRenewedMembers(): array {
+    $nextJune1st = self::getNextJune1st();
+    $lastJune1st = self::getLastJune1st();
+
+    $sql = "
+      SELECT DISTINCT
+        y.id,
+        y.first_name,
+        y.last_name,
+        y.preferred_name,
+        y.class_of,
+        y.bsa_registration_number,
+        y.bsa_registration_expires_date,
+        y.date_paid_until,
+        y.left_troop
+      FROM youth y
+      WHERE y.left_troop = 0
+        AND y.bsa_registration_number IS NOT NULL
+        AND y.bsa_registration_number != ''
+        AND NOT (
+          -- Exclude those who meet current member criteria
+          (y.bsa_registration_expires_date > :next_june_1st_1)
+          OR
+          EXISTS (
+            SELECT 1 FROM payment_notifications_from_users pn
+            WHERE pn.youth_id = y.id 
+              AND pn.status != 'deleted'
+              AND pn.created_at >= :last_june_1st_1
+          )
+          OR
+          EXISTS (
+            SELECT 1 FROM pending_registrations pr
+            WHERE pr.youth_id = y.id 
+              AND pr.status != 'deleted'
+              AND pr.created_at >= :last_june_1st_2
+          )
+          OR
+          (y.date_paid_until > :next_june_1st_2)
+        )
+      ORDER BY y.class_of DESC, y.last_name, y.first_name
+    ";
+
+    $stmt = self::pdo()->prepare($sql);
+    $stmt->execute([
+      ':next_june_1st_1' => $nextJune1st,
+      ':next_june_1st_2' => $nextJune1st,
+      ':last_june_1st_1' => $lastJune1st,
+      ':last_june_1st_2' => $lastJune1st,
+    ]);
+
+    $nonRenewed = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Calculate grade for each non-renewed member
+    foreach ($nonRenewed as &$member) {
+      $member['grade'] = GradeCalculator::gradeForClassOf((int)$member['class_of']);
+      $member['grade_label'] = GradeCalculator::gradeLabel($member['grade']);
+      $member['display_name'] = $member['preferred_name'] ?: $member['first_name'];
+    }
+
+    return $nonRenewed;
+  }
+
+  /**
+   * Get counts of non-renewed members overall and by grade.
    * 
    * @return array Array with 'total' and 'by_grade' keys
    */
+  public static function getNonRenewedCounts(): array {
+    $nonRenewed = self::getNonRenewedMembers();
+    $counts = [
+      'total' => count($nonRenewed),
+      'by_grade' => []
+    ];
+
+    foreach ($nonRenewed as $member) {
+      $gradeLabel = $member['grade_label'];
+      if (!isset($counts['by_grade'][$gradeLabel])) {
+        $counts['by_grade'][$gradeLabel] = 0;
+      }
+      $counts['by_grade'][$gradeLabel]++;
+    }
+
+    return $counts;
+  }
+
+  /**
+   * Get non-renewed members organized by grade.
+   * 
+   * @return array Associative array keyed by grade label
+   */
+  public static function getNonRenewedByGrade(): array {
+    $nonRenewed = self::getNonRenewedMembers();
+    $byGrade = [];
+
+    foreach ($nonRenewed as $member) {
+      $gradeLabel = $member['grade_label'];
+      if (!isset($byGrade[$gradeLabel])) {
+        $byGrade[$gradeLabel] = [];
+      }
+      $byGrade[$gradeLabel][] = $member;
+    }
+
+    return $byGrade;
+  }
+
+  /**
+   * Get membership counts overall and by grade.
+   * 
+   * @return array Array with 'total', 'by_grade', 'non_renewed_total', and 'non_renewed_by_grade' keys
+   */
   public static function getMembershipCounts(): array {
     $members = self::getMembers();
+    $nonRenewed = self::getNonRenewedMembers();
+    
     $counts = [
       'total' => count($members),
-      'by_grade' => []
+      'by_grade' => [],
+      'non_renewed_total' => count($nonRenewed),
+      'non_renewed_by_grade' => []
     ];
 
     foreach ($members as $member) {
@@ -180,6 +298,14 @@ class MembershipReport {
         $counts['by_grade'][$gradeLabel] = 0;
       }
       $counts['by_grade'][$gradeLabel]++;
+    }
+
+    foreach ($nonRenewed as $member) {
+      $gradeLabel = $member['grade_label'];
+      if (!isset($counts['non_renewed_by_grade'][$gradeLabel])) {
+        $counts['non_renewed_by_grade'][$gradeLabel] = 0;
+      }
+      $counts['non_renewed_by_grade'][$gradeLabel]++;
     }
 
     return $counts;
@@ -207,15 +333,21 @@ class MembershipReport {
 
   /**
    * Export membership report to CSV format.
+   * Includes both current members and non-renewed members.
    * 
    * @return string CSV content
    */
   public static function exportToCSV(): string {
     $members = self::getMembers();
+    $nonRenewed = self::getNonRenewedMembers();
     
     $output = fopen('php://temp', 'r+');
     
-    // Write header
+    // Write section header for current members
+    fputcsv($output, ['CURRENT MEMBERS']);
+    fputcsv($output, []);
+    
+    // Write header for current members
     fputcsv($output, [
       'Grade',
       'Name',
@@ -225,7 +357,7 @@ class MembershipReport {
       'Status'
     ]);
     
-    // Write data rows
+    // Write current member data rows
     foreach ($members as $member) {
       $name = trim($member['display_name'] . ' ' . $member['last_name']);
       $bsaId = !empty($member['bsa_registration_number']) ? $member['bsa_registration_number'] : 'pending';
@@ -238,6 +370,37 @@ class MembershipReport {
         $member['date_paid_until'] ?? '',
         ucfirst($member['status'])
       ]);
+    }
+    
+    // Add non-renewed members section if any exist
+    if (!empty($nonRenewed)) {
+      // Add blank rows for separation
+      fputcsv($output, []);
+      fputcsv($output, []);
+      
+      // Write section header for non-renewed members
+      fputcsv($output, ['MEMBERS LAST YEAR THAT HAVEN\'T RENEWED']);
+      fputcsv($output, []);
+      
+      // Write header for non-renewed members
+      fputcsv($output, [
+        'Grade',
+        'Name',
+        'BSA Registration ID',
+        'BSA Registration Expires'
+      ]);
+      
+      // Write non-renewed member data rows
+      foreach ($nonRenewed as $member) {
+        $name = trim($member['display_name'] . ' ' . $member['last_name']);
+        
+        fputcsv($output, [
+          $member['grade_label'],
+          $name,
+          $member['bsa_registration_number'] ?? '',
+          $member['bsa_registration_expires_date'] ?? ''
+        ]);
+      }
     }
     
     rewind($output);
