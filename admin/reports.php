@@ -30,6 +30,14 @@ header_html('Reports');
   <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
     
     <div class="card" style="margin: 0;">
+      <h4>Membership Report</h4>
+      <p>View all Scouts who have joined or renewed their membership this year, with counts by grade and status.</p>
+      <div class="actions">
+        <a class="button primary" href="/admin/membership_report.php">View Membership Report</a>
+      </div>
+    </div>
+    
+    <div class="card" style="margin: 0;">
       <h4>Pending Registrations</h4>
       <p>Review and process new Scout registration applications submitted by families.</p>
       <div class="actions">
