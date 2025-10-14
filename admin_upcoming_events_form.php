@@ -167,8 +167,8 @@ header_html('Upcoming Events Email');
     </fieldset>
 
     <label>Subject
-      <input type="text" name="subject" value="<?= h($_GET['subject'] ?? $_POST['subject'] ?? 'Cub Scout Upcoming Events') ?>" readonly>
-      <span class="small">Fixed subject line for upcoming events emails</span>
+      <input type="text" name="subject" value="<?= h($_GET['subject'] ?? $_POST['subject'] ?? 'Cub Scout Upcoming Events') ?>">
+      <span class="small">Customize the subject line for this upcoming events email</span>
     </label>
 
     <?php
