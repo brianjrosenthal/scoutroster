@@ -99,6 +99,14 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
     <?php endif; ?>
     <?php if ($isAdmin): ?>
       <a class="button" href="/admin_event_edit.php">Add Event</a>
+      <?php
+        // Show "Upcoming Events Email" link for Key 3 only
+        require_once __DIR__ . '/lib/UserContext.php';
+        $ctx = UserContext::getLoggedInUserContext();
+        if ($ctx && UserManagement::isApprover((int)$ctx->id)):
+      ?>
+        <a class="button" href="/admin_upcoming_events_form.php">Upcoming Events Email</a>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 </div>
