@@ -28,8 +28,8 @@ $rsvpLabel = trim((string)($e['rsvp_url_label'] ?? ''));
 // Flash after RSVP save
 $flashSaved = !empty($_GET['rsvp']);
 
- // Load my RSVP (if any) - creator-preferred; else membership-based
- $myRsvp = RSVPManagement::findMyRsvpForEvent((int)$id, (int)$me['id']);
+ // Load my RSVP (if any) - uses family-aware lookup to find RSVPs from any family member
+ $myRsvp = RSVPManagement::getRSVPForFamilyByAdultID((int)$id, (int)$me['id']);
 
 // Build my RSVP summary
 $mySummaryParts = [];

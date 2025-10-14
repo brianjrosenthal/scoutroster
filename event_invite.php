@@ -124,7 +124,7 @@ foreach ($coParents as $cp) { $adultIdsAllowed[] = (int)$cp['id']; }
 $adultIdsAllowed = array_values(array_unique($adultIdsAllowed));
 $adultIdsAllowedSet = array_flip($adultIdsAllowed);
 
-$inviteeRsvp = RSVPManagement::findMyRsvpForEvent((int)$eventId, (int)$uid);
+$inviteeRsvp = RSVPManagement::getRSVPForFamilyByAdultID((int)$eventId, (int)$uid);
 
 $selectedAdults = [];
 $selectedYouth = [];
