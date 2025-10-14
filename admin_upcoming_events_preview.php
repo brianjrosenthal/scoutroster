@@ -252,13 +252,18 @@ header_html('Preview Upcoming Events Email');
   <h3>Email Preview</h3>
   <div id="emailPreviewContent" style="border: 1px solid #ddd; border-radius: 4px; padding: 16px; background: #f8f9fa;">
     <?php
-      // Generate preview (with placeholder links, not personalized)
-      $previewContent = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
+      // First apply markdown formatting to the text
+      $previewHtml = Text::renderMarkup($previewData['description']);
+      
+      // Then replace {link_event_X} tokens with HTML links (after markdown processing)
+      $previewHtml = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
         $eventId = $matches[1];
         return '<a href="' . htmlspecialchars($baseUrl . '/event.php?id=' . $eventId, ENT_QUOTES, 'UTF-8') . '" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>';
-      }, $previewData['description']);
+      }, $previewHtml);
+      
+      // Output the HTML directly (it's already safe)
+      echo $previewHtml;
     ?>
-    <?= Text::renderMarkup($previewContent) ?>
   </div>
 </div>
 
