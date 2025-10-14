@@ -18,7 +18,7 @@ if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') {
   exit;
 }
 
-$eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : 0;
+$eventId = isset($_POST['event_id']) ? (int)$_POST['event_id'] : (isset($_GET['event_id']) ? (int)$_GET['event_id'] : 0);
 if ($eventId <= 0) { http_response_code(400); exit('Missing event_id'); }
 
 // Load event

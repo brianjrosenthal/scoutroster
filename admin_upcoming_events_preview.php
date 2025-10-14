@@ -152,6 +152,16 @@ try {
     'count' => count($finalRecipients)
   ];
 
+  // Store data for POST back to form
+  $backParams = [
+    'registration_status' => $filters['registration_status'],
+    'suppress_policy' => $suppressPolicy,
+    'subject' => $subject,
+    'description' => $description,
+    'grades' => $filters['grades'],
+    'specific_adult_ids' => $filters['specific_adult_ids']
+  ];
+
 } catch (Throwable $e) {
   $error = $e->getMessage() ?: 'Failed to prepare emails.';
   header('Location: /admin_upcoming_events_form.php?error=' . urlencode($error));
@@ -185,36 +195,20 @@ header_html('Preview Upcoming Events Email');
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;">Preview Upcoming Events Email</h2>
   <div style="display: flex; gap: 8px;">
-    <?php
-      // Build URL to go back with all form data pre-populated
-      $backParams = [
-        'registration_status' => $_POST['registration_status'] ?? 'registered_plus_leads',
-        'suppress_policy' => $_POST['suppress_policy'] ?? 'last_24_hours',
-        'subject' => $_POST['subject'] ?? 'Cub Scout Upcoming Events',
-        'description' => $_POST['description'] ?? ''
-      ];
-      
-      // Add grades if any
-      $grades = $_POST['grades'] ?? [];
-      if (is_string($grades)) {
-        $grades = explode(',', $grades);
-      }
-      foreach (array_filter(array_map('intval', (array)$grades)) as $grade) {
-        $backParams['grades'][] = $grade;
-      }
-      
-      // Add specific adults if any
-      $specificAdults = $_POST['specific_adult_ids'] ?? [];
-      if (is_string($specificAdults)) {
-        $specificAdults = explode(',', $specificAdults);
-      }
-      foreach (array_filter(array_map('intval', (array)$specificAdults)) as $adultId) {
-        $backParams['specific_adult_ids'][] = $adultId;
-      }
-      
-      $backUrl = '/admin_upcoming_events_form.php?' . http_build_query($backParams);
-    ?>
-    <a class="button" href="<?= h($backUrl) ?>">← Edit Settings</a>
+    <form method="post" action="/admin_upcoming_events_form.php" style="display: inline; margin: 0;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="registration_status" value="<?= h($backParams['registration_status']) ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($backParams['suppress_policy']) ?>">
+      <input type="hidden" name="subject" value="<?= h($backParams['subject']) ?>">
+      <input type="hidden" name="description" value="<?= h($backParams['description']) ?>">
+      <?php foreach ($backParams['grades'] as $grade): ?>
+        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
+      <?php endforeach; ?>
+      <?php foreach ($backParams['specific_adult_ids'] as $adultId): ?>
+        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
+      <?php endforeach; ?>
+      <button type="submit" class="button">← Edit Settings</button>
+    </form>
     <a class="button" href="/events.php">Back to Events</a>
   </div>
 </div>
@@ -258,7 +252,20 @@ header_html('Preview Upcoming Events Email');
     <button type="button" id="sendEmailsBtn" class="primary button" style="background-color: #dc2626; color: white;">
       Send <?= (int)$previewData['count'] ?> Emails Now
     </button>
-    <a class="button" href="<?= h($backUrl) ?>">← Go Back to Edit</a>
+    <form method="post" action="/admin_upcoming_events_form.php" style="display: inline; margin: 0;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="registration_status" value="<?= h($backParams['registration_status']) ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($backParams['suppress_policy']) ?>">
+      <input type="hidden" name="subject" value="<?= h($backParams['subject']) ?>">
+      <input type="hidden" name="description" value="<?= h($backParams['description']) ?>">
+      <?php foreach ($backParams['grades'] as $grade): ?>
+        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
+      <?php endforeach; ?>
+      <?php foreach ($backParams['specific_adult_ids'] as $adultId): ?>
+        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
+      <?php endforeach; ?>
+      <button type="submit" class="button">← Go Back to Edit</button>
+    </form>
   </div>
   
   <div id="sendProgress" style="display:none; margin-top: 20px;">
