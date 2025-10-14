@@ -88,3 +88,7 @@ Some of the files in the current system have if branches at their top which hand
 
 ## GET vs POST
 Web requests that don't modify data should generally be GET requests.  Web requests that modify persistent data (not logging to disk or traffic logging, but modifying important data in the database) should generally be POST requests.
+
+## On thoroughness
+
+I've noticed recently that I need to push a lot for work done within this project to be thorough.  When you are planning what to do, I'd like you to make sure that you're thorough.  Make sure the functions you call actually exist.  Make sure that if you change something, you consider all the implications of the change.
