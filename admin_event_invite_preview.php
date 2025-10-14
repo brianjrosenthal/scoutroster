@@ -336,7 +336,7 @@ try {
   $filters = [
     'registration_status' => $_POST['registration_status'] ?? 'all',
     'grades' => $_POST['grades'] ?? [],
-    'rsvp_status' => $emailType === 'upcoming_events' ? 'all' : ($_POST['rsvp_status'] ?? 'all'),
+    'rsvp_status' => $_POST['rsvp_status'] ?? 'all',
     'event_id' => $eventId,
     'specific_adult_ids' => $_POST['specific_adult_ids'] ?? []
   ];
