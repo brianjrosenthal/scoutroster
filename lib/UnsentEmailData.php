@@ -27,7 +27,7 @@ final class UnsentEmailData {
    * Create a new unsent email record.
    * 
    * @param UserContext $ctx User context for audit logging
-   * @param int $eventId Event ID this email is for
+   * @param int $eventId Event ID this email is for (0 for non-event-specific emails like upcoming events digest)
    * @param int $userId User ID this email is being sent to
    * @param string $subject Email subject line
    * @param string $body Email HTML body content
@@ -44,7 +44,7 @@ final class UnsentEmailData {
     string $body, 
     ?string $icsContent = null
   ): int {
-    if ($eventId <= 0) {
+    if ($eventId < 0) {
       throw new \InvalidArgumentException('Invalid event ID');
     }
     if ($userId <= 0) {
@@ -84,6 +84,40 @@ final class UnsentEmailData {
     ]);
     
     return $emailId;
+  }
+
+  /**
+   * Get an unsent email record by ID.
+   * 
+   * @param int $id Email record ID
+   * @return array|null Email data or null if not found
+   */
+  public static function getById(int $id): ?array {
+    if ($id <= 0) return null;
+    
+    $stmt = self::pdo()->prepare('
+      SELECT * FROM unsent_email_data WHERE id = ?
+    ');
+    
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+  }
+
+  /**
+   * Delete an unsent email record by ID.
+   * 
+   * @param int $id Email record ID
+   * @return bool True if deleted successfully
+   */
+  public static function deleteById(int $id): bool {
+    if ($id <= 0) return false;
+    
+    $stmt = self::pdo()->prepare('
+      DELETE FROM unsent_email_data WHERE id = ?
+    ');
+    
+    return $stmt->execute([$id]) && $stmt->rowCount() > 0;
   }
 
   /**

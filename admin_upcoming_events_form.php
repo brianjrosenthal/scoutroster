@@ -217,10 +217,8 @@ header_html('Upcoming Events Email');
     clearTimeout(countTimeout);
     countTimeout = setTimeout(() => {
       const formData = new FormData(form);
-      // Add a fake event_id since the count endpoint expects it (but ignores it for our purposes)
-      formData.append('event_id', '0');
       
-      fetch('admin_event_invite_count_recipients.php', {
+      fetch('admin_upcoming_events_count_recipients.php', {
         method: 'POST',
         body: formData
       })
