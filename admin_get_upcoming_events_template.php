@@ -33,7 +33,7 @@ try {
   }
   
   // Build the template with real events
-  $lines = ["Sharing a list of upcoming events with RSVP links to make it easy to RSVP:", ""];
+  $lines = ["Sharing a list of upcoming events with RSVP links to make it easy to RSVP:"];
   
   $counter = 1;
   foreach ($events as $event) {
@@ -43,8 +43,7 @@ try {
     $location = !empty($event['location']) ? ', at ' . $event['location'] : '';
     $eventId = (int)$event['id'];
     
-    $lines[] = "{$counter}. {$dateTime} - {$name}{$location} [RSVP Link]({link_event_{$eventId}})";
-    $lines[] = "";
+    $lines[] = "{$counter}. {$dateTime} - {$name}{$location} [rsvp]({link_event_{$eventId}})";
     $counter++;
   }
   
@@ -69,8 +68,8 @@ try {
 function formatEventDateTime(string $startsAt, ?string $endsAt): string {
   $startDT = new DateTime($startsAt);
   
-  // Format start date: "October 23, 2025"
-  $dateStr = $startDT->format('F j');
+  // Format start date with day of week: "Saturday October 23"
+  $dateStr = $startDT->format('l F j');
   
   // Format start time
   $startHour = (int)$startDT->format('G');

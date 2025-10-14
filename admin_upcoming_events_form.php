@@ -90,9 +90,10 @@ header_html('Upcoming Events Email');
     <fieldset>
       <legend>Filter adults by:</legend>
       <?php
-        $regStatus = $_POST['registration_status'] ?? 'registered_plus_leads';
-        $selectedGrades = $_POST['grades'] ?? [];
-        $specificAdultIds = $_POST['specific_adult_ids'] ?? [];
+        // Read from GET params first (when coming back from preview), then POST, then defaults
+        $regStatus = $_GET['registration_status'] ?? $_POST['registration_status'] ?? 'registered_plus_leads';
+        $selectedGrades = $_GET['grades'] ?? $_POST['grades'] ?? [];
+        $specificAdultIds = $_GET['specific_adult_ids'] ?? $_POST['specific_adult_ids'] ?? [];
         
         // Normalize arrays from form data
         if (is_string($selectedGrades)) {
@@ -128,7 +129,7 @@ header_html('Upcoming Events Email');
       <div style="margin-bottom: 16px;">
         <label><strong>Suppress duplicate policy:</strong></label>
         <div style="margin-left: 16px;">
-          <?php $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
+          <?php $suppressPolicy = $_GET['suppress_policy'] ?? $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
           <label class="inline"><input type="radio" name="suppress_policy" value="last_24_hours" <?= $suppressPolicy==='last_24_hours'?'checked':'' ?>> Don't send if sent in last 24 hours</label>
           <label class="inline"><input type="radio" name="suppress_policy" value="none" <?= $suppressPolicy==='none'?'checked':'' ?>> No suppression (send to everyone)</label>
           <br><span class="small">Prevent duplicate emails within 24 hours, or send regardless of previous sends</span>
@@ -167,13 +168,13 @@ header_html('Upcoming Events Email');
     </fieldset>
 
     <label>Subject
-      <input type="text" name="subject" value="<?= h($_POST['subject'] ?? 'Cub Scout Upcoming Events') ?>" readonly>
+      <input type="text" name="subject" value="<?= h($_GET['subject'] ?? $_POST['subject'] ?? 'Cub Scout Upcoming Events') ?>" readonly>
       <span class="small">Fixed subject line for upcoming events emails</span>
     </label>
 
     <?php
       $defaultBody = "Loading upcoming events...";
-      $currentBody = $_POST['description'] ?? $defaultBody;
+      $currentBody = $_GET['description'] ?? $_POST['description'] ?? $defaultBody;
     ?>
     <label>Email Body
       <textarea name="description" id="emailBody" rows="12" placeholder="Loading upcoming events..."><?= h($currentBody) ?></textarea>
@@ -254,15 +255,16 @@ header_html('Upcoming Events Email');
     
     const content = emailBody.value;
     
-    // Convert {link_event_X} tokens to preview links
-    let previewHtml = content.replace(/\{link_event_(\d+)\}/g, function(match, eventId) {
-      return '<a href="/event.php?id=' + eventId + '" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>';
-    });
-    
-    // Apply basic markdown formatting
-    previewHtml = previewHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // First apply basic markdown formatting (before replacing link tokens)
+    let previewHtml = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                             .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" style="color:#0b5ed7;text-decoration:none;">$1</a>')
                              .replace(/\n/g, '<br>');
+    
+    // Then replace {link_event_X} tokens in the already-rendered HTML
+    previewHtml = previewHtml.replace(/\{link_event_(\d+)\}/g, function(match, eventId) {
+      return '/event.php?id=' + eventId;
+    });
     
     previewContent.innerHTML = previewHtml;
   }
