@@ -140,8 +140,8 @@ try {
     // Generate email HTML for this specific recipient with personalized links
     $html = generateUpcomingEventsEmailHTML($description, $siteTitle, $uid, $baseUrl);
 
-    // Insert into database - no event_id (use 0), no ICS attachment
-    $unsentEmailId = UnsentEmailData::create($ctx, 0, $uid, $subject, $html, null);
+    // Insert into database - no event_id (use NULL), no ICS attachment
+    $unsentEmailId = UnsentEmailData::create($ctx, null, $uid, $subject, $html, null);
     $emailIds[] = $unsentEmailId;
   }
 

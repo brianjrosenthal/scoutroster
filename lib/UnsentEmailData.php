@@ -27,7 +27,7 @@ final class UnsentEmailData {
    * Create a new unsent email record.
    * 
    * @param UserContext $ctx User context for audit logging
-   * @param int $eventId Event ID this email is for (0 for non-event-specific emails like upcoming events digest)
+   * @param int|null $eventId Event ID this email is for (NULL for non-event-specific emails like upcoming events digest)
    * @param int $userId User ID this email is being sent to
    * @param string $subject Email subject line
    * @param string $body Email HTML body content
@@ -38,13 +38,13 @@ final class UnsentEmailData {
    */
   public static function create(
     \UserContext $ctx, 
-    int $eventId, 
+    ?int $eventId, 
     int $userId, 
     string $subject, 
     string $body, 
     ?string $icsContent = null
   ): int {
-    if ($eventId < 0) {
+    if ($eventId !== null && $eventId < 0) {
       throw new \InvalidArgumentException('Invalid event ID');
     }
     if ($userId <= 0) {
