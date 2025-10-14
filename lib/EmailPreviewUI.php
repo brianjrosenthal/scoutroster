@@ -31,13 +31,17 @@ class EmailPreviewUI {
         $icsDownloadLink = '#';
         
         // Generate initial preview HTML (default: never RSVP'd)
-        $previewHtml = self::generateEmailHTML($event, $siteTitle, $baseUrl, $previewDeepLink, $whenText, $whereHtml, $defaultDescription, $googleLink, $outlookLink, $icsDownloadLink, $defaultEmailType, $eventId, 0, false);
+        if ($defaultEmailType === 'upcoming_events') {
+            $previewHtml = self::generateUpcomingEventsPreviewHTML($siteTitle, $baseUrl, $defaultDescription);
+        } else {
+            $previewHtml = self::generateEmailHTML($event, $siteTitle, $baseUrl, $previewDeepLink, $whenText, $whereHtml, $defaultDescription, $googleLink, $outlookLink, $icsDownloadLink, $defaultEmailType, $eventId, 0, false);
+        }
         
         ?>
         <div class="card">
           <h3>Email Preview</h3>
           
-          <div style="margin-bottom: 16px; padding: 12px; background-color: #f8f9fa; border-radius: 6px;">
+          <div id="previewRsvpFilter" style="margin-bottom: 16px; padding: 12px; background-color: #f8f9fa; border-radius: 6px; <?= $defaultEmailType === 'upcoming_events' ? 'display:none;' : '' ?>">
             <label><strong>Preview as:</strong></label>
             <div style="margin-left: 16px; margin-top: 8px;">
               <label class="inline">
@@ -59,6 +63,7 @@ class EmailPreviewUI {
             // Email preview functionality
             const previewRsvpRadios = document.querySelectorAll('input[name="preview_rsvp_status"]');
             const previewContent = document.getElementById('emailPreviewContent');
+            const previewRsvpFilter = document.getElementById('previewRsvpFilter');
             
             function updateEmailPreview() {
                 if (!previewContent) return;
@@ -66,6 +71,49 @@ class EmailPreviewUI {
                 const selectedRsvpStatus = document.querySelector('input[name="preview_rsvp_status"]:checked')?.value || 'never';
                 const currentEmailType = document.querySelector('input[name="email_type"]:checked')?.value || <?= json_encode($defaultEmailType) ?>;
                 const currentDescription = document.querySelector('textarea[name="description"]')?.value || <?= json_encode($defaultDescription) ?>;
+                
+                const baseUrl = <?= json_encode($baseUrl) ?>;
+                const eventId = <?= $eventId ?>;
+                const siteTitle = <?= json_encode($siteTitle) ?>;
+                
+                // Show/hide RSVP filter based on email type
+                if (previewRsvpFilter) {
+                    if (currentEmailType === 'upcoming_events') {
+                        previewRsvpFilter.style.display = 'none';
+                    } else {
+                        previewRsvpFilter.style.display = 'block';
+                    }
+                }
+                
+                // Handle upcoming events email type differently
+                if (currentEmailType === 'upcoming_events') {
+                    // Convert {link_event_X} tokens to preview links
+                    let previewDescription = currentDescription.replace(/\{link_event_(\d+)\}/g, function(match, eventId) {
+                        return `<a href="${baseUrl}/event.php?id=${eventId}" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>`;
+                    });
+                    
+                    // Apply basic markdown formatting
+                    previewDescription = previewDescription.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                                         .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                                         .replace(/\n/g, '<br>');
+                    
+                    const upcomingEventsHtml = `
+                    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
+                      <div style="text-align:center;">
+                        <h2 style="margin:0 0 8px;">Upcoming Events</h2>
+                        <p style="margin:0 0 16px;color:#444;">${siteTitle}</p>
+                      </div>
+                      <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+                        <div>${previewDescription}</div>
+                      </div>
+                      <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
+                        Click the RSVP links above to respond to each event.<br><a href="#" onclick="return false;" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>
+                      </p>
+                    </div>`;
+                    
+                    previewContent.innerHTML = upcomingEventsHtml;
+                    return;
+                }
                 
                 // Generate introduction text based on email type and mock RSVP status
                 let introText = '';
@@ -77,8 +125,6 @@ class EmailPreviewUI {
                 
                 // Generate button HTML based on mock RSVP status
                 let buttonHtml = '';
-                const baseUrl = <?= json_encode($baseUrl) ?>;
-                const eventId = <?= $eventId ?>;
                 
                 if (selectedRsvpStatus === 'yes') {
                     buttonHtml = `<p style="margin:0 0 10px;color:#222;font-size:16px;font-weight:bold;">You RSVP'd Yes</p>
@@ -93,7 +139,6 @@ class EmailPreviewUI {
                 
                 // Build the complete preview HTML
                 const eventName = <?= json_encode((string)$event['name']) ?>;
-                const siteTitle = <?= json_encode($siteTitle) ?>;
                 const introHtml = introText ? `<p style="margin:0 0 8px;color:#666;font-size:14px;">${introText}</p>` : '';
                 const descriptionHtml = currentDescription ? `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
                                                                 <div>${currentDescription.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/\n/g, '<br>')}</div>
@@ -194,6 +239,33 @@ class EmailPreviewUI {
               <a href="'. $safeDeep .'" style="display:inline-block;background:#0b5ed7;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">View & RSVP</a>
             </p>';
         }
+    }
+
+    /**
+     * Generate preview HTML for upcoming events email type
+     */
+    private static function generateUpcomingEventsPreviewHTML(string $siteTitle, string $baseUrl, string $description): string {
+        $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
+        
+        // Convert {link_event_X} tokens to preview links
+        $previewContent = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
+            $eventId = $matches[1];
+            return '<a href="' . htmlspecialchars($baseUrl . '/event.php?id=' . $eventId, ENT_QUOTES, 'UTF-8') . '" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>';
+        }, $description);
+        
+        return '
+        <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
+          <div style="text-align:center;">
+            <h2 style="margin:0 0 8px;">Upcoming Events</h2>
+            <p style="margin:0 0 16px;color:#444;">'. $safeSite .'</p>
+          </div>
+          <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+            <div>'. Text::renderMarkup($previewContent) .'</div>
+          </div>
+          <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
+            Click the RSVP links above to respond to each event.<br><a href="#" onclick="return false;" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>
+          </p>
+        </div>';
     }
 
     /**

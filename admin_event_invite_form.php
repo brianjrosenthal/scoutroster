@@ -241,7 +241,7 @@ header_html('Send Event Invitations');
         </div>
       </div>
 
-      <div style="margin-bottom: 16px;">
+      <div style="margin-bottom: 16px;" id="rsvpFilterSection">
         <label><strong>RSVP'd:</strong></label>
         <div style="margin-left: 16px;">
           <label class="inline"><input type="radio" name="rsvp_status" value="all" <?= $rsvpStatus==='all'?'checked':'' ?>> All</label>
@@ -411,6 +411,19 @@ header_html('Send Event Invitations');
         
         const selectedType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
         let newSubject = defaultSubject;
+        
+        // Show/hide RSVP filter based on email type
+        const rsvpFilterSection = document.getElementById('rsvpFilterSection');
+        if (rsvpFilterSection) {
+            if (selectedType === 'upcoming_events') {
+                rsvpFilterSection.style.display = 'none';
+                // Set rsvp_status to 'all' when hiding the filter
+                const allRadio = document.querySelector('input[name="rsvp_status"][value="all"]');
+                if (allRadio) allRadio.checked = true;
+            } else {
+                rsvpFilterSection.style.display = 'block';
+            }
+        }
         
         if (selectedType === 'invitation') {
             newSubject = `You're invited to "${eventName}", ${eventDateTime}`;
