@@ -215,7 +215,7 @@ class EmailSnippets {
    * @param string|null $endsAt End datetime (Y-m-d H:i:s) or null
    * @return string Formatted date/time string
    */
-  public static function formatEventDateTime(string $startsAt, ?string $endsAt): string {
+  private static function formatEventDateTime(string $startsAt, ?string $endsAt): string {
     $startDT = new DateTime($startsAt);
     
     // Format start date: "October 23, 2025"

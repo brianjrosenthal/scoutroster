@@ -241,7 +241,7 @@ header_html('Send Event Invitations');
         </div>
       </div>
 
-      <div style="margin-bottom: 16px;" id="rsvpFilterSection">
+      <div style="margin-bottom: 16px;">
         <label><strong>RSVP'd:</strong></label>
         <div style="margin-left: 16px;">
           <label class="inline"><input type="radio" name="rsvp_status" value="all" <?= $rsvpStatus==='all'?'checked':'' ?>> All</label>
@@ -298,7 +298,6 @@ header_html('Send Event Invitations');
         <label class="inline"><input type="radio" name="email_type" value="none" <?= $emailType==='none'?'checked':'' ?>> No introduction (default)</label>
         <label class="inline"><input type="radio" name="email_type" value="invitation" <?= $emailType==='invitation'?'checked':'' ?>> Initial invitation ("You're Invited to...")</label>
         <label class="inline"><input type="radio" name="email_type" value="reminder" <?= $emailType==='reminder'?'checked':'' ?>> Reminder (context-aware based on RSVP status)</label>
-        <label class="inline"><input type="radio" name="email_type" value="upcoming_events" <?= $emailType==='upcoming_events'?'checked':'' ?>> Upcoming Events (list of events with RSVP links)</label>
         <span class="small">Choose the type of introduction text to appear above the event title</span>
       </div>
     </div>
@@ -398,67 +397,30 @@ header_html('Send Event Invitations');
     let isSubmitting = false;
     let countTimeout = null;
 
-    // Dynamic subject line and body updating based on email type
+    // Dynamic subject line updating based on email type
     const emailTypeRadios = document.querySelectorAll('input[name="email_type"]');
     const subjectField = document.querySelector('input[name="subject"]');
-    const descriptionField = document.querySelector('textarea[name="description"]');
     const defaultSubject = '<?= addslashes($subjectDefault) ?>';
     const eventName = '<?= addslashes((string)$event['name']) ?>';
     const eventDateTime = '<?= addslashes(date('D n/j', strtotime((string)$event['starts_at'])) . ' at ' . date('g:i A', strtotime((string)$event['starts_at']))) ?>';
     
-    function updateSubjectAndBodyFields() {
+    function updateSubjectField() {
         if (!subjectField) return;
         
         const selectedType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
         let newSubject = defaultSubject;
         
-        // Show/hide RSVP filter based on email type
-        const rsvpFilterSection = document.getElementById('rsvpFilterSection');
-        if (rsvpFilterSection) {
-            if (selectedType === 'upcoming_events') {
-                rsvpFilterSection.style.display = 'none';
-                // Set rsvp_status to 'all' when hiding the filter
-                const allRadio = document.querySelector('input[name="rsvp_status"][value="all"]');
-                if (allRadio) allRadio.checked = true;
-            } else {
-                rsvpFilterSection.style.display = 'block';
-            }
-        }
-        
         if (selectedType === 'invitation') {
             newSubject = `You're invited to "${eventName}", ${eventDateTime}`;
         } else if (selectedType === 'reminder') {
             newSubject = `Reminder: "${eventName}", ${eventDateTime}`;
-        } else if (selectedType === 'upcoming_events') {
-            newSubject = 'Cub Scout Upcoming Events';
-            
-            // Fetch real upcoming events from the database
-            if (descriptionField) {
-                // Show loading message while fetching
-                descriptionField.value = 'Loading upcoming events...';
-                
-                fetch('/admin_get_upcoming_events_template.php')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            descriptionField.value = data.template;
-                        } else {
-                            descriptionField.value = 'Error loading upcoming events: ' + (data.error || 'Unknown error');
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching upcoming events:', error);
-                        descriptionField.value = 'Error loading upcoming events. Please try again.';
-                    });
-            }
         }
         
-        // Only update subject if the current subject matches a generated pattern or is the default
+        // Only update if the current subject matches a generated pattern or is the default
         const currentSubject = subjectField.value.trim();
         const isDefaultSubject = currentSubject === defaultSubject;
         const isGeneratedSubject = currentSubject.startsWith("You're invited to \"") || 
-                                 currentSubject.startsWith("Reminder: \"") ||
-                                 currentSubject === 'Cub Scout Upcoming Events';
+                                 currentSubject.startsWith("Reminder: \"");
         
         if (isDefaultSubject || isGeneratedSubject) {
             subjectField.value = newSubject;
@@ -466,9 +428,9 @@ header_html('Send Event Invitations');
     }
     
     emailTypeRadios.forEach(radio => {
-        radio.addEventListener('change', updateSubjectAndBodyFields);
+        radio.addEventListener('change', updateSubjectField);
     });
-    updateSubjectAndBodyFields();
+    updateSubjectField();
 
     // Real-time recipient counting
     function updateRecipientCount() {
