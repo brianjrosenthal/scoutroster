@@ -621,21 +621,9 @@ final class RSVPManagement {
     try {
       $db->beginTransaction();
 
-      // Determine current RSVP group for this user (creator-preferred; else membership)
-      $st = $db->prepare("SELECT * FROM rsvps WHERE event_id=? AND created_by_user_id=? LIMIT 1");
-      $st->execute([$eventId, (int)$creatorAdultId]);
-      $myRsvp = $st->fetch();
-      if (!$myRsvp) {
-        $st = $db->prepare("
-          SELECT r.*
-          FROM rsvps r
-          JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
-          WHERE r.event_id = ? AND rm.participant_type='adult' AND rm.adult_id=?
-          LIMIT 1
-        ");
-        $st->execute([$eventId, (int)$creatorAdultId]);
-        $myRsvp = $st->fetch();
-      }
+      // Determine current RSVP group for this user using family-aware lookup
+      // This ensures we find RSVPs created by any family member (co-parents who share children)
+      $myRsvp = self::getRSVPForFamilyByAdultID($eventId, (int)$creatorAdultId);
 
       $rsvpId = $myRsvp ? (int)$myRsvp['id'] : 0;
 
