@@ -61,10 +61,10 @@ try {
   
   // Send email
   $subject = $emailData['subject'];
-  $htmlBody = $emailData['html_body'];
+  $htmlBody = $emailData['body'];
   
-  // No ICS attachment for upcoming events emails
-  $sent = sendEmail($recipientEmail, $subject, $htmlBody, null);
+  // No ICS attachment for upcoming events emails (use send_email function)
+  $sent = send_email($recipientEmail, $subject, $htmlBody, $recipientName);
   
   if ($sent) {
     // Log email send
