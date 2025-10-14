@@ -46,6 +46,11 @@ function generateSubjectLine(string $emailType, array $event, string $originalSu
     return $originalSubject;
   }
   
+  // For upcoming_events type, use a standard subject
+  if ($emailType === 'upcoming_events') {
+    return 'Cub Scout Upcoming Events';
+  }
+  
   $eventName = (string)$event['name'];
   $quotedEventName = '"' . $eventName . '"';
   
@@ -72,6 +77,54 @@ function generateSubjectLine(string $emailType, array $event, string $originalSu
   
   // Default case (emailType === 'none')
   return $originalSubject;
+}
+
+function replaceEventLinkTokens(string $content, int $userId, string $baseUrl): string {
+  // Find all {link_event_X} tokens in the content
+  $pattern = '/\{link_event_(\d+)\}/';
+  
+  $replacedContent = preg_replace_callback($pattern, function($matches) use ($userId, $baseUrl) {
+    $eventId = (int)$matches[1];
+    
+    // Generate personalized RSVP link for this event and user
+    $sig = invite_signature_build($userId, $eventId);
+    $link = $baseUrl . '/event_invite.php?uid=' . $userId . '&event_id=' . $eventId . '&sig=' . $sig;
+    
+    return $link;
+  }, $content);
+  
+  return $replacedContent;
+}
+
+function generateUpcomingEventsEmailHTML(string $content, string $siteTitle, string $baseUrl, int $userId): string {
+  $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
+  
+  // Replace {link_event_X} tokens with personalized links
+  $content = replaceEventLinkTokens($content, $userId, $baseUrl);
+  
+  // Generate unsubscribe link
+  $unsubscribeHtml = '';
+  if ($userId > 0) {
+    $unsubscribeLink = generateUnsubscribeLink($userId, $baseUrl);
+    if ($unsubscribeLink !== '') {
+      $safeUnsubscribe = htmlspecialchars($unsubscribeLink, ENT_QUOTES, 'UTF-8');
+      $unsubscribeHtml = '<br><br><a href="'. $safeUnsubscribe .'" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>';
+    }
+  }
+  
+  return '
+  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
+    <div style="text-align:center;">
+      <h2 style="margin:0 0 8px;">Upcoming Events</h2>
+      <p style="margin:0 0 16px;color:#444;">'. $safeSite .'</p>
+    </div>
+    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
+      <div>'. Text::renderMarkup($content) .'</div>
+    </div>
+    <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
+      Click the RSVP links above to respond to each event.'. $unsubscribeHtml .'
+    </p>
+  </div>';
 }
 
 function getRsvpStatus(int $eventId, int $userId): ?string {
@@ -423,10 +476,19 @@ try {
     $deepLink = $baseUrl . '/event_invite.php?uid=' . $uid . '&event_id=' . $eventId . '&sig=' . $sig;
 
     // Generate email HTML for this specific recipient
-    $html = generateEmailHTML($event, $siteTitle, $baseUrl, $deepLink, $whenText, $whereHtml, $description, $googleLink, $outlookLink, $icsDownloadLink, $emailType, $eventId, $uid, true);
+    if ($emailType === 'upcoming_events') {
+      // For upcoming events email type, use special HTML generation with token replacement
+      $html = generateUpcomingEventsEmailHTML($description, $siteTitle, $baseUrl, $uid);
+      // No ICS attachment for upcoming events emails
+      $icsContentForEmail = null;
+    } else {
+      // For regular event invitations, use standard HTML generation
+      $html = generateEmailHTML($event, $siteTitle, $baseUrl, $deepLink, $whenText, $whereHtml, $description, $googleLink, $outlookLink, $icsDownloadLink, $emailType, $eventId, $uid, true);
+      $icsContentForEmail = $icsContent;
+    }
 
     // Insert into database using class method - THIS CREATES THE UNSENT EMAIL DATA
-    $unsentEmailId = UnsentEmailData::create($ctx, $eventId, $uid, $subject, $html, $icsContent);
+    $unsentEmailId = UnsentEmailData::create($ctx, $eventId, $uid, $subject, $html, $icsContentForEmail);
 
     // Store the ID for passing to send page
     $emailIds[] = $unsentEmailId;
