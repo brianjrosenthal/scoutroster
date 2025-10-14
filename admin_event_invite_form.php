@@ -445,8 +445,11 @@ Replace the event details and {link_event_X} tokens above with your actual event
         
         // Update body field for upcoming_events type
         if (shouldUpdateBody && descriptionField) {
-            // Always update the body when switching to upcoming_events type
-            descriptionField.value = newBody;
+            const currentBody = descriptionField.value.trim();
+            // Only update if body is empty or looks like it might be from a previous upcoming_events template
+            if (currentBody === '' || currentBody.includes('{link_event_')) {
+                descriptionField.value = newBody;
+            }
         }
     }
     
