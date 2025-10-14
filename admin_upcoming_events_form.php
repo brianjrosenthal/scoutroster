@@ -126,6 +126,16 @@ header_html('Upcoming Events Email');
       </div>
 
       <div style="margin-bottom: 16px;">
+        <label><strong>Suppress duplicate policy:</strong></label>
+        <div style="margin-left: 16px;">
+          <?php $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours'; ?>
+          <label class="inline"><input type="radio" name="suppress_policy" value="last_24_hours" <?= $suppressPolicy==='last_24_hours'?'checked':'' ?>> Don't send if sent in last 24 hours</label>
+          <label class="inline"><input type="radio" name="suppress_policy" value="none" <?= $suppressPolicy==='none'?'checked':'' ?>> No suppression (send to everyone)</label>
+          <br><span class="small">Prevent duplicate emails within 24 hours, or send regardless of previous sends</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
         <label><strong>Specific adults:</strong></label>
         <div style="margin-left: 16px;">
           <div id="specificAdultsContainer">
