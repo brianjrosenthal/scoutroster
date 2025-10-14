@@ -6,6 +6,7 @@ require_once __DIR__ . '/mailer.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/UserContext.php';
 require_once __DIR__ . '/lib/UnsentEmailData.php';
+require_once __DIR__ . '/lib/EventInvitationTracking.php';
 require_once __DIR__ . '/lib/EmailLog.php';
 
 header('Content-Type: application/json');
@@ -67,6 +68,14 @@ try {
   $sent = send_email($recipientEmail, $subject, $htmlBody, $recipientName);
   
   if ($sent) {
+    // Track invitation sent (NULL event_id for upcoming events digest)
+    try {
+      EventInvitationTracking::recordInvitationSent(null, $userId);
+    } catch (Throwable $e) {
+      // Log error but don't fail the send
+      error_log('Failed to track invitation: ' . $e->getMessage());
+    }
+    
     // Log email send
     try {
       EmailLog::logEmail(

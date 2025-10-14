@@ -5,6 +5,7 @@ require_admin();
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/UserContext.php';
 require_once __DIR__ . '/lib/UnsentEmailData.php';
+require_once __DIR__ . '/lib/EventInvitationTracking.php';
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/settings.php';
 
@@ -103,13 +104,23 @@ try {
   // Get recipients using filter system
   $recipients = UserManagement::listAdultsWithFilters($filters);
 
-  // Dedupe by email and skip blanks
+  // Get suppression policy
+  $suppressPolicy = $_POST['suppress_policy'] ?? 'last_24_hours';
+
+  // Dedupe by email and skip blanks, apply suppression policy
   $byEmail = [];
   $finalRecipients = [];
   foreach ($recipients as $r) {
     $email = strtolower(trim((string)($r['email'] ?? '')));
     if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) continue;
     if (isset($byEmail[$email])) continue;
+    
+    // Check suppression policy (NULL event_id for upcoming events digest)
+    $userId = (int)$r['id'];
+    if (EventInvitationTracking::shouldSuppressInvitation(null, $userId, $suppressPolicy)) {
+      continue; // Skip this user
+    }
+    
     $byEmail[$email] = true;
     $finalRecipients[] = $r;
   }

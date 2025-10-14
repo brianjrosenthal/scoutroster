@@ -541,7 +541,7 @@ CREATE INDEX idx_emails_sent_success ON emails_sent(success);
 
 -- Event invitations tracking to prevent duplicate invitations
 CREATE TABLE event_invitations_sent (
-  event_id INT NOT NULL,
+  event_id INT NULL COMMENT 'NULL for non-event-specific emails like upcoming events digest',
   user_id INT NOT NULL,
   n INT NOT NULL DEFAULT 1,
   last_sent_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

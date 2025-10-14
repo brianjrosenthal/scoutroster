@@ -12,11 +12,11 @@ final class EventInvitationTracking {
    * Record that an invitation was sent to a user for an event.
    * Inserts a new record or increments the count if one already exists.
    * 
-   * @param int $eventId The event ID
+   * @param int|null $eventId The event ID (NULL for upcoming events digest emails)
    * @param int $userId The user ID
    * @throws \Exception If database operation fails
    */
-  public static function recordInvitationSent(int $eventId, int $userId): void {
+  public static function recordInvitationSent(?int $eventId, int $userId): void {
     $sql = "INSERT INTO event_invitations_sent (event_id, user_id, n, last_sent_at, created_at)
             VALUES (:event_id, :user_id, 1, NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
@@ -24,7 +24,7 @@ final class EventInvitationTracking {
               last_sent_at = NOW()";
     
     $stmt = self::pdo()->prepare($sql);
-    $stmt->bindValue(':event_id', $eventId, \PDO::PARAM_INT);
+    $stmt->bindValue(':event_id', $eventId, $eventId === null ? \PDO::PARAM_NULL : \PDO::PARAM_INT);
     $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
     
     if (!$stmt->execute()) {
@@ -35,16 +35,18 @@ final class EventInvitationTracking {
   /**
    * Get the number of invitations sent to a user for an event.
    * 
-   * @param int $eventId The event ID
+   * @param int|null $eventId The event ID (NULL for upcoming events digest)
    * @param int $userId The user ID
    * @return int The number of invitations sent (0 if none)
    */
-  public static function getInvitationCount(int $eventId, int $userId): int {
+  public static function getInvitationCount(?int $eventId, int $userId): int {
     $sql = "SELECT n FROM event_invitations_sent 
-            WHERE event_id = :event_id AND user_id = :user_id";
+            WHERE " . ($eventId === null ? "event_id IS NULL" : "event_id = :event_id") . " AND user_id = :user_id";
     
     $stmt = self::pdo()->prepare($sql);
-    $stmt->bindValue(':event_id', $eventId, \PDO::PARAM_INT);
+    if ($eventId !== null) {
+      $stmt->bindValue(':event_id', $eventId, \PDO::PARAM_INT);
+    }
     $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
     $stmt->execute();
     
@@ -55,16 +57,18 @@ final class EventInvitationTracking {
   /**
    * Get the timestamp when the last invitation was sent to a user for an event.
    * 
-   * @param int $eventId The event ID
+   * @param int|null $eventId The event ID (NULL for upcoming events digest)
    * @param int $userId The user ID
    * @return string|null The last sent timestamp (Y-m-d H:i:s format) or null if none
    */
-  public static function getLastSentAt(int $eventId, int $userId): ?string {
+  public static function getLastSentAt(?int $eventId, int $userId): ?string {
     $sql = "SELECT last_sent_at FROM event_invitations_sent 
-            WHERE event_id = :event_id AND user_id = :user_id";
+            WHERE " . ($eventId === null ? "event_id IS NULL" : "event_id = :event_id") . " AND user_id = :user_id";
     
     $stmt = self::pdo()->prepare($sql);
-    $stmt->bindValue(':event_id', $eventId, \PDO::PARAM_INT);
+    if ($eventId !== null) {
+      $stmt->bindValue(':event_id', $eventId, \PDO::PARAM_INT);
+    }
     $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
     $stmt->execute();
     
@@ -75,12 +79,12 @@ final class EventInvitationTracking {
   /**
    * Check if an invitation should be suppressed based on the policy.
    * 
-   * @param int $eventId The event ID
+   * @param int|null $eventId The event ID (NULL for upcoming events digest)
    * @param int $userId The user ID
    * @param string $policy The suppression policy: 'last_24_hours', 'ever_invited', or 'none'
    * @return bool True if the invitation should be suppressed, false otherwise
    */
-  public static function shouldSuppressInvitation(int $eventId, int $userId, string $policy): bool {
+  public static function shouldSuppressInvitation(?int $eventId, int $userId, string $policy): bool {
     switch ($policy) {
       case 'last_24_hours':
         $lastSent = self::getLastSentAt($eventId, $userId);
