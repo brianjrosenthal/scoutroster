@@ -314,13 +314,18 @@ header_html('Preview Upcoming Events Email');
   
   const emailIds = <?= json_encode($previewData['emailIds']) ?>;
   const totalEmails = emailIds.length;
+  let currentIndex = 0;
   let sentCount = 0;
   let errorCount = 0;
   
-  function addMessage(message, isError = false) {
+  function addMessage(message, isError = false, isRetry = false) {
     const p = document.createElement('p');
     p.style.margin = '4px 0';
-    p.style.color = isError ? '#dc3545' : '#28a745';
+    if (isRetry) {
+      p.style.color = '#fd7e14'; // Orange for retry
+    } else {
+      p.style.color = isError ? '#dc3545' : '#28a745';
+    }
     p.textContent = message;
     progressMessages.appendChild(p);
     progressMessages.scrollTop = progressMessages.scrollHeight;
@@ -333,7 +338,38 @@ header_html('Preview Upcoming Events Email');
     progressBar.style.width = percentage + '%';
   }
   
-  async function sendEmail(emailId) {
+  // Check if error is SMTP authentication error
+  function isAuthError(errorMessage) {
+    if (!errorMessage) return false;
+    const authErrorPatterns = [
+      'authentication failed',
+      'auth login',
+      'username authentication failed',
+      'password authentication failed',
+      'auth',
+      '535'
+    ];
+    const lowerError = errorMessage.toLowerCase();
+    return authErrorPatterns.some(pattern => lowerError.includes(pattern));
+  }
+  
+  // Send next email in queue
+  async function sendNextEmail() {
+    if (currentIndex >= emailIds.length) {
+      // All emails processed
+      addMessage('---');
+      addMessage('Sending complete! Sent: ' + sentCount + ', Errors: ' + errorCount);
+      sendBtn.textContent = 'Sending Complete';
+      
+      if (errorCount === 0) {
+        setTimeout(() => {
+          window.location.href = '/events.php';
+        }, 2000);
+      }
+      return;
+    }
+    
+    const emailId = emailIds[currentIndex];
     const formData = new FormData();
     formData.append('csrf', '<?= h(csrf_token()) ?>');
     formData.append('email_id', emailId);
@@ -349,44 +385,54 @@ header_html('Preview Upcoming Events Email');
       if (data.success) {
         sentCount++;
         addMessage('✓ Sent to ' + data.recipient);
+        updateProgress();
+        currentIndex++;
+        // Small delay between successful sends
+        setTimeout(sendNextEmail, 100);
       } else {
-        errorCount++;
-        addMessage('✗ Error sending to ' + (data.recipient || 'unknown') + ': ' + (data.error || 'Unknown error'), true);
+        const error = data.error || 'Unknown error';
+        
+        if (isAuthError(error)) {
+          // SMTP auth error - wait 60 seconds and retry
+          addMessage('🔄 Authentication error, retrying in 60 seconds for ' + (data.recipient || 'unknown') + '...', false, true);
+          setTimeout(() => {
+            addMessage('🔄 Retrying ' + (data.recipient || 'unknown') + '...', false, true);
+            sendNextEmail(); // Retry same email (don't increment currentIndex)
+          }, 60000);
+          return;
+        } else {
+          // Other error - mark as failed and continue
+          errorCount++;
+          addMessage('✗ Error sending to ' + (data.recipient || 'unknown') + ': ' + error, true);
+          updateProgress();
+          currentIndex++;
+          setTimeout(sendNextEmail, 100);
+        }
       }
     } catch (error) {
       errorCount++;
       addMessage('✗ Network error: ' + error.message, true);
+      updateProgress();
+      currentIndex++;
+      setTimeout(sendNextEmail, 100);
     }
-    
-    updateProgress();
   }
   
-  async function sendAllEmails() {
+  function startSending() {
     sendBtn.disabled = true;
     sendBtn.textContent = 'Sending...';
     sendProgress.style.display = 'block';
     
     addMessage('Starting to send ' + totalEmails + ' emails...');
     
-    for (const emailId of emailIds) {
-      await sendEmail(emailId);
-    }
-    
-    addMessage('---');
-    addMessage('Sending complete! Sent: ' + sentCount + ', Errors: ' + errorCount);
-    sendBtn.textContent = 'Sending Complete';
-    
-    if (errorCount === 0) {
-      setTimeout(() => {
-        window.location.href = '/events.php';
-      }, 2000);
-    }
+    // Start sending emails one at a time
+    sendNextEmail();
   }
   
   if (sendBtn) {
     sendBtn.addEventListener('click', function() {
       if (confirm('Are you sure you want to send ' + totalEmails + ' emails?')) {
-        sendAllEmails();
+        startSending();
       }
     });
   }
