@@ -248,7 +248,7 @@ header_html('Upcoming Events Email');
     }, 300);
   }
 
-  // Update email preview
+  // Update email preview (just body content to match actual email)
   function updateEmailPreview() {
     if (!emailBody || !previewContent) return;
     
@@ -264,26 +264,12 @@ header_html('Upcoming Events Email');
                              .replace(/\*(.*?)\*/g, '<em>$1</em>')
                              .replace(/\n/g, '<br>');
     
-    const html = `
-    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
-      <div style="text-align:center;">
-        <h2 style="margin:0 0 8px;">Upcoming Events</h2>
-        <p style="margin:0 0 16px;color:#444;"><?= h($siteTitle) ?></p>
-      </div>
-      <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-        <div>${previewHtml}</div>
-      </div>
-      <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-        Click the RSVP links above to respond to each event.<br><a href="#" onclick="return false;" style="color:#999;font-size:10px;text-decoration:none;">Unsubscribe</a>
-      </p>
-    </div>`;
-    
-    previewContent.innerHTML = html;
+    previewContent.innerHTML = previewHtml;
   }
 
-  // Add event listeners for filter changes
+  // Add event listeners for filter changes (including suppression policy)
   if (form) {
-    const filterInputs = form.querySelectorAll('input[name="registration_status"], input[name="grades[]"]');
+    const filterInputs = form.querySelectorAll('input[name="registration_status"], input[name="grades[]"], input[name="suppress_policy"]');
     filterInputs.forEach(input => {
       input.addEventListener('change', updateRecipientCount);
     });
