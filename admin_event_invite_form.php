@@ -411,8 +411,6 @@ header_html('Send Event Invitations');
         
         const selectedType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
         let newSubject = defaultSubject;
-        let shouldUpdateBody = false;
-        let newBody = '';
         
         if (selectedType === 'invitation') {
             newSubject = `You're invited to "${eventName}", ${eventDateTime}`;
@@ -420,16 +418,26 @@ header_html('Send Event Invitations');
             newSubject = `Reminder: "${eventName}", ${eventDateTime}`;
         } else if (selectedType === 'upcoming_events') {
             newSubject = 'Cub Scout Upcoming Events';
-            shouldUpdateBody = true;
-            newBody = `Sharing a list of upcoming events with RSVP links to make it easy to RSVP:
-
-1. October 18, 11am-4pm - Thunderbird Games, at FDR State Park [RSVP Link]({link_event_8})
-
-2. October 20, 7-9pm - In Person Cub Scout Leader Training, at Crawford Park Mansion [RSVP Link]({link_event_4})
-
-3. ...
-
-Replace the event details and {link_event_X} tokens above with your actual event information. The system will generate personalized RSVP links for each recipient.`;
+            
+            // Fetch real upcoming events from the database
+            if (descriptionField) {
+                // Show loading message while fetching
+                descriptionField.value = 'Loading upcoming events...';
+                
+                fetch('/admin_get_upcoming_events_template.php')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            descriptionField.value = data.template;
+                        } else {
+                            descriptionField.value = 'Error loading upcoming events: ' + (data.error || 'Unknown error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching upcoming events:', error);
+                        descriptionField.value = 'Error loading upcoming events. Please try again.';
+                    });
+            }
         }
         
         // Only update subject if the current subject matches a generated pattern or is the default
@@ -441,12 +449,6 @@ Replace the event details and {link_event_X} tokens above with your actual event
         
         if (isDefaultSubject || isGeneratedSubject) {
             subjectField.value = newSubject;
-        }
-        
-        // Update body field for upcoming_events type
-        if (shouldUpdateBody && descriptionField) {
-            // Always update the body when switching to upcoming_events type
-            descriptionField.value = newBody;
         }
     }
     
