@@ -271,11 +271,10 @@ header_html('Send Event Invitations');
               <?php endforeach; ?>
             <?php endif; ?>
           </div>
-          <div class="typeahead" style="margin-top: 8px;">
-            <input type="text" id="adultTypeahead" placeholder="Type name or email to add specific adults" autocomplete="off">
-            <div id="adultTypeaheadResults" class="typeahead-results" role="listbox" style="display:none;"></div>
-          </div>
-          <span class="small">Add specific adults to include regardless of other filters</span>
+          <button type="button" id="openAdultSelectorBtn" class="button" style="margin-top: 8px;">
+            + Add Specific Adults
+          </button>
+          <br><span class="small">Add specific adults to include regardless of other filters</span>
         </div>
       </div>
 
@@ -340,6 +339,36 @@ header_html('Send Event Invitations');
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
   <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
 <?php endif; ?>
+
+<!-- Adult Selector Modal -->
+<div id="adultSelectorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+  <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0;">Add Specific Adults</h3>
+      <button type="button" id="closeModalBtn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+    </div>
+    
+    <div style="margin-bottom: 16px;">
+      <label style="display: block; margin-bottom: 4px; font-weight: bold;">Search for adults:</label>
+      <div class="typeahead">
+        <input type="text" id="modalAdultSearch" placeholder="Type name or email..." autocomplete="off" style="width: 100%;">
+        <div id="modalSearchResults" class="typeahead-results" style="display:none;"></div>
+      </div>
+    </div>
+    
+    <div id="modalSelectedAdults" style="margin-bottom: 16px;">
+      <label style="display: block; margin-bottom: 8px; font-weight: bold;">Selected adults:</label>
+      <div id="modalAdultsList" style="min-height: 60px; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; background: #f8f9fa;">
+        <p style="color: #666; font-style: italic; margin: 8px 0; text-align: center;">No adults selected</p>
+      </div>
+    </div>
+    
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+      <button type="button" id="cancelModalBtn" class="button">Cancel</button>
+      <button type="button" id="confirmModalBtn" class="button primary">Confirm Selection</button>
+    </div>
+  </div>
+</div>
 
 <style>
 .selected-adult {
@@ -476,19 +505,82 @@ header_html('Send Event Invitations');
         updateRecipientCount();
     }
 
-    // Specific adults management
-    const adultTypeahead = document.getElementById('adultTypeahead');
-    const adultResults = document.getElementById('adultTypeaheadResults');
+    // Specific adults management with modal
     const adultsContainer = document.getElementById('specificAdultsContainer');
+    const openModalBtn = document.getElementById('openAdultSelectorBtn');
+    const modal = document.getElementById('adultSelectorModal');
+    const closeModalBtn = document.getElementById('closeModalBtn');
+    const cancelModalBtn = document.getElementById('cancelModalBtn');
+    const confirmModalBtn = document.getElementById('confirmModalBtn');
+    const modalSearch = document.getElementById('modalAdultSearch');
+    const modalSearchResults = document.getElementById('modalSearchResults');
+    const modalAdultsList = document.getElementById('modalAdultsList');
+    
     let searchTimeout = null;
-
-    if (adultTypeahead && adultResults && adultsContainer) {
-        adultTypeahead.addEventListener('input', function() {
+    let modalSelectedAdults = new Map(); // id -> {id, name, email}
+    
+    // Open modal
+    if (openModalBtn) {
+        openModalBtn.addEventListener('click', function() {
+            // Populate modal with currently selected adults
+            modalSelectedAdults.clear();
+            const currentAdults = adultsContainer.querySelectorAll('.selected-adult');
+            currentAdults.forEach(adult => {
+                const id = adult.dataset.adultId;
+                const name = adult.querySelector('span').textContent.split('<')[0].trim();
+                const emailMatch = adult.querySelector('span').textContent.match(/<(.+)>/);
+                const email = emailMatch ? emailMatch[1] : '';
+                modalSelectedAdults.set(id, {id, name, email});
+            });
+            
+            updateModalAdultsList();
+            modal.style.display = 'flex';
+            modalSearch.focus();
+        });
+    }
+    
+    // Close modal
+    function closeModal() {
+        modal.style.display = 'none';
+        modalSearch.value = '';
+        modalSearchResults.style.display = 'none';
+        modalSelectedAdults.clear();
+    }
+    
+    if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
+    if (cancelModalBtn) cancelModalBtn.addEventListener('click', closeModal);
+    
+    // Close on background click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
+    
+    // Confirm selection
+    if (confirmModalBtn) {
+        confirmModalBtn.addEventListener('click', function() {
+            // Clear existing adults in form
+            adultsContainer.innerHTML = '';
+            
+            // Add all selected adults to form
+            modalSelectedAdults.forEach(adult => {
+                addSpecificAdult(adult.id, adult.name, adult.email);
+            });
+            
+            closeModal();
+            updateRecipientCount();
+        });
+    }
+    
+    // Modal search functionality
+    if (modalSearch) {
+        modalSearch.addEventListener('input', function() {
             const query = this.value.trim();
             clearTimeout(searchTimeout);
             
             if (query.length < 2) {
-                adultResults.style.display = 'none';
+                modalSearchResults.style.display = 'none';
                 return;
             }
             
@@ -496,70 +588,96 @@ header_html('Send Event Invitations');
                 fetch('/ajax_search_adults.php?q=' + encodeURIComponent(query))
                     .then(response => response.json())
                     .then(data => {
-                        adultResults.innerHTML = '';
+                        modalSearchResults.innerHTML = '';
                         
                         if (data.length === 0) {
-                            adultResults.innerHTML = '<div class="typeahead-result">No adults found</div>';
+                            modalSearchResults.innerHTML = '<div class="typeahead-result">No adults found</div>';
                         } else {
                             data.forEach(adult => {
                                 const div = document.createElement('div');
                                 div.className = 'typeahead-result';
                                 div.textContent = adult.last_name + ', ' + adult.first_name + (adult.email ? ' <' + adult.email + '>' : '');
                                 div.dataset.adultId = adult.id;
-                                div.dataset.adultName = adult.first_name + ' ' + adult.last_name;
-                                div.dataset.adultEmail = adult.email || '';
                                 
                                 div.addEventListener('click', function() {
-                                    addSpecificAdult(adult.id, adult.first_name + ' ' + adult.last_name, adult.email);
-                                    adultTypeahead.value = '';
-                                    adultResults.style.display = 'none';
+                                    const id = adult.id.toString();
+                                    const name = adult.first_name + ' ' + adult.last_name;
+                                    const email = adult.email || '';
+                                    
+                                    modalSelectedAdults.set(id, {id, name, email});
+                                    updateModalAdultsList();
+                                    modalSearch.value = '';
+                                    modalSearchResults.style.display = 'none';
                                 });
                                 
-                                adultResults.appendChild(div);
+                                modalSearchResults.appendChild(div);
                             });
                         }
                         
-                        adultResults.style.display = 'block';
+                        modalSearchResults.style.display = 'block';
                     })
                     .catch(error => {
                         console.error('Error searching adults:', error);
-                        adultResults.innerHTML = '<div class="typeahead-result">Error searching</div>';
-                        adultResults.style.display = 'block';
+                        modalSearchResults.innerHTML = '<div class="typeahead-result">Error searching</div>';
+                        modalSearchResults.style.display = 'block';
                     });
             }, 300);
         });
-
-        document.addEventListener('click', function(e) {
-            if (!adultTypeahead.contains(e.target) && !adultResults.contains(e.target)) {
-                adultResults.style.display = 'none';
-            }
-        });
-
-        function addSpecificAdult(id, name, email) {
-            if (adultsContainer.querySelector(`[data-adult-id="${id}"]`)) {
-                return;
-            }
-
-            const displayName = name + (email ? ' <' + email + '>' : '');
-            
+    }
+    
+    // Update modal adults list
+    function updateModalAdultsList() {
+        if (modalSelectedAdults.size === 0) {
+            modalAdultsList.innerHTML = '<p style="color: #666; font-style: italic; margin: 8px 0; text-align: center;">No adults selected</p>';
+            return;
+        }
+        
+        modalAdultsList.innerHTML = '';
+        modalSelectedAdults.forEach(adult => {
+            const displayName = adult.name + (adult.email ? ' <' + adult.email + '>' : '');
             const div = document.createElement('div');
             div.className = 'selected-adult';
-            div.dataset.adultId = id;
             div.innerHTML = `
                 <span>${displayName}</span>
-                <button type="button" class="remove-adult" style="margin-left: 8px; padding: 2px 6px; font-size: 12px;">×</button>
-                <input type="hidden" name="specific_adult_ids[]" value="${id}">
+                <button type="button" class="remove-adult" data-adult-id="${adult.id}" style="margin-left: 8px; padding: 2px 6px; font-size: 12px;">×</button>
             `;
             
             div.querySelector('.remove-adult').addEventListener('click', function() {
-                div.remove();
-                updateRecipientCount();
+                modalSelectedAdults.delete(this.dataset.adultId);
+                updateModalAdultsList();
             });
             
-            adultsContainer.appendChild(div);
-            updateRecipientCount();
+            modalAdultsList.appendChild(div);
+        });
+    }
+    
+    // Helper function to add adult to form
+    function addSpecificAdult(id, name, email) {
+        if (adultsContainer.querySelector(`[data-adult-id="${id}"]`)) {
+            return;
         }
 
+        const displayName = name + (email ? ' <' + email + '>' : '');
+        
+        const div = document.createElement('div');
+        div.className = 'selected-adult';
+        div.dataset.adultId = id;
+        div.innerHTML = `
+            <span>${displayName}</span>
+            <button type="button" class="remove-adult" style="margin-left: 8px; padding: 2px 6px; font-size: 12px;">×</button>
+            <input type="hidden" name="specific_adult_ids[]" value="${id}">
+        `;
+        
+        div.querySelector('.remove-adult').addEventListener('click', function() {
+            div.remove();
+            updateRecipientCount();
+        });
+        
+        adultsContainer.appendChild(div);
+    }
+    
+    // Handle remove from main container
+    if (adultsContainer) {
         adultsContainer.addEventListener('click', function(e) {
             if (e.target.classList.contains('remove-adult')) {
                 e.target.closest('.selected-adult').remove();
