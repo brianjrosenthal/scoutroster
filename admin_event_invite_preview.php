@@ -447,7 +447,7 @@ try {
     'filters' => $filters // Keep filters for building back link
   ];
 
-  // Build query string to preserve form state when going back
+  // Store data for POST back to form
   $backParams = [
     'event_id' => $eventId,
     'registration_status' => $filters['registration_status'],
@@ -456,18 +456,10 @@ try {
     'email_type' => $emailType,
     'subject' => $subject,
     'organizer' => $organizer,
-    'description' => $description
+    'description' => $description,
+    'grades' => $filters['grades'],
+    'specific_adult_ids' => $filters['specific_adult_ids']
   ];
-  
-  // Add array parameters
-  foreach ($filters['grades'] as $grade) {
-    $backParams['grades[]'] = $grade;
-  }
-  foreach ($filters['specific_adult_ids'] as $adultId) {
-    $backParams['specific_adult_ids[]'] = $adultId;
-  }
-  
-  $backToFormUrl = '/admin_event_invite_form.php?' . http_build_query($backParams);
 
 } catch (Throwable $e) {
   // Redirect back to form with error
@@ -522,7 +514,24 @@ header_html('Preview Email Invitations');
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;">Preview Invitations: <?= h($previewData['event']['name']) ?></h2>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-    <a class="button" href="<?= h($backToFormUrl) ?>">← Edit Settings</a>
+    <form method="post" action="/admin_event_invite_form.php" style="display: inline; margin: 0;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="event_id" value="<?= h($backParams['event_id']) ?>">
+      <input type="hidden" name="registration_status" value="<?= h($backParams['registration_status']) ?>">
+      <input type="hidden" name="rsvp_status" value="<?= h($backParams['rsvp_status']) ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($backParams['suppress_policy']) ?>">
+      <input type="hidden" name="email_type" value="<?= h($backParams['email_type']) ?>">
+      <input type="hidden" name="subject" value="<?= h($backParams['subject']) ?>">
+      <input type="hidden" name="organizer" value="<?= h($backParams['organizer']) ?>">
+      <input type="hidden" name="description" value="<?= h($backParams['description']) ?>">
+      <?php foreach ($backParams['grades'] as $grade): ?>
+        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
+      <?php endforeach; ?>
+      <?php foreach ($backParams['specific_adult_ids'] as $adultId): ?>
+        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
+      <?php endforeach; ?>
+      <button type="submit" class="button">← Edit Settings</button>
+    </form>
     <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
     <?= EventUIManager::renderAdminMenu((int)$eventId, 'invite') ?>
   </div>
@@ -592,7 +601,24 @@ header_html('Preview Email Invitations');
         Send <?= (int)$previewData['count'] ?> Invitations Now
       </button>
     </form>
-    <a class="button" href="<?= h($backToFormUrl) ?>">← Go Back to Edit</a>
+    <form method="post" action="/admin_event_invite_form.php" style="display: inline; margin: 0;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="event_id" value="<?= h($backParams['event_id']) ?>">
+      <input type="hidden" name="registration_status" value="<?= h($backParams['registration_status']) ?>">
+      <input type="hidden" name="rsvp_status" value="<?= h($backParams['rsvp_status']) ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($backParams['suppress_policy']) ?>">
+      <input type="hidden" name="email_type" value="<?= h($backParams['email_type']) ?>">
+      <input type="hidden" name="subject" value="<?= h($backParams['subject']) ?>">
+      <input type="hidden" name="organizer" value="<?= h($backParams['organizer']) ?>">
+      <input type="hidden" name="description" value="<?= h($backParams['description']) ?>">
+      <?php foreach ($backParams['grades'] as $grade): ?>
+        <input type="hidden" name="grades[]" value="<?= (int)$grade ?>">
+      <?php endforeach; ?>
+      <?php foreach ($backParams['specific_adult_ids'] as $adultId): ?>
+        <input type="hidden" name="specific_adult_ids[]" value="<?= (int)$adultId ?>">
+      <?php endforeach; ?>
+      <button type="submit" class="button">← Go Back to Edit</button>
+    </form>
   </div>
 </div>
 
