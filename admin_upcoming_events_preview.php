@@ -60,24 +60,11 @@ function replaceEventLinkTokens(string $content, int $userId, string $baseUrl): 
 }
 
 function generateUpcomingEventsEmailHTML(string $content, string $siteTitle, int $userId, string $baseUrl): string {
-  $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
-  
   // Replace {link_event_X} tokens with personalized links
   $content = replaceEventLinkTokens($content, $userId, $baseUrl);
   
-  return '
-  <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
-    <div style="text-align:center;">
-      <h2 style="margin:0 0 8px;">Upcoming Events</h2>
-      <p style="margin:0 0 16px;color:#444;">'. $safeSite .'</p>
-    </div>
-    <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-      <div>'. Text::renderMarkup($content) .'</div>
-    </div>
-    <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-      Click the RSVP links above to respond to each event.
-    </p>
-  </div>';
+  // Apply basic markup formatting and return the content directly
+  return Text::renderMarkup($content);
 }
 
 try {
@@ -252,28 +239,15 @@ header_html('Preview Upcoming Events Email');
 
 <div class="card">
   <h3>Email Preview</h3>
-  <div id="emailPreviewContent">
+  <div id="emailPreviewContent" style="border: 1px solid #ddd; border-radius: 4px; padding: 16px; background: #f8f9fa;">
     <?php
       // Generate preview (with placeholder links, not personalized)
       $previewContent = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
         $eventId = $matches[1];
         return '<a href="' . htmlspecialchars($baseUrl . '/event.php?id=' . $eventId, ENT_QUOTES, 'UTF-8') . '" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>';
       }, $previewData['description']);
-      
-      $safeSite = htmlspecialchars($siteTitle, ENT_QUOTES, 'UTF-8');
     ?>
-    <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:640px;margin:0 auto;padding:16px;color:#222;">
-      <div style="text-align:center;">
-        <h2 style="margin:0 0 8px;">Upcoming Events</h2>
-        <p style="margin:0 0 16px;color:#444;"><?= $safeSite ?></p>
-      </div>
-      <div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin:0 0 16px;background:#fff;">
-        <div><?= Text::renderMarkup($previewContent) ?></div>
-      </div>
-      <p style="font-size:12px;color:#666;text-align:center;margin:12px 0 0;">
-        Click the RSVP links above to respond to each event.
-      </p>
-    </div>
+    <?= Text::renderMarkup($previewContent) ?>
   </div>
 </div>
 
