@@ -258,7 +258,7 @@ header_html('Preview Upcoming Events Email');
     <button type="button" id="sendEmailsBtn" class="primary button" style="background-color: #dc2626; color: white;">
       Send <?= (int)$previewData['count'] ?> Emails Now
     </button>
-    <a class="button" href="/admin_upcoming_events_form.php">← Go Back to Edit</a>
+    <a class="button" href="<?= h($backUrl) ?>">← Go Back to Edit</a>
   </div>
   
   <div id="sendProgress" style="display:none; margin-top: 20px;">
@@ -281,14 +281,14 @@ header_html('Preview Upcoming Events Email');
   <h3>Email Preview</h3>
   <div id="emailPreviewContent" style="border: 1px solid #ddd; border-radius: 4px; padding: 16px; background: #f8f9fa;">
     <?php
-      // First apply markdown formatting to the text
-      $previewHtml = Text::renderMarkup($previewData['description']);
-      
-      // Then replace {link_event_X} tokens with actual URLs (in the already-rendered HTML)
-      $previewHtml = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
+      // First replace {link_event_X} tokens with actual URLs (before markdown processing)
+      $previewText = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
         $eventId = $matches[1];
         return $baseUrl . '/event.php?id=' . $eventId;
-      }, $previewHtml);
+      }, $previewData['description']);
+      
+      // Then apply markdown formatting (which will convert [rsvp](http://...) to links)
+      $previewHtml = Text::renderMarkup($previewText);
       
       // Output the HTML directly (it's already safe)
       echo $previewHtml;
