@@ -185,7 +185,36 @@ header_html('Preview Upcoming Events Email');
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;">Preview Upcoming Events Email</h2>
   <div style="display: flex; gap: 8px;">
-    <a class="button" href="/admin_upcoming_events_form.php">← Edit Settings</a>
+    <?php
+      // Build URL to go back with all form data pre-populated
+      $backParams = [
+        'registration_status' => $_POST['registration_status'] ?? 'registered_plus_leads',
+        'suppress_policy' => $_POST['suppress_policy'] ?? 'last_24_hours',
+        'subject' => $_POST['subject'] ?? 'Cub Scout Upcoming Events',
+        'description' => $_POST['description'] ?? ''
+      ];
+      
+      // Add grades if any
+      $grades = $_POST['grades'] ?? [];
+      if (is_string($grades)) {
+        $grades = explode(',', $grades);
+      }
+      foreach (array_filter(array_map('intval', (array)$grades)) as $grade) {
+        $backParams['grades'][] = $grade;
+      }
+      
+      // Add specific adults if any
+      $specificAdults = $_POST['specific_adult_ids'] ?? [];
+      if (is_string($specificAdults)) {
+        $specificAdults = explode(',', $specificAdults);
+      }
+      foreach (array_filter(array_map('intval', (array)$specificAdults)) as $adultId) {
+        $backParams['specific_adult_ids'][] = $adultId;
+      }
+      
+      $backUrl = '/admin_upcoming_events_form.php?' . http_build_query($backParams);
+    ?>
+    <a class="button" href="<?= h($backUrl) ?>">← Edit Settings</a>
     <a class="button" href="/events.php">Back to Events</a>
   </div>
 </div>
@@ -255,10 +284,10 @@ header_html('Preview Upcoming Events Email');
       // First apply markdown formatting to the text
       $previewHtml = Text::renderMarkup($previewData['description']);
       
-      // Then replace {link_event_X} tokens with HTML links (after markdown processing)
+      // Then replace {link_event_X} tokens with actual URLs (in the already-rendered HTML)
       $previewHtml = preg_replace_callback('/\{link_event_(\d+)\}/', function($matches) use ($baseUrl) {
         $eventId = $matches[1];
-        return '<a href="' . htmlspecialchars($baseUrl . '/event.php?id=' . $eventId, ENT_QUOTES, 'UTF-8') . '" style="color:#0b5ed7;text-decoration:none;">RSVP Link</a>';
+        return $baseUrl . '/event.php?id=' . $eventId;
       }, $previewHtml);
       
       // Output the HTML directly (it's already safe)
