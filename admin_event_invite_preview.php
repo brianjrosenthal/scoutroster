@@ -443,8 +443,31 @@ try {
     'emailType' => $emailType,
     'suppressPolicy' => $suppressPolicy,
     'emailIds' => $emailIds, // These are the IDs we'll pass to the send page
-    'count' => count($filteredRecipients)
+    'count' => count($filteredRecipients),
+    'filters' => $filters // Keep filters for building back link
   ];
+
+  // Build query string to preserve form state when going back
+  $backParams = [
+    'event_id' => $eventId,
+    'registration_status' => $filters['registration_status'],
+    'rsvp_status' => $filters['rsvp_status'],
+    'suppress_policy' => $suppressPolicy,
+    'email_type' => $emailType,
+    'subject' => $subject,
+    'organizer' => $organizer,
+    'description' => $description
+  ];
+  
+  // Add array parameters
+  foreach ($filters['grades'] as $grade) {
+    $backParams['grades[]'] = $grade;
+  }
+  foreach ($filters['specific_adult_ids'] as $adultId) {
+    $backParams['specific_adult_ids[]'] = $adultId;
+  }
+  
+  $backToFormUrl = '/admin_event_invite_form.php?' . http_build_query($backParams);
 
 } catch (Throwable $e) {
   // Redirect back to form with error
@@ -499,7 +522,7 @@ header_html('Preview Email Invitations');
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;">Preview Invitations: <?= h($previewData['event']['name']) ?></h2>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-    <a class="button" href="/admin_event_invite_form.php?event_id=<?= (int)$eventId ?>">← Edit Settings</a>
+    <a class="button" href="<?= h($backToFormUrl) ?>">← Edit Settings</a>
     <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
     <?= EventUIManager::renderAdminMenu((int)$eventId, 'invite') ?>
   </div>
@@ -569,7 +592,7 @@ header_html('Preview Email Invitations');
         Send <?= (int)$previewData['count'] ?> Invitations Now
       </button>
     </form>
-    <a class="button" href="/admin_event_invite_form.php?event_id=<?= (int)$eventId ?>">← Go Back to Edit</a>
+    <a class="button" href="<?= h($backToFormUrl) ?>">← Go Back to Edit</a>
   </div>
 </div>
 
