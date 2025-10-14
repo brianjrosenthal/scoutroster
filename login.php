@@ -92,8 +92,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <center>
     <img width="200" src="/images/pack440_logo.jpg" alt="Pack 440 Logo" class="logo">
 </center>
-    <h1>Login</h1>
     <p class="subtitle">Pack 440 Cub Scouts</p>
+    <h1 style="margin-bottom: 10px;">Login</h1>
+    <p style="margin-top: 10px;">First time here?  Activate your account with the "Forgot your password" flow.</p>
     <?php if (!empty($created) && !empty($verifyNotice)): ?><p class="flash">Account created. Check your email to verify your account before signing in.</p><?php elseif (!empty($created)): ?><p class="flash">Account created.</p><?php endif; ?>
     <?php if (!empty($verified)): ?><p class="flash">Email verified. You can now sign in.</p><?php endif; ?>
     <?php if (!empty($verifyError)): ?><p class="error">Invalid or expired verification link.</p><?php endif; ?>
