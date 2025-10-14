@@ -298,7 +298,6 @@ header_html('Send Event Invitations');
         <label class="inline"><input type="radio" name="email_type" value="none" <?= $emailType==='none'?'checked':'' ?>> No introduction (default)</label>
         <label class="inline"><input type="radio" name="email_type" value="invitation" <?= $emailType==='invitation'?'checked':'' ?>> Initial invitation ("You're Invited to...")</label>
         <label class="inline"><input type="radio" name="email_type" value="reminder" <?= $emailType==='reminder'?'checked':'' ?>> Reminder (context-aware based on RSVP status)</label>
-        <label class="inline"><input type="radio" name="email_type" value="upcoming_events" <?= $emailType==='upcoming_events'?'checked':'' ?>> Upcoming Events (list of events with RSVP links)</label>
         <span class="small">Choose the type of introduction text to appear above the event title</span>
       </div>
     </div>
@@ -398,65 +397,40 @@ header_html('Send Event Invitations');
     let isSubmitting = false;
     let countTimeout = null;
 
-    // Dynamic subject line and body updating based on email type
+    // Dynamic subject line updating based on email type
     const emailTypeRadios = document.querySelectorAll('input[name="email_type"]');
     const subjectField = document.querySelector('input[name="subject"]');
-    const descriptionField = document.querySelector('textarea[name="description"]');
     const defaultSubject = '<?= addslashes($subjectDefault) ?>';
     const eventName = '<?= addslashes((string)$event['name']) ?>';
     const eventDateTime = '<?= addslashes(date('D n/j', strtotime((string)$event['starts_at'])) . ' at ' . date('g:i A', strtotime((string)$event['starts_at']))) ?>';
     
-    function updateSubjectAndBodyFields() {
+    function updateSubjectField() {
         if (!subjectField) return;
         
         const selectedType = document.querySelector('input[name="email_type"]:checked')?.value || 'none';
         let newSubject = defaultSubject;
-        let shouldUpdateBody = false;
-        let newBody = '';
         
         if (selectedType === 'invitation') {
             newSubject = `You're invited to "${eventName}", ${eventDateTime}`;
         } else if (selectedType === 'reminder') {
             newSubject = `Reminder: "${eventName}", ${eventDateTime}`;
-        } else if (selectedType === 'upcoming_events') {
-            newSubject = 'Cub Scout Upcoming Events';
-            shouldUpdateBody = true;
-            newBody = `Sharing a list of upcoming events with RSVP links to make it easy to RSVP:
-
-1. October 18, 11am-4pm - Thunderbird Games, at FDR State Park [RSVP Link]({link_event_8})
-
-2. October 20, 7-9pm - In Person Cub Scout Leader Training, at Crawford Park Mansion [RSVP Link]({link_event_4})
-
-3. ...
-
-Replace the event details and {link_event_X} tokens above with your actual event information. The system will generate personalized RSVP links for each recipient.`;
         }
         
-        // Only update subject if the current subject matches a generated pattern or is the default
+        // Only update if the current subject matches a generated pattern or is the default
         const currentSubject = subjectField.value.trim();
         const isDefaultSubject = currentSubject === defaultSubject;
         const isGeneratedSubject = currentSubject.startsWith("You're invited to \"") || 
-                                 currentSubject.startsWith("Reminder: \"") ||
-                                 currentSubject === 'Cub Scout Upcoming Events';
+                                 currentSubject.startsWith("Reminder: \"");
         
         if (isDefaultSubject || isGeneratedSubject) {
             subjectField.value = newSubject;
         }
-        
-        // Update body field for upcoming_events type
-        if (shouldUpdateBody && descriptionField) {
-            const currentBody = descriptionField.value.trim();
-            // Only update if body is empty or looks like it might be from a previous upcoming_events template
-            if (currentBody === '' || currentBody.includes('{link_event_')) {
-                descriptionField.value = newBody;
-            }
-        }
     }
     
     emailTypeRadios.forEach(radio => {
-        radio.addEventListener('change', updateSubjectAndBodyFields);
+        radio.addEventListener('change', updateSubjectField);
     });
-    updateSubjectAndBodyFields();
+    updateSubjectField();
 
     // Real-time recipient counting
     function updateRecipientCount() {
