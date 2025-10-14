@@ -558,7 +558,7 @@ CREATE INDEX idx_eis_last_sent ON event_invitations_sent(last_sent_at);
 -- Unsent email data for JavaScript-coordinated email sending
 CREATE TABLE unsent_email_data (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  event_id INT NOT NULL,
+  event_id INT NULL COMMENT 'NULL for non-event-specific emails like upcoming events digest',
   user_id INT NOT NULL,
   subject TEXT NOT NULL,
   body LONGTEXT NOT NULL,
