@@ -58,6 +58,9 @@ $adultEntries = RSVPManagement::listAdultEntriesByAnswer((int)$id, 'yes');
 // Public RSVPs (logged-out) - list YES only
 $publicRsvps = RsvpsLoggedOutManagement::listByAnswer((int)$id, 'yes');
 
+// Check if current user is a Key 3 approver (for detailed public RSVP viewing)
+$isKey3 = UserManagement::isApprover((int)$me['id']);
+
 // Public YES totals
 $_pubYesTotals = RsvpsLoggedOutManagement::totalsByAnswer((int)$id, 'yes');
 $pubAdultsYes = (int)($_pubYesTotals['adults'] ?? 0);
@@ -232,6 +235,35 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           <?= (int)$pubAdultsYes ?> adult<?= $pubAdultsYes === 1 ? '' : 's' ?>, 
           <?= (int)$pubKidsYes ?> kid<?= $pubKidsYes === 1 ? '' : 's' ?>
         </p>
+        
+        <?php if ($isKey3 && !empty($publicRsvps)): ?>
+          <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd;">
+            <p class="small" style="color: #666; font-style: italic; margin-bottom: 8px;">
+              <strong>Detailed RSVPs (visible only to key 3 leaders):</strong>
+            </p>
+            <ul style="font-size: 14px;">
+              <?php foreach ($publicRsvps as $rsvp): ?>
+                <li style="margin-bottom: 6px;">
+                  <?php
+                    $name = trim(($rsvp['first_name'] ?? '') . ' ' . ($rsvp['last_name'] ?? ''));
+                    $adults = (int)($rsvp['total_adults'] ?? 0);
+                    $kids = (int)($rsvp['total_kids'] ?? 0);
+                    $comment = trim((string)($rsvp['comment'] ?? ''));
+                  ?>
+                  <strong><?= h($name) ?></strong>
+                  <span class="small">
+                    (<?= $adults ?> adult<?= $adults === 1 ? '' : 's' ?>, <?= $kids ?> kid<?= $kids === 1 ? '' : 's' ?>)
+                  </span>
+                  <?php if ($comment !== ''): ?>
+                    <div class="small" style="font-style:italic; margin-top: 2px; color: #555;">
+                      <?= nl2br(h($comment)) ?>
+                    </div>
+                  <?php endif; ?>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          </div>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
   </div>
