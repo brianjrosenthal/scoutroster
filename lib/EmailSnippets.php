@@ -218,8 +218,8 @@ class EmailSnippets {
   private static function formatEventDateTime(string $startsAt, ?string $endsAt): string {
     $startDT = new DateTime($startsAt);
     
-    // Format start date: "October 23, 2025"
-    $dateStr = $startDT->format('F j,');
+    // Format start date: "Mon October 23, 2025"
+    $dateStr = $startDT->format('D F j,');
     
     // Format start time
     $startHour = (int)$startDT->format('G'); // 24-hour format
@@ -261,8 +261,8 @@ class EmailSnippets {
         return $dateStr . ' ' . $startTimeStr . $startAmPm . '-' . $endTimeStr . $endAmPm;
       }
     } else {
-      // Different days: "November 7, 2025 1pm - November 8, 2025 9am"
-      $endDateStr = $endDT->format('F j, Y');
+      // Different days: "Thu November 7, 2025 1pm - Fri November 8, 2025 9am"
+      $endDateStr = $endDT->format('D F j, Y');
       return $dateStr . ' ' . $startTimeStr . $startAmPm . ' - ' . $endDateStr . ' ' . $endTimeStr . $endAmPm;
     }
   }
