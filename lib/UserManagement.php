@@ -1080,16 +1080,38 @@ class UserManagement {
       $params = array_merge($params, $classOfValues);
     }
 
-    // RSVP status filtering
+    // RSVP status filtering - family-based (exclude if anyone in family has RSVP'd)
     if ($rsvpStatus === 'not_rsvped' && $eventId) {
       $wheres[] = "NOT EXISTS (
+        -- This adult created an RSVP
         SELECT 1 FROM rsvps r 
         WHERE r.event_id = ? AND r.created_by_user_id = u.id
       ) AND NOT EXISTS (
+        -- This adult is a member of any RSVP
         SELECT 1 FROM rsvp_members rm 
-        JOIN rsvps r2 ON r2.id = rm.rsvp_id 
         WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND rm.adult_id = u.id
+      ) AND NOT EXISTS (
+        -- Any of this adult's children are members of any RSVP
+        SELECT 1 FROM rsvp_members rm
+        JOIN parent_relationships pr ON pr.youth_id = rm.youth_id
+        WHERE rm.event_id = ? AND rm.participant_type = 'youth' AND pr.adult_id = u.id
+      ) AND NOT EXISTS (
+        -- Any co-parent (adult who shares children) created an RSVP
+        SELECT 1 FROM rsvps r
+        JOIN parent_relationships pr1 ON pr1.adult_id = r.created_by_user_id
+        JOIN parent_relationships pr2 ON pr2.youth_id = pr1.youth_id
+        WHERE r.event_id = ? AND pr2.adult_id = u.id AND r.created_by_user_id != u.id
+      ) AND NOT EXISTS (
+        -- Any co-parent is a member of any RSVP
+        SELECT 1 FROM rsvp_members rm
+        JOIN parent_relationships pr1 ON pr1.adult_id = rm.adult_id
+        JOIN parent_relationships pr2 ON pr2.youth_id = pr1.youth_id
+        WHERE rm.event_id = ? AND rm.participant_type = 'adult' 
+          AND pr2.adult_id = u.id AND rm.adult_id != u.id
       )";
+      $params[] = $eventId;
+      $params[] = $eventId;
+      $params[] = $eventId;
       $params[] = $eventId;
       $params[] = $eventId;
     }
@@ -1270,16 +1292,38 @@ class UserManagement {
       $params = array_merge($params, $classOfValues);
     }
 
-    // RSVP status filtering
+    // RSVP status filtering - family-based (exclude if anyone in family has RSVP'd)
     if ($rsvpStatus === 'not_rsvped' && $eventId) {
       $wheres[] = "NOT EXISTS (
+        -- This adult created an RSVP
         SELECT 1 FROM rsvps r 
         WHERE r.event_id = ? AND r.created_by_user_id = u.id
       ) AND NOT EXISTS (
+        -- This adult is a member of any RSVP
         SELECT 1 FROM rsvp_members rm 
-        JOIN rsvps r2 ON r2.id = rm.rsvp_id 
         WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND rm.adult_id = u.id
+      ) AND NOT EXISTS (
+        -- Any of this adult's children are members of any RSVP
+        SELECT 1 FROM rsvp_members rm
+        JOIN parent_relationships pr ON pr.youth_id = rm.youth_id
+        WHERE rm.event_id = ? AND rm.participant_type = 'youth' AND pr.adult_id = u.id
+      ) AND NOT EXISTS (
+        -- Any co-parent (adult who shares children) created an RSVP
+        SELECT 1 FROM rsvps r
+        JOIN parent_relationships pr1 ON pr1.adult_id = r.created_by_user_id
+        JOIN parent_relationships pr2 ON pr2.youth_id = pr1.youth_id
+        WHERE r.event_id = ? AND pr2.adult_id = u.id AND r.created_by_user_id != u.id
+      ) AND NOT EXISTS (
+        -- Any co-parent is a member of any RSVP
+        SELECT 1 FROM rsvp_members rm
+        JOIN parent_relationships pr1 ON pr1.adult_id = rm.adult_id
+        JOIN parent_relationships pr2 ON pr2.youth_id = pr1.youth_id
+        WHERE rm.event_id = ? AND rm.participant_type = 'adult' 
+          AND pr2.adult_id = u.id AND rm.adult_id != u.id
       )";
+      $params[] = $eventId;
+      $params[] = $eventId;
+      $params[] = $eventId;
       $params[] = $eventId;
       $params[] = $eventId;
     }
