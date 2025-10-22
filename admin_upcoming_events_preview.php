@@ -143,13 +143,18 @@ try {
     $emailIds[] = $unsentEmailId;
   }
 
+  // Calculate suppressed count for display
+  $totalBeforeSuppression = count($recipients);
+  $suppressedCount = $totalBeforeSuppression - count($finalRecipients);
+
   // Prepare preview data
   $previewData = [
     'recipients' => $finalRecipients,
     'subject' => $subject,
     'description' => $description,
     'emailIds' => $emailIds,
-    'count' => count($finalRecipients)
+    'count' => count($finalRecipients),
+    'suppressedCount' => $suppressedCount
   ];
 
   // Store data for POST back to form
@@ -249,9 +254,18 @@ header_html('Preview Upcoming Events Email');
   </div>
   
   <div class="actions" style="margin-top: 20px;">
-    <button type="button" id="sendEmailsBtn" class="primary button" style="background-color: #dc2626; color: white;">
-      Send <?= (int)$previewData['count'] ?> Emails Now
-    </button>
+    <form method="post" action="/admin_upcoming_events_send_emails.php" style="display: inline; margin: 0;">
+      <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+      <input type="hidden" name="subject" value="<?= h($previewData['subject']) ?>">
+      <input type="hidden" name="suppressed_count" value="<?= (int)$previewData['suppressedCount'] ?>">
+      <input type="hidden" name="suppress_policy" value="<?= h($backParams['suppress_policy']) ?>">
+      <?php foreach ($previewData['emailIds'] as $emailId): ?>
+        <input type="hidden" name="email_ids[]" value="<?= (int)$emailId ?>">
+      <?php endforeach; ?>
+      <button type="submit" class="primary button" style="background-color: #dc2626; color: white;">
+        Send <?= (int)$previewData['count'] ?> Emails Now
+      </button>
+    </form>
     <form method="post" action="/admin_upcoming_events_form.php" style="display: inline; margin: 0;">
       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
       <input type="hidden" name="registration_status" value="<?= h($backParams['registration_status']) ?>">
@@ -266,21 +280,6 @@ header_html('Preview Upcoming Events Email');
       <?php endforeach; ?>
       <button type="submit" class="button">← Go Back to Edit</button>
     </form>
-  </div>
-  
-  <div id="sendProgress" style="display:none; margin-top: 20px;">
-    <h4>Sending Progress</h4>
-    <div style="background: #f8f9fa; border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
-      <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-        <span>Sent: <strong id="sentCount">0</strong> / <?= (int)$previewData['count'] ?></span>
-        <span>Errors: <strong id="errorCount">0</strong></span>
-      </div>
-      <div style="background: #e9ecef; height: 24px; border-radius: 4px; overflow: hidden;">
-        <div id="progressBar" style="background: #28a745; height: 100%; width: 0%; transition: width 0.3s;"></div>
-      </div>
-    </div>
-    <div id="progressMessages" style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 4px; padding: 12px; font-family: monospace; font-size: 12px;">
-    </div>
   </div>
 </div>
 
@@ -303,140 +302,5 @@ header_html('Preview Upcoming Events Email');
   </div>
 </div>
 
-<script>
-(function() {
-  const sendBtn = document.getElementById('sendEmailsBtn');
-  const sendProgress = document.getElementById('sendProgress');
-  const sentCountEl = document.getElementById('sentCount');
-  const errorCountEl = document.getElementById('errorCount');
-  const progressBar = document.getElementById('progressBar');
-  const progressMessages = document.getElementById('progressMessages');
-  
-  const emailIds = <?= json_encode($previewData['emailIds']) ?>;
-  const totalEmails = emailIds.length;
-  let currentIndex = 0;
-  let sentCount = 0;
-  let errorCount = 0;
-  
-  function addMessage(message, isError = false, isRetry = false) {
-    const p = document.createElement('p');
-    p.style.margin = '4px 0';
-    if (isRetry) {
-      p.style.color = '#fd7e14'; // Orange for retry
-    } else {
-      p.style.color = isError ? '#dc3545' : '#28a745';
-    }
-    p.textContent = message;
-    progressMessages.appendChild(p);
-    progressMessages.scrollTop = progressMessages.scrollHeight;
-  }
-  
-  function updateProgress() {
-    sentCountEl.textContent = sentCount;
-    errorCountEl.textContent = errorCount;
-    const percentage = ((sentCount + errorCount) / totalEmails) * 100;
-    progressBar.style.width = percentage + '%';
-  }
-  
-  // Check if error is SMTP authentication error
-  function isAuthError(errorMessage) {
-    if (!errorMessage) return false;
-    const authErrorPatterns = [
-      'authentication failed',
-      'auth login',
-      'username authentication failed',
-      'password authentication failed',
-      'auth',
-      '535'
-    ];
-    const lowerError = errorMessage.toLowerCase();
-    return authErrorPatterns.some(pattern => lowerError.includes(pattern));
-  }
-  
-  // Send next email in queue
-  async function sendNextEmail() {
-    if (currentIndex >= emailIds.length) {
-      // All emails processed
-      addMessage('---');
-      addMessage('Sending complete! Sent: ' + sentCount + ', Errors: ' + errorCount);
-      sendBtn.textContent = 'Sending Complete';
-      
-      if (errorCount === 0) {
-        setTimeout(() => {
-          window.location.href = '/events.php';
-        }, 2000);
-      }
-      return;
-    }
-    
-    const emailId = emailIds[currentIndex];
-    const formData = new FormData();
-    formData.append('csrf', '<?= h(csrf_token()) ?>');
-    formData.append('email_id', emailId);
-    
-    try {
-      const response = await fetch('/admin_upcoming_events_send.php', {
-        method: 'POST',
-        body: formData
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        sentCount++;
-        addMessage('✓ Sent to ' + data.recipient);
-        updateProgress();
-        currentIndex++;
-        // Small delay between successful sends
-        setTimeout(sendNextEmail, 100);
-      } else {
-        const error = data.error || 'Unknown error';
-        
-        if (isAuthError(error)) {
-          // SMTP auth error - wait 60 seconds and retry
-          addMessage('🔄 Authentication error, retrying in 60 seconds for ' + (data.recipient || 'unknown') + '...', false, true);
-          setTimeout(() => {
-            addMessage('🔄 Retrying ' + (data.recipient || 'unknown') + '...', false, true);
-            sendNextEmail(); // Retry same email (don't increment currentIndex)
-          }, 60000);
-          return;
-        } else {
-          // Other error - mark as failed and continue
-          errorCount++;
-          addMessage('✗ Error sending to ' + (data.recipient || 'unknown') + ': ' + error, true);
-          updateProgress();
-          currentIndex++;
-          setTimeout(sendNextEmail, 100);
-        }
-      }
-    } catch (error) {
-      errorCount++;
-      addMessage('✗ Network error: ' + error.message, true);
-      updateProgress();
-      currentIndex++;
-      setTimeout(sendNextEmail, 100);
-    }
-  }
-  
-  function startSending() {
-    sendBtn.disabled = true;
-    sendBtn.textContent = 'Sending...';
-    sendProgress.style.display = 'block';
-    
-    addMessage('Starting to send ' + totalEmails + ' emails...');
-    
-    // Start sending emails one at a time
-    sendNextEmail();
-  }
-  
-  if (sendBtn) {
-    sendBtn.addEventListener('click', function() {
-      if (confirm('Are you sure you want to send ' + totalEmails + ' emails?')) {
-        startSending();
-      }
-    });
-  }
-})();
-</script>
 
 <?php footer_html(); ?>
