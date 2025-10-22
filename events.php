@@ -129,7 +129,19 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
         <?php foreach ($events as $e): ?>
           <tr>
             <td><?= h(renderEventWhen($e['starts_at'], $e['ends_at'] ?? null)) ?></td>
-            <td><a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a></td>
+            <td>
+              <a href="/event.php?id=<?= (int)$e['id'] ?>"><?= h($e['name']) ?></a>
+              <?php if ($isAdmin): ?>
+                <?php
+                  $rsvpCounts = RSVPManagement::getYesRsvpCounts((int)$e['id']);
+                  $adultsDisplay = ($rsvpCounts && $rsvpCounts['adults'] > 0) ? (int)$rsvpCounts['adults'] : '--';
+                  $scoutsDisplay = ($rsvpCounts && $rsvpCounts['youth'] > 0) ? (int)$rsvpCounts['youth'] : '--';
+                ?>
+                <div class="small" style="color:#666;margin-top:4px;">
+                  Adults: <?= $adultsDisplay ?>, Scouts: <?= $scoutsDisplay ?>
+                </div>
+              <?php endif; ?>
+            </td>
             <td><?= h($e['location'] ?? '-') ?></td>
             <td>
               <?php
@@ -160,6 +172,16 @@ header_html($view === 'past' ? 'Previous Events' : 'Upcoming Events');
     <?php foreach ($events as $e): ?>
       <div class="card">
         <h3><a href="/event.php?id=<?= (int)$e['id'] ?>"><?=h($e['name'])?></a></h3>
+        <?php if ($isAdmin): ?>
+          <?php
+            $rsvpCounts = RSVPManagement::getYesRsvpCounts((int)$e['id']);
+            $adultsDisplay = ($rsvpCounts && $rsvpCounts['adults'] > 0) ? (int)$rsvpCounts['adults'] : '--';
+            $scoutsDisplay = ($rsvpCounts && $rsvpCounts['youth'] > 0) ? (int)$rsvpCounts['youth'] : '--';
+          ?>
+          <p class="small" style="color:#666;margin-top:-8px;margin-bottom:8px;">
+            Adults: <?= $adultsDisplay ?>, Scouts: <?= $scoutsDisplay ?>
+          </p>
+        <?php endif; ?>
         <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null); ?>
         <?php if ($imgUrl !== ''): ?>
           <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-thumb" width="180">

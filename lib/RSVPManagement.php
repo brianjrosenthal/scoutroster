@@ -165,9 +165,53 @@ final class RSVPManagement {
 
   public static function countYouthForEvent(int $eventId): int {
     $st = self::pdo()->prepare("SELECT COUNT(*) AS c FROM rsvp_members WHERE event_id=? AND participant_type='youth'");
-    $st->execute([(int)$eventId]);
+    $st->execute([$eventId]);
     $row = $st->fetch();
     return (int)($row['c'] ?? 0);
+  }
+
+  /**
+   * Get RSVP counts for an event (only "yes" responses).
+   * Returns array with 'adults' and 'youth' keys, or null if no RSVPs.
+   */
+  public static function getYesRsvpCounts(int $eventId): ?array {
+    // Count adults who RSVP'd yes
+    $stAdults = self::pdo()->prepare(
+      "SELECT COUNT(DISTINCT rm.adult_id) AS c 
+       FROM rsvp_members rm 
+       JOIN rsvps r ON r.id = rm.rsvp_id 
+       WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND r.answer = 'yes'"
+    );
+    $stAdults->execute([$eventId]);
+    $rowAdults = $stAdults->fetch();
+    $adultsCount = (int)($rowAdults['c'] ?? 0);
+
+    // Count youth who RSVP'd yes
+    $stYouth = self::pdo()->prepare(
+      "SELECT COUNT(DISTINCT rm.youth_id) AS c 
+       FROM rsvp_members rm 
+       JOIN rsvps r ON r.id = rm.rsvp_id 
+       WHERE rm.event_id = ? AND rm.participant_type = 'youth' AND r.answer = 'yes'"
+    );
+    $stYouth->execute([$eventId]);
+    $rowYouth = $stYouth->fetch();
+    $youthCount = (int)($rowYouth['c'] ?? 0);
+
+    // Return null if no RSVPs at all
+    if ($adultsCount === 0 && $youthCount === 0) {
+      // Check if there are any RSVPs for this event
+      $stCheck = self::pdo()->prepare("SELECT COUNT(*) AS c FROM rsvps WHERE event_id = ?");
+      $stCheck->execute([$eventId]);
+      $rowCheck = $stCheck->fetch();
+      if ((int)($rowCheck['c'] ?? 0) === 0) {
+        return null;
+      }
+    }
+
+    return [
+      'adults' => $adultsCount,
+      'youth' => $youthCount
+    ];
   }
 
   public static function countYouthForRsvp(int $rsvpId): int {
