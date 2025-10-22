@@ -1053,6 +1053,24 @@ class UserManagement {
       $params = array_merge($params, $leftParentIds);
     }
 
+    // For unregistered filter: exclude adults with no children (adult volunteers)
+    if ($registrationStatus === 'unregistered') {
+      $noKidsQuery = "SELECT DISTINCT u.id 
+                      FROM users u 
+                      WHERE NOT EXISTS (
+                        SELECT 1 FROM parent_relationships pr 
+                        WHERE pr.adult_id = u.id
+                      )";
+      $noKidsStmt = self::pdo()->query($noKidsQuery);
+      $noKidsIds = array_column($noKidsStmt->fetchAll(), 'id');
+      
+      if (!empty($noKidsIds)) {
+        $placeholders = implode(',', array_fill(0, count($noKidsIds), '?'));
+        $wheres[] = "u.id NOT IN ($placeholders)";
+        $params = array_merge($params, $noKidsIds);
+      }
+    }
+
     // Grade filtering
     if (!empty($classOfValues)) {
       $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
@@ -1223,6 +1241,24 @@ class UserManagement {
       $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
       $wheres[] = "u.id NOT IN ($placeholders)";
       $params = array_merge($params, $leftParentIds);
+    }
+
+    // For unregistered filter: exclude adults with no children (adult volunteers)
+    if ($registrationStatus === 'unregistered') {
+      $noKidsQuery = "SELECT DISTINCT u.id 
+                      FROM users u 
+                      WHERE NOT EXISTS (
+                        SELECT 1 FROM parent_relationships pr 
+                        WHERE pr.adult_id = u.id
+                      )";
+      $noKidsStmt = self::pdo()->query($noKidsQuery);
+      $noKidsIds = array_column($noKidsStmt->fetchAll(), 'id');
+      
+      if (!empty($noKidsIds)) {
+        $placeholders = implode(',', array_fill(0, count($noKidsIds), '?'));
+        $wheres[] = "u.id NOT IN ($placeholders)";
+        $params = array_merge($params, $noKidsIds);
+      }
     }
 
     // Grade filtering
