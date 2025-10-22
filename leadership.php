@@ -75,7 +75,7 @@ header_html('Pack Leadership', $user);
 
 <?php if (!empty($otherPositions)): ?>
     <div class="card" style="margin-bottom:16px;">
-        <h3>Program Chairs and Committees (Assistant Scoutmasters)</h3>
+        <h3>Assistant Scoutmasters (Program Chairs and Committees)</h3>
         <?php foreach ($otherPositions as $position): ?>
             <div style="margin-bottom:8px;">
                 <strong><?= h($position['name']) ?>:</strong>
