@@ -1008,9 +1008,23 @@ class UserManagement {
         $params = array_merge($params, $qualifyingYouthIds);
       }
     } elseif ($registrationStatus === 'unregistered') {
-      $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
-      $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
-      $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+      // Get all adults who would be included in registered_plus_leads
+      $registeredPlusLeads = self::listAdultsWithFilters([
+        'registration_status' => 'registered_plus_leads',
+        'grades' => [], // Don't filter by grades for this check
+        'rsvp_status' => 'all',
+        'event_id' => null,
+        'specific_adult_ids' => []
+      ]);
+      
+      $excludeIds = array_column($registeredPlusLeads, 'id');
+      
+      if (!empty($excludeIds)) {
+        $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
+        $wheres[] = "u.id NOT IN ($placeholders)";
+        $params = array_merge($params, $excludeIds);
+      }
+      // If there are no registered_plus_leads, no need to exclude anyone
     } elseif ($registrationStatus === 'leadership') {
       // Include adults who hold pack-wide leadership positions OR are den leaders
       $wheres[] = "(
@@ -1152,9 +1166,23 @@ class UserManagement {
         $params = array_merge($params, $qualifyingYouthIds);
       }
     } elseif ($registrationStatus === 'unregistered') {
-      $joins[] = "LEFT JOIN parent_relationships pr_unreg ON pr_unreg.adult_id = u.id";
-      $joins[] = "LEFT JOIN youth y_unreg ON y_unreg.id = pr_unreg.youth_id";
-      $wheres[] = "(u.bsa_membership_number IS NULL OR u.bsa_membership_number = '') AND NOT EXISTS (SELECT 1 FROM parent_relationships pr2 JOIN youth y2 ON y2.id = pr2.youth_id WHERE pr2.adult_id = u.id AND y2.bsa_registration_number IS NOT NULL AND y2.bsa_registration_number <> '')";
+      // Get all adults who would be included in registered_plus_leads
+      $registeredPlusLeads = self::listAdultsWithFilters([
+        'registration_status' => 'registered_plus_leads',
+        'grades' => [], // Don't filter by grades for this check
+        'rsvp_status' => 'all',
+        'event_id' => null,
+        'specific_adult_ids' => []
+      ]);
+      
+      $excludeIds = array_column($registeredPlusLeads, 'id');
+      
+      if (!empty($excludeIds)) {
+        $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
+        $wheres[] = "u.id NOT IN ($placeholders)";
+        $params = array_merge($params, $excludeIds);
+      }
+      // If there are no registered_plus_leads, no need to exclude anyone
     } elseif ($registrationStatus === 'leadership') {
       // Include adults who hold pack-wide leadership positions OR are den leaders
       $wheres[] = "(
