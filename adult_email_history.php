@@ -62,31 +62,146 @@ header_html('Email History');
   <p class="flash">Email viewed.</p>
 <?php endif; ?>
 
+<style>
+.typeahead {
+  position: relative;
+}
+.typeahead-results {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ced4da;
+  border-top: none;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.typeahead-result {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #e9ecef;
+}
+.typeahead-result:hover {
+  background: #f8f9fa;
+}
+.typeahead-result:last-child {
+  border-bottom: none;
+}
+.selected-user-display {
+  padding: 12px;
+  background: #e9ecef;
+  border-radius: 4px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>
+
 <div class="card">
   <h3>Select User</h3>
-  <form method="get" action="/adult_email_history.php">
-    <div class="grid" style="grid-template-columns:1fr auto;gap:12px;align-items:end;">
-      <label>View email history for:
-        <select name="email" required onchange="this.form.submit()">
-          <option value="">-- Select a user --</option>
-          <?php foreach ($allAdults as $adult): ?>
-            <?php 
-              $adultEmail = $adult['email'] ?? '';
-              $adultName = trim(($adult['first_name'] ?? '') . ' ' . ($adult['last_name'] ?? ''));
-              $selected = ($adultEmail === $selectedEmail) ? 'selected' : '';
-            ?>
-            <?php if ($adultEmail !== ''): ?>
-              <option value="<?= h($adultEmail) ?>" <?= $selected ?>>
-                <?= h($adultName) ?> (<?= h($adultEmail) ?>)
-              </option>
-            <?php endif; ?>
-          <?php endforeach; ?>
-        </select>
-      </label>
-      <button class="button" type="submit">View History</button>
+  
+  <?php if ($selectedUser && $selectedEmail): ?>
+    <div class="selected-user-display">
+      <div>
+        <strong>Viewing email history for:</strong> 
+        <?= h(trim(($selectedUser['first_name'] ?? '') . ' ' . ($selectedUser['last_name'] ?? ''))) ?> 
+        (<?= h($selectedEmail) ?>)
+      </div>
+      <button type="button" id="changeUserBtn" class="button">Change User</button>
     </div>
-  </form>
+    <div id="userSearchContainer" style="display:none;">
+  <?php else: ?>
+    <div id="userSearchContainer">
+  <?php endif; ?>
+      <label>Search for a user:
+        <div class="typeahead">
+          <input type="text" id="adultSearch" placeholder="Type name or email..." autocomplete="off" style="width:100%;">
+          <div id="searchResults" class="typeahead-results" style="display:none;"></div>
+        </div>
+      </label>
+      <p class="small">Start typing to search for an adult by name or email address.</p>
+    </div>
 </div>
+
+<script>
+(function() {
+  const searchInput = document.getElementById('adultSearch');
+  const searchResults = document.getElementById('searchResults');
+  const changeUserBtn = document.getElementById('changeUserBtn');
+  const userSearchContainer = document.getElementById('userSearchContainer');
+  let searchTimeout = null;
+  
+  // Show search when "Change User" is clicked
+  if (changeUserBtn) {
+    changeUserBtn.addEventListener('click', function() {
+      userSearchContainer.style.display = 'block';
+      searchInput.focus();
+    });
+  }
+  
+  // Typeahead search
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      const query = this.value.trim();
+      clearTimeout(searchTimeout);
+      
+      if (query.length < 2) {
+        searchResults.style.display = 'none';
+        return;
+      }
+      
+      searchTimeout = setTimeout(() => {
+        fetch('/ajax_search_adults.php?q=' + encodeURIComponent(query))
+          .then(response => response.json())
+          .then(data => {
+            searchResults.innerHTML = '';
+            
+            if (data.length === 0) {
+              searchResults.innerHTML = '<div class="typeahead-result">No adults found</div>';
+            } else {
+              data.forEach(adult => {
+                const div = document.createElement('div');
+                div.className = 'typeahead-result';
+                const displayName = adult.last_name + ', ' + adult.first_name;
+                const displayEmail = adult.email ? ' <' + adult.email + '>' : '';
+                div.textContent = displayName + displayEmail;
+                
+                div.addEventListener('click', function() {
+                  if (adult.email) {
+                    // Redirect to email history for this user
+                    window.location.href = '/adult_email_history.php?email=' + encodeURIComponent(adult.email);
+                  } else {
+                    alert('This user has no email address on file.');
+                  }
+                });
+                
+                searchResults.appendChild(div);
+              });
+            }
+            
+            searchResults.style.display = 'block';
+          })
+          .catch(error => {
+            console.error('Error searching adults:', error);
+            searchResults.innerHTML = '<div class="typeahead-result">Error searching</div>';
+            searchResults.style.display = 'block';
+          });
+      }, 300);
+    });
+    
+    // Hide results when clicking outside
+    document.addEventListener('click', function(e) {
+      if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+        searchResults.style.display = 'none';
+      }
+    });
+  }
+})();
+</script>
 
 <?php if ($selectedUser && $selectedEmail): ?>
   <div class="card" style="margin-top:20px;">
@@ -127,7 +242,7 @@ header_html('Email History');
                   <?php endif; ?>
                 </td>
                 <td>
-                  <a href="/adult_email_view.php?id=<?= (int)$email['id'] ?>&return_email=<?= urlencode($selectedEmail) ?>" class="button small">View</a>
+                  <a href="/adult_email_view.php?id=<?= (int)$email['id'] ?>&return_email=<?= urlencode($selectedEmail) ?>" class="button">View</a>
                 </td>
               </tr>
             <?php endforeach; ?>
