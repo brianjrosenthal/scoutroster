@@ -189,4 +189,33 @@ final class EmailLog {
     $row = $st->fetch();
     return (int)($row['c'] ?? 0);
   }
+
+  /**
+   * Get a specific email by ID.
+   * Optionally validate that the email was sent to a specific email address for security.
+   * 
+   * @param int $emailId The email ID to retrieve
+   * @param string|null $validateToEmail If provided, verify the email was sent to this address
+   * @return array|null The email record or null if not found or validation fails
+   */
+  public static function getEmailById(int $emailId, ?string $validateToEmail = null): ?array {
+    $sql = 'SELECT * FROM emails_sent WHERE id = :id LIMIT 1';
+    $st = self::pdo()->prepare($sql);
+    $st->bindValue(':id', $emailId, \PDO::PARAM_INT);
+    $st->execute();
+    
+    $email = $st->fetch();
+    if (!$email) {
+      return null;
+    }
+    
+    // Optional validation: ensure email was sent to the expected recipient
+    if ($validateToEmail !== null && trim($validateToEmail) !== '') {
+      if (strtolower(trim($email['to_email'])) !== strtolower(trim($validateToEmail))) {
+        return null; // Email doesn't match expected recipient
+      }
+    }
+    
+    return $email;
+  }
 }
