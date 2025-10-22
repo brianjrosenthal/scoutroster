@@ -1039,6 +1039,20 @@ class UserManagement {
       )";
     }
 
+    // Exclude adults who have any children that have left the troop
+    $leftParentsQuery = "SELECT DISTINCT pr.adult_id 
+                         FROM parent_relationships pr 
+                         JOIN youth y ON y.id = pr.youth_id 
+                         WHERE y.left_troop = 1";
+    $leftParentsStmt = self::pdo()->query($leftParentsQuery);
+    $leftParentIds = array_column($leftParentsStmt->fetchAll(), 'adult_id');
+    
+    if (!empty($leftParentIds)) {
+      $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
+      $wheres[] = "u.id NOT IN ($placeholders)";
+      $params = array_merge($params, $leftParentIds);
+    }
+
     // Grade filtering
     if (!empty($classOfValues)) {
       $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
@@ -1195,6 +1209,20 @@ class UserManagement {
           WHERE adla.adult_id = u.id
         )
       )";
+    }
+
+    // Exclude adults who have any children that have left the troop
+    $leftParentsQuery = "SELECT DISTINCT pr.adult_id 
+                         FROM parent_relationships pr 
+                         JOIN youth y ON y.id = pr.youth_id 
+                         WHERE y.left_troop = 1";
+    $leftParentsStmt = self::pdo()->query($leftParentsQuery);
+    $leftParentIds = array_column($leftParentsStmt->fetchAll(), 'adult_id');
+    
+    if (!empty($leftParentIds)) {
+      $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
+      $wheres[] = "u.id NOT IN ($placeholders)";
+      $params = array_merge($params, $leftParentIds);
     }
 
     // Grade filtering
