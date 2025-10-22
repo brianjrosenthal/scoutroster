@@ -866,6 +866,15 @@ header_html('Edit Adult');
 </div>
 <?php endif; ?>
 
+<!-- Email History Section (Approvers Only) -->
+<?php if (\UserManagement::isApprover((int)($me['id'] ?? 0))): ?>
+<div class="card" style="margin-top:24px;">
+  <h3>Email History</h3>
+  <p>View all emails sent to this person through the system.</p>
+  <a href="/adult_email_history.php?id=<?= (int)$id ?>" class="button">View Email History</a>
+</div>
+<?php endif; ?>
+
 <!-- Delete Adult Section (Approvers Only) -->
 <?php if (\UserManagement::isApprover((int)($me['id'] ?? 0)) && (int)$id !== (int)($me['id'] ?? 0)): ?>
 <div class="card" style="margin-top:24px;border-left:4px solid #dc3545;">
