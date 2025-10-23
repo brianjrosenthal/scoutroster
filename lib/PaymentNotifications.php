@@ -180,7 +180,7 @@ final class PaymentNotifications {
   // Check if there is any recent (< days) not-deleted notification for this youth.
   // Note: registration applications are now tracked in pending_registrations;
   // this method is only used for renewal processing indicators.
-  public static function hasRecentActiveForYouth(int $youthId, bool $ignoredNewApplicationFlag = false, int $days = 30): bool {
+  public static function hasRecentActiveForYouth(int $youthId, bool $ignoredNewApplicationFlag = false, int $days = 90): bool {
     $sql = "SELECT 1
             FROM payment_notifications_from_users
             WHERE youth_id = ?
