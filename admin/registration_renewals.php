@@ -16,8 +16,8 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 function hq($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
 // Inputs
-$status = trim((string)($_GET['status'] ?? 'all')); // all|notification_needed|action_needed|processing_needed
-if (!in_array($status, ['all','notification_needed','action_needed','processing_needed'], true)) { $status = 'all'; }
+$status = trim((string)($_GET['status'] ?? '')); // ''|notification_needed|action_needed_payment|action_needed_registration|processing_needed
+if (!in_array($status, ['','notification_needed','action_needed_payment','action_needed_registration','processing_needed'], true)) { $status = ''; }
 
 $gLabel = trim((string)($_GET['g'] ?? '')); // Grade filter: K,0..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
@@ -82,15 +82,15 @@ header_html('Registration Renewals');
 
 <div class="card">
   <h3>How to Use This Page</h3>
-  <p>This page helps treasurers and committee chairs manage Scout registrations and renewals. Use the <strong>Status</strong> filter below to focus on specific tasks:</p>
+  <p>This page helps treasurers and committee chairs manage Scout registrations and renewals. Use the <strong>Report Type</strong> filter below to focus on specific tasks:</p>
   
   <div style="margin: 16px 0;">
-    <h4 style="margin-bottom: 8px; color: #2c5aa0;">Status Filter Options:</h4>
+    <h4 style="margin-bottom: 8px; color: #2c5aa0;">Report Type Options:</h4>
     <ul style="margin-left: 20px; line-height: 1.6;">
-      <li><strong>"All"</strong> - Shows everyone who needs some kind of action taken (registrations expiring soon, pending payments, or pending registrations)</li>
-      <li><strong>"Notification of family needed"</strong> - Shows families whose BSA registrations are expired or expiring soon, but who haven't submitted any payments or registration forms yet. These families need to be contacted about renewing.</li>
-      <li><strong>"Action needed to Scouting.org"</strong> - Shows Scouts whose BSA registrations are not current AND who have submitted payment notifications or registration forms. You need to log into Scouting.org and process their renewals.</li>
-      <li><strong>"Processing Needed"</strong> - Shows all pending payments and registration forms that need to be reviewed and processed, regardless of their current registration status.</li>
+      <li><strong>"Notification of family needed - need to renew"</strong> - Shows families whose BSA registrations are expired or expiring soon, but who haven't submitted any payments or registration forms yet. These families need to be contacted about renewing.</li>
+      <li><strong>"Action needed to Scouting.org - needs youth payment"</strong> - Shows Scouts whose BSA registrations expire before the end of next month AND who either have paid until after next June 1st OR have submitted a payment notification. You need to log into Scouting.org and process their payments.</li>
+      <li><strong>"Action needed to Scouting.org - needs youth registration submitted"</strong> - Shows Scouts who have paid pending registration forms that need to be submitted to Scouting.org.</li>
+      <li><strong>"Processing Needed - needs payment verified"</strong> - Shows all pending payments and registration forms that need to be reviewed and verified, regardless of their current registration status.</li>
     </ul>
   </div>
   
@@ -100,12 +100,13 @@ header_html('Registration Renewals');
 <div class="card">
   <form id="filterForm" method="get" class="stack">
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
-      <label>Status
+      <label>Report Type
         <select name="status">
-          <option value="all" <?= $status === 'all' ? 'selected' : '' ?>>All</option>
-          <option value="notification_needed" <?= $status === 'notification_needed' ? 'selected' : '' ?>>Notification of family needed</option>
-          <option value="action_needed" <?= $status === 'action_needed' ? 'selected' : '' ?>>Action needed to Scouting.org</option>
-          <option value="processing_needed" <?= $status === 'processing_needed' ? 'selected' : '' ?>>Processing Needed</option>
+          <option value="" <?= $status === '' ? 'selected' : '' ?>>Select report type needed</option>
+          <option value="notification_needed" <?= $status === 'notification_needed' ? 'selected' : '' ?>>Notification of family needed - need to renew</option>
+          <option value="action_needed_payment" <?= $status === 'action_needed_payment' ? 'selected' : '' ?>>Action needed to Scouting.org - needs youth payment</option>
+          <option value="action_needed_registration" <?= $status === 'action_needed_registration' ? 'selected' : '' ?>>Action needed to Scouting.org - needs youth registration submitted</option>
+          <option value="processing_needed" <?= $status === 'processing_needed' ? 'selected' : '' ?>>Processing Needed - needs payment verified</option>
         </select>
       </label>
       <label>Grade
