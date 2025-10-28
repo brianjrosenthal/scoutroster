@@ -42,6 +42,20 @@ foreach ($youthIds as $yid) {
 }
 $emailList = implode("\n", array_keys($emailsMap));
 
+// Build names and BSA IDs payload for action_needed_payment status
+$namesAndIdsLines = [];
+if ($status === 'action_needed_payment') {
+  foreach ($rows as $r) {
+    $lastName = trim((string)($r['last_name'] ?? ''));
+    $firstName = trim((string)($r['first_name'] ?? ''));
+    $bsaId = trim((string)($r['bsa_registration_number'] ?? ''));
+    if ($lastName !== '' && $firstName !== '' && $bsaId !== '') {
+      $namesAndIdsLines[] = $lastName . ', ' . $firstName . ', ' . $bsaId;
+    }
+  }
+}
+$namesAndIdsList = implode("\n", $namesAndIdsLines);
+
 /**
  * Group by grade buckets:
  * - 'pre' bucket for any grade < 0
@@ -124,6 +138,9 @@ header_html('Registration Renewals');
       <button class="primary">Filter</button>
       <a class="button" href="/admin/registration_renewals.php">Reset</a>
       <button type="button" class="button" id="copyEmailsBtn">Copy emails</button>
+      <?php if ($status === 'action_needed_payment'): ?>
+        <button type="button" class="button" id="copyNamesIdsBtn">Copy names and BSA Registration IDs</button>
+      <?php endif; ?>
       <span id="copyEmailsStatus" class="small" style="display:none;margin-left:8px;"></span>
     </div>
   </form>
@@ -185,8 +202,68 @@ header_html('Registration Renewals');
         .catch(function(){ show('Copy failed.', false); });
     });
   }
+
+  // Names and BSA IDs modal functionality
+  var namesIdsBtn = document.getElementById('copyNamesIdsBtn');
+  var namesIdsModal = document.getElementById('namesIdsModal');
+  var namesIdsClose = document.getElementById('namesIdsModalClose');
+  var namesIdsCancel = document.getElementById('namesIdsModalCancel');
+  var namesIdsCopyBtn = document.getElementById('copyNamesIdsModalBtn');
+  
+  if (namesIdsBtn && namesIdsModal) {
+    namesIdsBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      namesIdsModal.classList.remove('hidden');
+      namesIdsModal.setAttribute('aria-hidden', 'false');
+    });
+  }
+  
+  function closeNamesIdsModal() {
+    if (namesIdsModal) {
+      namesIdsModal.classList.add('hidden');
+      namesIdsModal.setAttribute('aria-hidden', 'true');
+    }
+  }
+  
+  if (namesIdsClose) namesIdsClose.addEventListener('click', closeNamesIdsModal);
+  if (namesIdsCancel) namesIdsCancel.addEventListener('click', closeNamesIdsModal);
+  if (namesIdsModal) {
+    namesIdsModal.addEventListener('click', function(e){
+      if (e.target === namesIdsModal) closeNamesIdsModal();
+    });
+  }
+  
+  if (namesIdsCopyBtn) {
+    namesIdsCopyBtn.addEventListener('click', function(e){
+      e.preventDefault();
+      var textarea = document.getElementById('namesIdsTextarea');
+      var text = textarea ? textarea.value : '';
+      copyText(text)
+        .then(function(){ 
+          show('Names and BSA IDs copied.', true);
+          closeNamesIdsModal();
+        })
+        .catch(function(){ show('Copy failed.', false); });
+    });
+  }
 })();
 </script>
+
+<!-- Names and BSA IDs Modal -->
+<?php if ($status === 'action_needed_payment'): ?>
+<div id="namesIdsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content" style="max-width:600px;">
+    <button class="close" type="button" id="namesIdsModalClose" aria-label="Close">&times;</button>
+    <h3>Names and BSA Registration IDs</h3>
+    <p class="small">Copy this list to send to the council for processing renewals.</p>
+    <textarea id="namesIdsTextarea" readonly style="width:100%; height:300px; font-family:monospace; font-size:12px; padding:8px; border:1px solid #ccc; border-radius:4px; resize:vertical;"><?= hq($namesAndIdsList) ?></textarea>
+    <div class="actions" style="margin-top:12px;">
+      <button class="button primary" type="button" id="copyNamesIdsModalBtn">Copy to Clipboard</button>
+      <button class="button" type="button" id="namesIdsModalCancel">Close</button>
+    </div>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card">
   <?php if (empty($rows)): ?>
