@@ -621,6 +621,7 @@ class YouthManagement {
     } elseif ($status === 'notification_needed') {
       // Notification of family needed - need to renew
       // Show youth WITHOUT pending actions who need registration renewal
+      // Exclude youth who have already paid until after next June 1st
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
                      CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
@@ -639,6 +640,8 @@ class YouthManagement {
                 -- Exclude youth with pending payments or registrations
                 AND pn.id IS NULL 
                 AND pr.id IS NULL
+                -- Exclude youth who have already paid until after next June 1st
+                AND (y.date_paid_until IS NULL OR y.date_paid_until <= ?)
                 AND (
                   -- Has BSA ID and expires before end of next month OR is expired
                   (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
@@ -648,6 +651,7 @@ class YouthManagement {
                       AND (y.date_paid_until IS NULL OR y.date_paid_until < CURDATE()))
                 )";
       $params[] = $nextMonthEnd;
+      $params[] = $nextJune1;
       $params[] = $nextMonthEnd;
     } else {
       // Default: return empty result set
