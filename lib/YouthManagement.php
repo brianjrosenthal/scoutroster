@@ -543,7 +543,11 @@ class YouthManagement {
     $nextMonthEnd = date('Y-m-d', strtotime('last day of next month'));
     
     // Calculate next June 1st for registration year boundary
-    $nextJune1 = date('Y-m-d', strtotime('next June 1'));
+    $currentYear = (int)date('Y');
+    $currentMonth = (int)date('n');
+    // If we're already past June, use next year's June 1st, otherwise use this year's
+    $nextJune1Year = ($currentMonth >= 6) ? $currentYear + 1 : $currentYear;
+    $nextJune1 = $nextJune1Year . '-06-01';
 
     $params = [];
     
