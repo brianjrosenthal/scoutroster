@@ -559,7 +559,7 @@ class YouthManagement {
                      END as expiration_status
               FROM youth y
               LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
-              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
+              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0
                 -- Include youth WITH pending payments or registrations
@@ -579,7 +579,7 @@ class YouthManagement {
                      END as expiration_status
               FROM youth y
               LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
-              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
+              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0
                 -- Include youth WITH pending actions
@@ -604,7 +604,7 @@ class YouthManagement {
                      END as expiration_status
               FROM youth y
               LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
-              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
+              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0
                 -- Exclude youth with pending payments or registrations
@@ -634,7 +634,7 @@ class YouthManagement {
                      END as expiration_status
               FROM youth y
               LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
-              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status IN ('new', 'processed')
+              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0
                 AND (
