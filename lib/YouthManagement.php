@@ -521,14 +521,14 @@ class YouthManagement {
    * List youths needing registration action, optionally filtered by status and grade.
    * New comprehensive logic for registration renewals dashboard.
    * filters:
-   *   - status: 'all' | 'notification_needed' | 'action_needed' | 'processing_needed' (default 'all')
+   *   - status: '' | 'notification_needed' | 'action_needed_payment' | 'action_needed_registration' | 'processing_needed' (default '')
    *   - grade_label: 'K','1',..'5' (optional)
    *   - grade: int (0..5) alternative to grade_label
    */
   public static function listForRenewals(UserContext $ctx, array $filters = []): array {
     self::assertLogin($ctx);
 
-    $status = isset($filters['status']) ? trim((string)$filters['status']) : 'all';
+    $status = isset($filters['status']) ? trim((string)$filters['status']) : '';
     $gradeLabel = isset($filters['grade_label']) ? (string)$filters['grade_label'] : '';
     $grade = null;
     if ($gradeLabel !== '') {
@@ -541,11 +541,15 @@ class YouthManagement {
     // Calculate end of next month for expiration logic
     // If it's September 15th, we want to show registrations expiring before November 1st
     $nextMonthEnd = date('Y-m-d', strtotime('last day of next month'));
+    
+    // Calculate next June 1st for registration year boundary
+    $nextJune1 = date('Y-m-d', strtotime('next June 1'));
 
     $params = [];
     
     // Build different queries based on status filter
     if ($status === 'processing_needed') {
+      // Processing Needed - needs payment verified
       // Show youth WITH pending payments or registrations (regardless of registration status)
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
@@ -565,8 +569,10 @@ class YouthManagement {
                 -- Include youth WITH pending payments or registrations
                 AND (pn.id IS NOT NULL OR pr.id IS NOT NULL)";
       $params[] = $nextMonthEnd;
-    } elseif ($status === 'action_needed') {
-      // Show youth with expired/expiring registrations AND pending actions
+    } elseif ($status === 'action_needed_payment') {
+      // Action needed to Scouting.org - needs youth payment
+      // Show youth whose BSA registration expires before next month end
+      // AND they either have paid until after next June 1st OR have a pending payment notification
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
                      CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
@@ -582,15 +588,34 @@ class YouthManagement {
               LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0
-                -- Include youth WITH pending actions
-                AND (pn.id IS NOT NULL OR pr.id IS NOT NULL)
-                -- AND registration is not current
-                AND (y.bsa_registration_number IS NULL OR y.bsa_registration_number = '' 
-                     OR y.bsa_registration_expires_date IS NULL 
-                     OR y.bsa_registration_expires_date <= ?)";
+                AND y.bsa_registration_expires_date < ?
+                AND (y.date_paid_until > ? OR pn.id IS NOT NULL)";
       $params[] = $nextMonthEnd;
+      $params[] = $nextMonthEnd;
+      $params[] = $nextJune1;
+    } elseif ($status === 'action_needed_registration') {
+      // Action needed to Scouting.org - needs youth registration submitted
+      // Show youth with paid pending registrations that haven't been processed yet
+      $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
+                     y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
+                     CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
+                     CASE WHEN pr.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_registration,
+                     CASE 
+                       WHEN y.bsa_registration_expires_date IS NULL THEN 0
+                       WHEN y.bsa_registration_expires_date < CURDATE() THEN 1  -- expired
+                       WHEN y.bsa_registration_expires_date <= ? THEN 2  -- expiring soon
+                       ELSE 0  -- current
+                     END as expiration_status
+              FROM youth y
+              LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
+              INNER JOIN pending_registrations pr ON pr.youth_id = y.id 
+                AND pr.status = 'new' 
+                AND pr.payment_status = 'paid'
+              WHERE y.left_troop = 0 
+                AND y.sibling = 0";
       $params[] = $nextMonthEnd;
     } elseif ($status === 'notification_needed') {
+      // Notification of family needed - need to renew
       // Show youth WITHOUT pending actions who need registration renewal
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
@@ -621,40 +646,14 @@ class YouthManagement {
       $params[] = $nextMonthEnd;
       $params[] = $nextMonthEnd;
     } else {
-      // 'all' - show all youth who need some kind of action
+      // Default: return empty result set
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
-                     CASE WHEN pn.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_payment,
-                     CASE WHEN pr.id IS NOT NULL THEN 1 ELSE 0 END as has_pending_registration,
-                     CASE 
-                       WHEN y.bsa_registration_expires_date IS NULL THEN 0
-                       WHEN y.bsa_registration_expires_date < CURDATE() THEN 1  -- expired
-                       WHEN y.bsa_registration_expires_date <= ? THEN 2  -- expiring soon
-                       ELSE 0  -- current
-                     END as expiration_status
+                     0 as has_pending_payment,
+                     0 as has_pending_registration,
+                     0 as expiration_status
               FROM youth y
-              LEFT JOIN payment_notifications_from_users pn ON pn.youth_id = y.id AND pn.status = 'new'
-              LEFT JOIN pending_registrations pr ON pr.youth_id = y.id AND pr.status = 'new'
-              WHERE y.left_troop = 0 
-                AND y.sibling = 0
-                AND (
-                  -- Has pending actions
-                  pn.id IS NOT NULL OR pr.id IS NOT NULL
-                  -- OR needs notification (no pending actions but registration needs renewal)
-                  OR (
-                    pn.id IS NULL AND pr.id IS NULL
-                    AND (
-                      -- Has BSA ID and expires before end of next month OR is expired
-                      (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
-                       AND (y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?))
-                      -- OR has BSA ID but hasn't paid dues (regardless of registration expiration)
-                      OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
-                          AND (y.date_paid_until IS NULL OR y.date_paid_until < CURDATE()))
-                    )
-                  )
-                )";
-      $params[] = $nextMonthEnd;
-      $params[] = $nextMonthEnd;
+              WHERE 1=0";
     }
 
     if ($grade !== null) {
