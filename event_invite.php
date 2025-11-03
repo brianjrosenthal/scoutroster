@@ -413,65 +413,37 @@ header_html('Event Invite');
 <?= EventsUI::renderCurrentRsvpsSection((int)$eventId, $event, $rsvpUrl) ?>
 
 <!-- Event Volunteers -->
-<div class="card">
-  <h3>Event Volunteers</h3>
-  <?php if (empty($roles)): ?>
-    <p class="small">No volunteer roles have been defined for this event.</p>
-    <?php if ((bool)$invitee): // invitee exists by definition ?>
-      <p class="small">If you are willing to help, check back later; roles may be added by the organizers.</p>
-    <?php endif; ?>
-  <?php else: ?>
-    <div class="volunteers">
-      <?php foreach ($roles as $r): ?>
-        <div class="role" style="margin-bottom:10px;">
-          <div>
-            <strong><?= h($r['title']) ?></strong>
-            <?php if (!empty($r['is_unlimited'])): ?>
-              <span class="remaining small">(no limit)</span>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
-              <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
-            <?php else: ?>
-              <span class="filled small">Filled</span>
-            <?php endif; ?>
-          </div>
+<?php
+require_once __DIR__ . '/lib/EventUIManager.php';
 
-          <?php if (!empty($r['volunteers'])): ?>
-            <ul style="margin:6px 0 0 16px;">
-              <?php foreach ($r['volunteers'] as $v): ?>
-                <li><?= h($v['name']) ?></li>
-              <?php endforeach; ?>
-            </ul>
-          <?php else: ?>
-            <p class="small" style="margin:4px 0 0 0;">No one yet.</p>
-          <?php endif; ?>
+// Check for volunteer error/success messages from query params
+$volunteerError = isset($_GET['volunteer_error']) ? (string)$_GET['volunteer_error'] : null;
+$volunteerSuccess = null;
+if (isset($_GET['volunteer']) && $_GET['volunteer'] == '1') {
+  $volunteerSuccess = 'You have been signed up for the role!';
+} elseif (isset($_GET['volunteer_removed']) && $_GET['volunteer_removed'] == '1') {
+  $volunteerSuccess = 'You have been removed from the role.';
+}
 
-          <?php if ($inviteeHasYes): ?>
-            <?php
-              $amIn = false;
-              foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$uid) { $amIn = true; break; } }
-            ?>
-            <form method="post" action="/volunteer_actions.php" class="inline volunteer-form" style="margin-top:6px;">
-              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-              <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-              <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-              <input type="hidden" name="uid" value="<?= (int)$uid ?>">
-              <input type="hidden" name="sig" value="<?= h($sig) ?>">
-              <?php if ($amIn): ?>
-                <input type="hidden" name="action" value="remove">
-                <button class="button">Cancel</button>
-              <?php elseif (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
-                <input type="hidden" name="action" value="signup">
-                <button class="button primary">Sign up</button>
-              <?php else: ?>
-                <button class="button" disabled>Filled</button>
-              <?php endif; ?>
-            </form>
-          <?php endif; ?>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  <?php endif; ?>
-</div>
+// Render using EventUIManager
+if (empty($roles)) {
+  echo '<div class="card" id="volunteersCard">';
+  echo '<h3>Event Volunteers</h3>';
+  if ($volunteerSuccess) {
+    echo '<div class="flash" style="margin-bottom:16px;">' . h($volunteerSuccess) . '</div>';
+  }
+  if ($volunteerError) {
+    echo '<div class="error" style="margin-bottom:16px;">' . h($volunteerError) . '</div>';
+  }
+  echo '<p class="small">No volunteer roles have been defined for this event.</p>';
+  if ((bool)$invitee) {
+    echo '<p class="small">If you are willing to help, check back later; roles may be added by the organizers.</p>';
+  }
+  echo '</div>';
+} else {
+  echo EventUIManager::renderVolunteersCard($roles, $inviteeHasYes, (int)$uid, (int)$eventId, false, $volunteerSuccess);
+}
+?>
 
 <?php if ($openVolunteerRoles && $inviteeHasYes): ?>
   <!-- Volunteer prompt modal (invite flow) -->
@@ -677,165 +649,54 @@ header_html('Event Invite');
 
 <?php endif; ?>
 
+<?php if ($inviteeHasYes): ?>
 <script>
 (function(){
-  // AJAX handling for main volunteer section forms
-  const volunteerSection = document.querySelector('.volunteers');
-  
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'}[c];
-    });
-  }
-  
-  function updateVolunteerSection(roles, currentUserId) {
-    if (!volunteerSection) return;
+  // AJAX handling for main volunteer section forms - replace entire card
+  document.addEventListener('click', function(e){
+    const btn = e.target.closest('button');
+    if (!btn) return;
     
-    let html = '';
-    roles.forEach(role => {
-      const volunteers = role.volunteers || [];
-      const isSignedUp = volunteers.some(v => parseInt(v.user_id, 10) === currentUserId);
-      const openCount = parseInt(role.open_count, 10) || 0;
-      const isUnlimited = !!role.is_unlimited;
-      
-      html += `<div class="role" style="margin-bottom:10px;">
-        <div>
-          <strong>${escapeHtml(role.title || '')}</strong>`;
-      
-      if (isUnlimited) {
-        html += ' <span class="remaining small">(no limit)</span>';
-      } else if (openCount > 0) {
-        html += ` <span class="remaining small">(${openCount} people still needed)</span>`;
-      } else {
-        html += ' <span class="filled small">Filled</span>';
-      }
-      
-      html += '</div>';
-      
-      if (volunteers.length > 0) {
-        html += '<ul style="margin:6px 0 0 16px;">';
-        volunteers.forEach(volunteer => {
-          html += `<li>${escapeHtml(volunteer.name || '')}</li>`;
-        });
-        html += '</ul>';
-      } else {
-        html += '<p class="small" style="margin:4px 0 0 0;">No one yet.</p>';
-      }
-      
-      // Only show volunteer buttons if user has RSVP'd Yes
-      if (<?= $inviteeHasYes ? 'true' : 'false' ?>) {
-        html += `<form method="post" action="/volunteer_actions.php" class="inline volunteer-form" style="margin-top:6px;">
-          <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-          <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
-          <input type="hidden" name="role_id" value="${role.id}">
-          <input type="hidden" name="uid" value="<?= (int)$uid ?>">
-          <input type="hidden" name="sig" value="<?= h($sig) ?>">`;
-        
-        if (isSignedUp) {
-          html += `<input type="hidden" name="action" value="remove">
-            <button class="button">Cancel</button>`;
-        } else if (isUnlimited || openCount > 0) {
-          html += `<input type="hidden" name="action" value="signup">
-            <button class="button primary">Sign up</button>`;
-        } else {
-          html += '<button class="button" disabled>Filled</button>';
-        }
-        
-        html += '</form>';
-      }
-      
-      html += '</div>';
-    });
+    const form = btn.closest('form');
+    if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
     
-    volunteerSection.innerHTML = html;
+    // Skip if this is in the volunteer modal (handled separately)
+    if (form.closest('#volunteerModal')) return;
     
-    // Re-attach event listeners to new forms
-    attachVolunteerFormListeners();
-  }
-  
-  function showVolunteerError(message) {
-    // Find the volunteer section and add error message
-    const volunteerCard = volunteerSection?.closest('.card');
-    if (volunteerCard) {
-      // Remove any existing error messages
-      const existingError = volunteerCard.querySelector('.volunteer-error');
-      if (existingError) {
-        existingError.remove();
-      }
-      
-      // Add new error message
-      const errorDiv = document.createElement('div');
-      errorDiv.className = 'volunteer-error error small';
-      errorDiv.style.marginTop = '8px';
-      errorDiv.textContent = message || 'Volunteer action failed.';
-      
-      const h3 = volunteerCard.querySelector('h3');
-      if (h3) {
-        h3.parentNode.insertBefore(errorDiv, h3.nextSibling);
-      }
-      
-      // Auto-remove error after 5 seconds
-      setTimeout(() => {
-        if (errorDiv.parentNode) {
-          errorDiv.remove();
-        }
-      }, 5000);
-    }
-  }
-  
-  function attachVolunteerFormListeners() {
-    const volunteerForms = document.querySelectorAll('.volunteer-form');
+    e.preventDefault();
+    e.stopPropagation();
     
-    volunteerForms.forEach(form => {
-      form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        const formData = new FormData(this);
-        formData.set('ajax', '1');
-        
-        // Disable the button to prevent double-clicks
-        const button = this.querySelector('button[type="submit"], button:not([type])');
-        const originalText = button ? button.textContent : '';
-        if (button) {
-          button.disabled = true;
-          button.textContent = 'Processing...';
-        }
-        
-        fetch('/volunteer_actions.php', {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin'
-        })
-        .then(response => response.json())
-        .then(data => {
-          if (data.ok) {
-            // Update the volunteer section with new data
-            updateVolunteerSection(data.roles || [], <?= (int)$uid ?>);
-          } else {
-            showVolunteerError(data.error || 'Volunteer action failed.');
-            // Re-enable button on error
-            if (button) {
-              button.disabled = false;
-              button.textContent = originalText;
-            }
+    const fd = new FormData(form);
+    fd.set('ajax', '1');
+    
+    fetch('/volunteer_actions.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    })
+    .then(function(res){
+      if (!res.ok) throw new Error('Server error: ' + res.status);
+      return res.json();
+    })
+    .then(function(json){
+      if (json && json.ok) {
+        // Replace entire volunteers card with updated HTML (includes success message from server)
+        if (json.volunteers_card_html) {
+          const volunteersCard = document.getElementById('volunteersCard');
+          if (volunteersCard) {
+            volunteersCard.outerHTML = json.volunteers_card_html;
           }
-        })
-        .catch(error => {
-          console.error('Volunteer action error:', error);
-          showVolunteerError('Network error occurred.');
-          // Re-enable button on error
-          if (button) {
-            button.disabled = false;
-            button.textContent = originalText;
-          }
-        });
-      });
+        }
+      } else {
+        alert((json && json.error) ? json.error : 'Volunteer action failed.');
+      }
+    })
+    .catch(function(err){
+      alert(err.message || 'Network error.');
     });
-  }
-  
-  // Initial attachment of event listeners
-  attachVolunteerFormListeners();
+  });
 })();
 </script>
+<?php endif; ?>
 
 <?php footer_html(); ?>
