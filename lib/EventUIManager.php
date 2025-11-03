@@ -939,7 +939,7 @@ class EventUIManager {
     }
     
     /**
-     * Render the volunteers section HTML
+     * Render the complete volunteers card HTML (including heading and success messages)
      * 
      * @param array $roles Array of volunteer roles with counts
      * @param bool $hasYes Whether the user has RSVP'd yes
@@ -947,6 +947,36 @@ class EventUIManager {
      * @param int $eventId The event ID
      * @param bool $isAdmin Whether the user is an admin
      * @param string|null $successMessage Optional success message to display
+     * @return string HTML content for complete volunteers card
+     */
+    public static function renderVolunteersCard(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null): string {
+        if (!$isAdmin && empty($roles)) {
+            return '';
+        }
+        
+        $html = '<div class="card" id="volunteersCard">';
+        $html .= '<h3>Event Volunteers</h3>';
+        
+        // Add success message if provided
+        if ($successMessage !== null) {
+            $html .= '<div class="flash" style="margin-bottom:16px;">' . h($successMessage) . '</div>';
+        }
+        
+        $html .= self::renderVolunteersSection($roles, $hasYes, $actingUserId, $eventId, $isAdmin, null);
+        $html .= '</div>';
+        
+        return $html;
+    }
+    
+    /**
+     * Render the volunteers section HTML (without card wrapper)
+     * 
+     * @param array $roles Array of volunteer roles with counts
+     * @param bool $hasYes Whether the user has RSVP'd yes
+     * @param int $actingUserId The current user's ID
+     * @param int $eventId The event ID
+     * @param bool $isAdmin Whether the user is an admin
+     * @param string|null $successMessage Optional success message to display (deprecated, use renderVolunteersCard)
      * @return string HTML content for volunteers section
      */
     public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null): string {
@@ -956,14 +986,7 @@ class EventUIManager {
             return '';
         }
         
-        $html = '';
-        
-        // Add success message if provided
-        if ($successMessage !== null) {
-            $html .= '<div class="flash" style="margin-bottom:16px;">' . h($successMessage) . '</div>';
-        }
-        
-        $html .= '<div class="volunteers">';
+        $html = '<div class="volunteers">';
         
         if (empty($roles)) {
             $html .= '<p class="small">No volunteer roles have been defined for this event.</p>';
