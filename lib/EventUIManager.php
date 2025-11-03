@@ -1309,7 +1309,7 @@ class EventUIManager {
                 
                 // Add Key 3 admin signup link if user has Key 3 permissions (event.php only, no invite params)
                 if ($inviteUid === null && $inviteSig === null && self::isKey3User()) {
-                    $html .= '<a href="#" class="button small key3-signup-link" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-role-description="' . h($r['description']) . '" style="white-space: nowrap;">Admin Signup</a>';
+                    $html .= '<a href="#" class="button primary key3-signup-link" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-role-description="' . h($r['description']) . '" style="white-space: nowrap;">Admin Signup</a>';
                 }
                 
                 // Add sign-up button if applicable
