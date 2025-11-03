@@ -629,6 +629,19 @@ if (empty($roles)) {
         modal.addEventListener('submit', function(e){
           const form = e.target.closest('form');
           if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+          
+          const action = form.querySelector('input[name="action"]');
+          if (action && action.value === 'signup') {
+            // For signups, show confirmation modal instead
+            e.preventDefault();
+            const roleId = form.querySelector('input[name="role_id"]').value;
+            if (window.showVolunteerSignupConfirmation) {
+              window.showVolunteerSignupConfirmation(roleId);
+            }
+            return;
+          }
+          
+          // For other actions (like remove), proceed with AJAX
           e.preventDefault();
           const fd = new FormData(form);
           fd.set('ajax','1');
@@ -650,8 +663,150 @@ if (empty($roles)) {
 <?php endif; ?>
 
 <?php if ($inviteeHasYes): ?>
+  <!-- Volunteer signup confirmation modal -->
+  <div id="volunteerSignupModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close" type="button" id="volunteerSignupModalClose" aria-label="Close">&times;</button>
+      <h3>Confirm Volunteer Signup</h3>
+      <form id="volunteerSignupForm" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+        <input type="hidden" name="role_id" id="signupRoleId" value="">
+        <input type="hidden" name="action" value="signup">
+        <input type="hidden" name="uid" value="<?= (int)$uid ?>">
+        <input type="hidden" name="sig" value="<?= h($sig) ?>">
+        
+        <p>Please confirm you wish to sign up for <strong id="signupRoleTitle"></strong>.</p>
+        
+        <div id="signupRoleDescription" style="margin-top:8px;"></div>
+        
+        <label style="margin-top:16px;">
+          Would you like to add a comment about your sign-up?
+          <textarea name="comment" id="signupComment" rows="3" placeholder="e.g., I'm bringing chips and salsa"></textarea>
+        </label>
+        
+        <div class="actions">
+          <button type="submit" class="primary">Confirm</button>
+          <button type="button" class="button" id="volunteerSignupCancel">Cancel</button>
+        </div>
+      </form>
+      <div id="signupError" class="error" style="display:none;margin-top:12px;"></div>
+    </div>
+  </div>
+<?php endif; ?>
+
+<?php if ($inviteeHasYes): ?>
 <script>
 (function(){
+  // Signup confirmation modal handling
+  const signupModal = document.getElementById('volunteerSignupModal');
+  const signupForm = document.getElementById('volunteerSignupForm');
+  const signupCloseBtn = document.getElementById('volunteerSignupModalClose');
+  const signupCancelBtn = document.getElementById('volunteerSignupCancel');
+  const signupError = document.getElementById('signupError');
+  const signupRoleId = document.getElementById('signupRoleId');
+  const signupRoleTitle = document.getElementById('signupRoleTitle');
+  const signupRoleDescription = document.getElementById('signupRoleDescription');
+  const signupComment = document.getElementById('signupComment');
+  
+  const rolesData = <?= json_encode($roles) ?>;
+  
+  const openSignupModal = () => { 
+    if (signupModal) { 
+      signupModal.classList.remove('hidden'); 
+      signupModal.setAttribute('aria-hidden','false');
+      if (signupError) signupError.style.display = 'none';
+    } 
+  };
+  const closeSignupModal = () => { 
+    if (signupModal) { 
+      signupModal.classList.add('hidden'); 
+      signupModal.setAttribute('aria-hidden','true');
+      if (signupComment) signupComment.value = '';
+      if (signupError) signupError.style.display = 'none';
+    } 
+  };
+  
+  if (signupCloseBtn) signupCloseBtn.addEventListener('click', closeSignupModal);
+  if (signupCancelBtn) signupCancelBtn.addEventListener('click', closeSignupModal);
+  
+  // Global function to show signup confirmation
+  window.showVolunteerSignupConfirmation = function(roleId) {
+    const role = rolesData.find(r => r.id == roleId);
+    if (!role) return false;
+    
+    // Hide the volunteer modal if it's open
+    const volModal = document.getElementById('volunteerModal');
+    if (volModal && !volModal.classList.contains('hidden')) {
+      volModal.classList.add('hidden');
+      volModal.setAttribute('aria-hidden', 'true');
+    }
+    
+    if (signupRoleId) signupRoleId.value = roleId;
+    if (signupRoleTitle) signupRoleTitle.textContent = role.title;
+    if (signupRoleDescription) {
+      if (role.description) {
+        signupRoleDescription.innerHTML = role.description;
+        signupRoleDescription.style.display = 'block';
+      } else {
+        signupRoleDescription.style.display = 'none';
+      }
+    }
+    
+    openSignupModal();
+    return true;
+  };
+  
+  // Handle signup form submission
+  if (signupForm) {
+    signupForm.addEventListener('submit', function(e){
+      e.preventDefault();
+      
+      const fd = new FormData(signupForm);
+      fd.set('ajax', '1'); // Tell the server to return JSON
+      
+      fetch('/volunteer_actions.php', { 
+        method:'POST', 
+        body: fd, 
+        credentials:'same-origin' 
+      })
+      .then(function(res){ 
+        if (!res.ok) {
+          throw new Error('Server error: ' + res.status);
+        }
+        return res.json(); 
+      })
+      .then(function(json){
+        if (json && json.ok) {
+          // Success - close modal and refresh volunteers card (includes success message from server)
+          closeSignupModal();
+          
+          // Replace entire volunteers card with updated HTML
+          if (json.volunteers_card_html) {
+            const volunteersCard = document.getElementById('volunteersCard');
+            if (volunteersCard) {
+              volunteersCard.outerHTML = json.volunteers_card_html;
+            }
+          }
+        } else {
+          // Show error
+          if (signupError) {
+            signupError.textContent = (json && json.error) ? json.error : 'Signup failed.';
+            signupError.style.display = 'block';
+          }
+        }
+      })
+      .catch(function(err){
+        if (signupError) {
+          signupError.textContent = err.message || 'Network error.';
+          signupError.style.display = 'block';
+        }
+      });
+    });
+  }
+  
+  if (signupModal) signupModal.addEventListener('click', function(e){ if (e.target === signupModal) closeSignupModal(); });
+  
   // AJAX handling for remove links
   document.addEventListener('click', function(e){
     const removeLink = e.target.closest('a.volunteer-remove-link');
@@ -697,7 +852,7 @@ if (empty($roles)) {
     });
   });
   
-  // AJAX handling for signup buttons
+  // Intercept signup button clicks on main page to show confirmation modal
   document.addEventListener('click', function(e){
     const btn = e.target.closest('button');
     if (!btn) return;
@@ -712,35 +867,9 @@ if (empty($roles)) {
     e.preventDefault();
     e.stopPropagation();
     
-    const fd = new FormData(form);
-    fd.set('ajax', '1');
-    
-    fetch('/volunteer_actions.php', {
-      method: 'POST',
-      body: fd,
-      credentials: 'same-origin'
-    })
-    .then(function(res){
-      if (!res.ok) throw new Error('Server error: ' + res.status);
-      return res.json();
-    })
-    .then(function(json){
-      if (json && json.ok) {
-        // Replace entire volunteers card with updated HTML (includes success message from server)
-        if (json.volunteers_card_html) {
-          const volunteersCard = document.getElementById('volunteersCard');
-          if (volunteersCard) {
-            volunteersCard.outerHTML = json.volunteers_card_html;
-          }
-        }
-      } else {
-        alert((json && json.error) ? json.error : 'Volunteer action failed.');
-      }
-    })
-    .catch(function(err){
-      alert(err.message || 'Network error.');
-    });
-  });
+    const roleId = form.querySelector('input[name="role_id"]').value;
+    window.showVolunteerSignupConfirmation(roleId);
+  }, true);
 })();
 </script>
 <?php endif; ?>
