@@ -1239,24 +1239,24 @@ class EventUIManager {
     private static function renderVolunteerModalScript(int $actingUserId, int $eventId, bool $showModal, ?int $inviteUid, ?string $inviteSig): string {
         $sigJs = $inviteSig !== null ? json_encode($inviteSig) : 'null';
         
-        $script = '<script>';
-        $script .= '(function(){';
-        $script .= 'const modal = document.getElementById("volunteerModal");';
-        $script .= 'const closeBtn = document.getElementById("volunteerModalClose");';
-        $script .= 'const laterBtn = document.getElementById("volunteerMaybeLater");';
-        $script .= 'const openModal = () => { if (modal) { modal.classList.remove("hidden"); modal.setAttribute("aria-hidden","false"); } };';
-        $script .= 'const closeModal = () => { if (modal) { modal.classList.add("hidden"); modal.setAttribute("aria-hidden","true"); } };';
-        $script .= 'if (closeBtn) closeBtn.addEventListener("click", closeModal);';
-        $script .= 'if (laterBtn) laterBtn.addEventListener("click", function(e){ e.preventDefault(); closeModal(); ';
+        $script = '<script>' . "\n";
+        $script .= '(function(){' . "\n";
+        $script .= 'const modal = document.getElementById("volunteerModal");' . "\n";
+        $script .= 'const closeBtn = document.getElementById("volunteerModalClose");' . "\n";
+        $script .= 'const laterBtn = document.getElementById("volunteerMaybeLater");' . "\n";
+        $script .= 'const openModal = () => { if (modal) { modal.classList.remove("hidden"); modal.setAttribute("aria-hidden","false"); } };' . "\n";
+        $script .= 'const closeModal = () => { if (modal) { modal.classList.add("hidden"); modal.setAttribute("aria-hidden","true"); } };' . "\n";
+        $script .= 'if (closeBtn) closeBtn.addEventListener("click", closeModal);' . "\n";
+        $script .= 'if (laterBtn) laterBtn.addEventListener("click", function(e){ e.preventDefault(); closeModal(); ' . "\n";
         
         // For invite flow, redirect to clean URL
         if ($inviteUid !== null && $inviteSig !== null) {
-            $script .= 'const cleanUrl = "/event_invite.php?uid=' . (int)$inviteUid . '&event_id=' . (int)$eventId . '&sig=" + encodeURIComponent(' . json_encode($inviteSig) . ');';
-            $script .= 'window.location.href = cleanUrl;';
+            $script .= 'const cleanUrl = "/event_invite.php?uid=' . (int)$inviteUid . '&event_id=' . (int)$eventId . '&sig=" + encodeURIComponent(' . json_encode($inviteSig) . ');' . "\n";
+            $script .= 'window.location.href = cleanUrl;' . "\n";
         }
         
-        $script .= '});';
-        $script .= 'document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeModal(); });';
+        $script .= '});' . "\n";
+        $script .= 'document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeModal(); });' . "\n";
         
         if ($showModal) {
             $script .= 'openModal();';
