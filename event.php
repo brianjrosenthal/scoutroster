@@ -350,7 +350,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
 <?php endif; ?>
 
-<?php if ($hasYes && $openVolunteerRoles): ?>
+<?php if ($hasYes): ?>
   <!-- Volunteer signup confirmation modal -->
   <div id="volunteerSignupModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
