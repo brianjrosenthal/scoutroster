@@ -311,7 +311,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
                       <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
                       <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
                       <input type="hidden" name="action" value="remove">
-                      <a href="#" class="small" onclick="this.closest('form').requestSubmit(); return false;">(remove)</a>
+                      <a href="#" class="volunteer-remove-link small">(remove)</a>
                     </form>
                   <?php endif; ?>
                 </li>
@@ -357,11 +357,8 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     (function(){
       // Find all remove links on page load
       document.addEventListener('click', function(e){
-        const removeLink = e.target.closest('a');
+        const removeLink = e.target.closest('a.volunteer-remove-link');
         if (!removeLink) return;
-        
-        const onclick = removeLink.getAttribute('onclick');
-        if (!onclick || onclick.indexOf('remove') === -1) return;
         
         const form = removeLink.closest('form');
         if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
