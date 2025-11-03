@@ -551,6 +551,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         modal.addEventListener('submit', function(e){
           const form = e.target.closest('form');
           if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+          
+          const action = form.querySelector('input[name="action"]');
+          if (action && action.value === 'signup') {
+            // For signups, show confirmation modal instead
+            e.preventDefault();
+            const roleId = form.querySelector('input[name="role_id"]').value;
+            if (window.showVolunteerSignupConfirmation) {
+              window.showVolunteerSignupConfirmation(roleId);
+            }
+            return;
+          }
+          
+          // For other actions (like remove), proceed with AJAX
           e.preventDefault();
           const fd = new FormData(form);
           fd.set('ajax','1');
@@ -600,20 +613,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       if (signupCloseBtn) signupCloseBtn.addEventListener('click', closeSignupModal);
       if (signupCancelBtn) signupCancelBtn.addEventListener('click', closeSignupModal);
       
-      // Intercept signup button clicks
-      document.addEventListener('click', function(e){
-        const btn = e.target.closest('button[type="submit"]');
-        if (!btn) return;
-        const form = btn.closest('form');
-        if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
-        if (!form.querySelector('input[name="action"][value="signup"]')) return;
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const roleId = form.querySelector('input[name="role_id"]').value;
+      // Global function to show signup confirmation
+      window.showVolunteerSignupConfirmation = function(roleId) {
         const role = rolesData.find(r => r.id == roleId);
-        if (!role) return;
+        if (!role) return false;
         
         if (signupRoleId) signupRoleId.value = roleId;
         if (signupRoleTitle) signupRoleTitle.textContent = role.title;
@@ -627,6 +630,25 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         }
         
         openSignupModal();
+        return true;
+      };
+      
+      // Intercept signup button clicks on main page
+      document.addEventListener('click', function(e){
+        const btn = e.target.closest('button[type="submit"]');
+        if (!btn) return;
+        const form = btn.closest('form');
+        if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+        if (!form.querySelector('input[name="action"][value="signup"]')) return;
+        
+        // Skip if this is in the volunteer modal (handled separately)
+        if (form.closest('#volunteerModal')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const roleId = form.querySelector('input[name="role_id"]').value;
+        window.showVolunteerSignupConfirmation(roleId);
       }, true);
       
       // Handle signup form submission
