@@ -713,7 +713,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($isAdmin): ?>
-  <?= EventUIManager::renderAdminMenuScript((int)$e['id']) ?>
+  <?= EventUIManager::renderAdminMenuScript((int)$e['id'], $roles) ?>
 <?php endif; ?>
 
 <?php if ($rsvpUrl === ''): ?>
