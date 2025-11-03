@@ -169,8 +169,8 @@ if ($isAjax) {
     $successMessage = 'You have been removed from the role.';
   }
   
-  // Render volunteers section HTML using direct method call
-  $volunteersHtml = EventUIManager::renderVolunteersSection(
+  // Render complete volunteers card HTML using direct method call
+  $volunteersCardHtml = EventUIManager::renderVolunteersCard(
     $roles, 
     $hasYes, 
     $actingUserId, 
@@ -182,7 +182,7 @@ if ($isAjax) {
   header('Content-Type: application/json');
   echo json_encode([
     'ok' => true,
-    'volunteers_html' => $volunteersHtml,
+    'volunteers_card_html' => $volunteersCardHtml,
     'user_id' => $actingUserId,
     'event_id' => $eventId,
     'csrf' => csrf_token(),

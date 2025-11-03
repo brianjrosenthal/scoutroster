@@ -272,7 +272,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($isAdmin || !empty($roles)): ?>
-<div class="card">
+<div class="card" id="volunteersCard">
   <h3>Event Volunteers</h3>
   <?php if (empty($roles)): ?>
     <p class="small">No volunteer roles have been defined for this event.</p>
@@ -380,11 +380,11 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         })
         .then(function(json){
           if (json && json.ok) {
-            // Replace entire volunteers section with updated HTML (includes success message from server)
-            if (json.volunteers_html) {
-              const volunteersDiv = document.querySelector('.volunteers');
-              if (volunteersDiv && volunteersDiv.parentElement) {
-                volunteersDiv.outerHTML = json.volunteers_html;
+            // Replace entire volunteers card with updated HTML (includes success message from server)
+            if (json.volunteers_card_html) {
+              const volunteersCard = document.getElementById('volunteersCard');
+              if (volunteersCard) {
+                volunteersCard.outerHTML = json.volunteers_card_html;
               }
             }
           } else {
@@ -531,14 +531,14 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           })
           .then(function(json){
             if (json && json.ok) {
-              // Success - close modal and refresh volunteers section (includes success message from server)
+              // Success - close modal and refresh volunteers card (includes success message from server)
               closeSignupModal();
               
-              // Replace entire volunteers section with updated HTML
-              if (json.volunteers_html) {
-                const volunteersDiv = document.querySelector('.volunteers');
-                if (volunteersDiv && volunteersDiv.parentElement) {
-                  volunteersDiv.outerHTML = json.volunteers_html;
+              // Replace entire volunteers card with updated HTML
+              if (json.volunteers_card_html) {
+                const volunteersCard = document.getElementById('volunteersCard');
+                if (volunteersCard) {
+                  volunteersCard.outerHTML = json.volunteers_card_html;
                 }
               }
             } else {
