@@ -1000,8 +1000,22 @@ class EventUIManager {
         } else {
             foreach ($roles as $r) {
                 $html .= '<div class="role" style="margin-bottom:10px;">';
+                
+                // Check if user is already signed up for this role
+                $amIn = false;
+                if ($hasYes) {
+                    foreach ($r['volunteers'] as $v) {
+                        if ((int)$v['user_id'] === (int)$actingUserId) {
+                            $amIn = true;
+                            break;
+                        }
+                    }
+                }
+                
+                // Title line with sign-up button on the right
+                $html .= '<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">';
                 $html .= '<div>';
-                $html .= '<strong>' . h($r['title']) . '</strong>';
+                $html .= '<strong>' . h($r['title']) . '</strong> ';
                 
                 if (!empty($r['is_unlimited'])) {
                     $html .= '<span class="remaining small">(no limit)</span>';
@@ -1009,6 +1023,30 @@ class EventUIManager {
                     $html .= '<span class="remaining small">(' . (int)$r['open_count'] . ' people still needed)</span>';
                 } else {
                     $html .= '<span class="filled small">Filled</span>';
+                }
+                
+                $html .= '</div>';
+                
+                // Add sign-up button on the same line if applicable
+                if ($hasYes && !$amIn) {
+                    $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">';
+                    $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
+                    $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
+                    $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
+                    // Add invite auth params if present
+                    if ($inviteUid !== null && $inviteSig !== null) {
+                        $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
+                        $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
+                    }
+                    
+                    if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0) {
+                        $html .= '<input type="hidden" name="action" value="signup">';
+                        $html .= '<button class="button primary" style="white-space: nowrap;">Sign up</button>';
+                    } else {
+                        $html .= '<button class="button" disabled style="white-space: nowrap;">Filled</button>';
+                    }
+                    
+                    $html .= '</form>';
                 }
                 
                 $html .= '</div>';
@@ -1048,37 +1086,6 @@ class EventUIManager {
                     $html .= '</ul>';
                 } else {
                     $html .= '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
-                }
-                
-                if ($hasYes) {
-                    $amIn = false;
-                    foreach ($r['volunteers'] as $v) {
-                        if ((int)$v['user_id'] === (int)$actingUserId) {
-                            $amIn = true;
-                            break;
-                        }
-                    }
-                    
-                    if (!$amIn) {
-                        $html .= '<form method="post" action="/volunteer_actions.php" class="inline">';
-                        $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
-                        $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
-                        $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
-                        // Add invite auth params if present
-                        if ($inviteUid !== null && $inviteSig !== null) {
-                            $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
-                            $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
-                        }
-                        
-                        if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0) {
-                            $html .= '<input type="hidden" name="action" value="signup">';
-                            $html .= '<button style="margin-top:6px;" class="button primary">Sign up</button>';
-                        } else {
-                            $html .= '<button style="margin-top:6px;" class="button" disabled>Filled</button>';
-                        }
-                        
-                        $html .= '</form>';
-                    }
                 }
                 
                 $html .= '</div>';
