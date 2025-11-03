@@ -274,13 +274,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php if ($isAdmin || !empty($roles)): ?>
 <div class="card">
   <h3>Event Volunteers</h3>
-  
-  <?php if ($hasYes): ?>
-    <!-- Success messages for volunteer actions (positioned right under heading) -->
-    <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-bottom:16px;">You have been removed from the role.</div>
-    <div id="volunteerSignupSuccess" class="flash" style="display:none;margin-bottom:16px;">You have been signed up for the role!</div>
-  <?php endif; ?>
-  
   <?php if (empty($roles)): ?>
     <p class="small">No volunteer roles have been defined for this event.</p>
       <?php if ($isAdmin): ?>
@@ -387,13 +380,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         })
         .then(function(json){
           if (json && json.ok) {
-            // Show success message (persistent)
-            const successMsg = document.getElementById('volunteerRemoveSuccess');
-            if (successMsg) {
-              successMsg.style.display = 'block';
-            }
-            
-            // Replace entire volunteers section with updated HTML
+            // Replace entire volunteers section with updated HTML (includes success message from server)
             if (json.volunteers_html) {
               const volunteersDiv = document.querySelector('.volunteers');
               if (volunteersDiv && volunteersDiv.parentElement) {
@@ -544,14 +531,8 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           })
           .then(function(json){
             if (json && json.ok) {
-              // Success - close modal and refresh volunteers section
+              // Success - close modal and refresh volunteers section (includes success message from server)
               closeSignupModal();
-              
-              // Show success message (persistent)
-              const successMsg = document.getElementById('volunteerSignupSuccess');
-              if (successMsg) {
-                successMsg.style.display = 'block';
-              }
               
               // Replace entire volunteers section with updated HTML
               if (json.volunteers_html) {

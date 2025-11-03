@@ -161,13 +161,22 @@ if ($isAjax) {
   $actingUser = UserManagement::findById($actingUserId);
   $isAdmin = !empty($actingUser['is_admin']);
   
+  // Determine success message based on action
+  $successMessage = null;
+  if ($action === 'signup') {
+    $successMessage = 'You have been signed up for the role!';
+  } elseif ($action === 'remove') {
+    $successMessage = 'You have been removed from the role.';
+  }
+  
   // Render volunteers section HTML using direct method call
   $volunteersHtml = EventUIManager::renderVolunteersSection(
     $roles, 
     $hasYes, 
     $actingUserId, 
     $eventId, 
-    $isAdmin
+    $isAdmin,
+    $successMessage
   );
   
   header('Content-Type: application/json');
