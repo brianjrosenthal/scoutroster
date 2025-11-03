@@ -946,16 +946,24 @@ class EventUIManager {
      * @param int $actingUserId The current user's ID
      * @param int $eventId The event ID
      * @param bool $isAdmin Whether the user is an admin
+     * @param string|null $successMessage Optional success message to display
      * @return string HTML content for volunteers section
      */
-    public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin): string {
+    public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null): string {
         require_once __DIR__ . '/Text.php';
         
         if (!$isAdmin && empty($roles)) {
             return '';
         }
         
-        $html = '<div class="volunteers">';
+        $html = '';
+        
+        // Add success message if provided
+        if ($successMessage !== null) {
+            $html .= '<div class="flash" style="margin-bottom:16px;">' . h($successMessage) . '</div>';
+        }
+        
+        $html .= '<div class="volunteers">';
         
         if (empty($roles)) {
             $html .= '<p class="small">No volunteer roles have been defined for this event.</p>';
