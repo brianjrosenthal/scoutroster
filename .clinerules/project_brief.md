@@ -92,3 +92,8 @@ Web requests that don't modify data should generally be GET requests.  Web reque
 ## On thoroughness
 
 I've noticed recently that I need to push a lot for work done within this project to be thorough.  When you are planning what to do, I'd like you to make sure that you're thorough.  Make sure the functions you call actually exist.  Make sure that if you change something, you consider all the implications of the change.
+
+## On checking your work
+Anytime you change a file, you should check a few things:
+- That when you call a function, it exists and the signature is what you expect
+- That the file parses correctly (ie, it's unacceptable for there to be syntax errors for your changes)

@@ -1304,7 +1304,15 @@ class EventUIManager {
                 
                 $html .= '</div>';
                 
-                // Add sign-up button on the same line if applicable
+                // Right side: Admin Signup link + Sign-up button
+                $html .= '<div style="display: flex; align-items: center; gap: 8px;">';
+                
+                // Add Key 3 admin signup link if user has Key 3 permissions (event.php only, no invite params)
+                if ($inviteUid === null && $inviteSig === null && self::isKey3User()) {
+                    $html .= '<a href="#" class="button small key3-signup-link" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-role-description="' . h($r['description']) . '" style="white-space: nowrap;">Admin Signup</a>';
+                }
+                
+                // Add sign-up button if applicable
                 if ($hasYes && !$amIn) {
                     $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">';
                     $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
@@ -1326,17 +1334,11 @@ class EventUIManager {
                     $html .= '</form>';
                 }
                 
-                $html .= '</div>';
+                $html .= '</div>'; // close right side container
+                $html .= '</div>'; // close main flex container
                 
                 if (trim((string)($r['description'] ?? '')) !== '') {
                     $html .= '<div style="margin-top:4px;">' . Text::renderMarkup((string)$r['description']) . '</div>';
-                }
-                
-                // Add Key 3 admin signup link if user has Key 3 permissions (event.php only, no invite params)
-                if ($inviteUid === null && $inviteSig === null && self::isKey3User()) {
-                    $html .= '<div style="margin-top:6px;">';
-                    $html .= '<a href="#" class="small key3-signup-link" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-role-description="' . h($r['description']) . '" style="color: #0b5ed7;">Key 3: Sign up someone else</a>';
-                    $html .= '</div>';
                 }
                 
                 if (!empty($r['volunteers'])) {
