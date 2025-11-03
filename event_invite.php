@@ -441,7 +441,7 @@ if (empty($roles)) {
   }
   echo '</div>';
 } else {
-  echo EventUIManager::renderVolunteersCard($roles, $inviteeHasYes, (int)$uid, (int)$eventId, false, $volunteerSuccess);
+  echo EventUIManager::renderVolunteersCard($roles, $inviteeHasYes, (int)$uid, (int)$eventId, false, $volunteerSuccess, (int)$uid, $sig);
 }
 ?>
 

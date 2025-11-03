@@ -947,9 +947,11 @@ class EventUIManager {
      * @param int $eventId The event ID
      * @param bool $isAdmin Whether the user is an admin
      * @param string|null $successMessage Optional success message to display
+     * @param int|null $inviteUid Optional invite user ID for email token auth
+     * @param string|null $inviteSig Optional invite signature for email token auth
      * @return string HTML content for complete volunteers card
      */
-    public static function renderVolunteersCard(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null): string {
+    public static function renderVolunteersCard(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null, ?int $inviteUid = null, ?string $inviteSig = null): string {
         if (!$isAdmin && empty($roles)) {
             return '';
         }
@@ -962,7 +964,7 @@ class EventUIManager {
             $html .= '<div class="flash" style="margin-bottom:16px;">' . h($successMessage) . '</div>';
         }
         
-        $html .= self::renderVolunteersSection($roles, $hasYes, $actingUserId, $eventId, $isAdmin, null);
+        $html .= self::renderVolunteersSection($roles, $hasYes, $actingUserId, $eventId, $isAdmin, null, $inviteUid, $inviteSig);
         $html .= '</div>';
         
         return $html;
@@ -977,9 +979,11 @@ class EventUIManager {
      * @param int $eventId The event ID
      * @param bool $isAdmin Whether the user is an admin
      * @param string|null $successMessage Optional success message to display (deprecated, use renderVolunteersCard)
+     * @param int|null $inviteUid Optional invite user ID for email token auth
+     * @param string|null $inviteSig Optional invite signature for email token auth
      * @return string HTML content for volunteers section
      */
-    public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null): string {
+    public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin, ?string $successMessage = null, ?int $inviteUid = null, ?string $inviteSig = null): string {
         require_once __DIR__ . '/Text.php';
         
         if (!$isAdmin && empty($roles)) {
@@ -1029,6 +1033,11 @@ class EventUIManager {
                             $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
                             $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
                             $html .= '<input type="hidden" name="action" value="remove">';
+                            // Add invite auth params if present
+                            if ($inviteUid !== null && $inviteSig !== null) {
+                                $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
+                                $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
+                            }
                             $html .= '<a href="#" class="volunteer-remove-link small">(remove)</a>';
                             $html .= '</form>';
                         }
@@ -1054,6 +1063,11 @@ class EventUIManager {
                         $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
                         $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
                         $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
+                        // Add invite auth params if present
+                        if ($inviteUid !== null && $inviteSig !== null) {
+                            $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
+                            $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
+                        }
                         
                         if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0) {
                             $html .= '<input type="hidden" name="action" value="signup">';
