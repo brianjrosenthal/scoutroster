@@ -23,7 +23,7 @@ class Volunteers {
 
     // Fetch all volunteers for these roles
     $st2 = pdo()->prepare("
-      SELECT vs.role_id, u.id AS user_id, u.first_name, u.last_name
+      SELECT vs.role_id, vs.comment, u.id AS user_id, u.first_name, u.last_name
       FROM volunteer_signups vs
       JOIN users u ON u.id = vs.user_id
       WHERE vs.event_id = ?
@@ -37,6 +37,7 @@ class Volunteers {
       $byRole[$rid][] = [
         'user_id' => (int)$row['user_id'],
         'name' => trim((string)($row['first_name'] ?? '') . ' ' . (string)($row['last_name'] ?? '')),
+        'comment' => (string)($row['comment'] ?? ''),
       ];
     }
 
@@ -98,7 +99,7 @@ class Volunteers {
   }
 
   // Sign up a user for a role, enforcing capacity atomically
-  public static function signup(int $eventId, int $roleId, int $userId): void {
+  public static function signup(int $eventId, int $roleId, int $userId, ?string $comment = null): void {
     $eventId = (int)$eventId; $roleId = (int)$roleId; $userId = (int)$userId;
     if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
       throw new RuntimeException('Invalid signup request.');
@@ -129,9 +130,12 @@ class Volunteers {
         throw new RuntimeException('This role is already full.');
       }
 
+      // Normalize comment
+      $commentValue = ($comment !== null && trim($comment) !== '') ? trim($comment) : null;
+
       // Insert signup if not already signed up
-      $st = $db->prepare("INSERT INTO volunteer_signups (event_id, role_id, user_id) VALUES (?,?,?)");
-      $st->execute([$eventId, $roleId, $userId]);
+      $st = $db->prepare("INSERT INTO volunteer_signups (event_id, role_id, user_id, comment) VALUES (?,?,?,?)");
+      $st->execute([$eventId, $roleId, $userId, $commentValue]);
 
       $db->commit();
     } catch (Throwable $e) {
@@ -139,6 +143,52 @@ class Volunteers {
       // Duplicate means user already signed for this role
       if ($e instanceof PDOException && (int)$e->getCode() === 23000) {
         throw new RuntimeException('You are already signed up for this role.');
+      }
+      throw $e;
+    }
+  }
+
+  // Admin signup: sign up another user for a role (bypasses RSVP check)
+  public static function adminSignup(int $eventId, int $roleId, int $userId, ?string $comment = null): void {
+    $eventId = (int)$eventId; $roleId = (int)$roleId; $userId = (int)$userId;
+    if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
+      throw new RuntimeException('Invalid signup request.');
+    }
+
+    $db = pdo();
+    $db->beginTransaction();
+    try {
+      // Lock role row to prevent concurrent overfills
+      $st = $db->prepare("SELECT id, slots_needed FROM volunteer_roles WHERE id=? AND event_id=? FOR UPDATE");
+      $st->execute([$roleId, $eventId]);
+      $role = $st->fetch();
+      if (!$role) {
+        throw new RuntimeException('Volunteer role not found.');
+      }
+      $slots = (int)$role['slots_needed'];
+
+      // Count current signups for this role (within txn)
+      $st = $db->prepare("SELECT COUNT(*) AS c FROM volunteer_signups WHERE role_id=?");
+      $st->execute([$roleId]);
+      $filled = (int)($st->fetch()['c'] ?? 0);
+
+      if ($slots > 0 && $filled >= $slots) {
+        throw new RuntimeException('This role is already full.');
+      }
+
+      // Normalize comment
+      $commentValue = ($comment !== null && trim($comment) !== '') ? trim($comment) : null;
+
+      // Insert signup if not already signed up
+      $st = $db->prepare("INSERT INTO volunteer_signups (event_id, role_id, user_id, comment) VALUES (?,?,?,?)");
+      $st->execute([$eventId, $roleId, $userId, $commentValue]);
+
+      $db->commit();
+    } catch (Throwable $e) {
+      if ($db->inTransaction()) $db->rollBack();
+      // Duplicate means user already signed for this role
+      if ($e instanceof PDOException && (int)$e->getCode() === 23000) {
+        throw new RuntimeException('This person is already signed up for this role.');
       }
       throw $e;
     }
