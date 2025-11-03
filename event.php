@@ -664,13 +664,19 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           e.preventDefault();
           
           const fd = new FormData(signupForm);
+          fd.set('ajax', '1'); // Tell the server to return JSON
           
           fetch('/volunteer_actions.php', { 
             method:'POST', 
             body: fd, 
             credentials:'same-origin' 
           })
-          .then(function(res){ return res.json(); })
+          .then(function(res){ 
+            if (!res.ok) {
+              throw new Error('Server error: ' + res.status);
+            }
+            return res.json(); 
+          })
           .then(function(json){
             if (json && json.ok) {
               // Success - redirect to event page with success message
@@ -683,9 +689,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               }
             }
           })
-          .catch(function(){
+          .catch(function(err){
             if (signupError) {
-              signupError.textContent = 'Network error.';
+              signupError.textContent = err.message || 'Network error.';
               signupError.style.display = 'block';
             }
           });
