@@ -618,6 +618,13 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         const role = rolesData.find(r => r.id == roleId);
         if (!role) return false;
         
+        // Hide the volunteer modal if it's open
+        const volModal = document.getElementById('volunteerModal');
+        if (volModal && !volModal.classList.contains('hidden')) {
+          volModal.classList.add('hidden');
+          volModal.setAttribute('aria-hidden', 'true');
+        }
+        
         if (signupRoleId) signupRoleId.value = roleId;
         if (signupRoleTitle) signupRoleTitle.textContent = role.title;
         if (signupRoleDescription) {
