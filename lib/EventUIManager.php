@@ -815,13 +815,28 @@ class EventUIManager {
             const roleTitle = e.target.getAttribute("data-role-title");
             const roleDescription = e.target.getAttribute("data-role-description");
             
-            // Update modal title and description
+            // Update modal title
             document.getElementById("key3SignupModalTitle").textContent = "Sign up someone for " + roleTitle;
             
+            // Render description with markdown support
             const descDiv = document.getElementById("key3RoleDescription");
             if (roleDescription && roleDescription.trim() !== "") {
-                descDiv.innerHTML = roleDescription;
-                descDiv.style.display = "block";
+                // Find the role in the roles data to get the pre-rendered HTML
+                const rolesData = <?= json_encode(array_map(function($role) {
+                    $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+                    return $role;
+                }, $roles)) ?>;
+                
+                const roleData = rolesData.find(r => r.id == selectedRoleId);
+                if (roleData && roleData.description_html) {
+                    descDiv.innerHTML = roleData.description_html;
+                    descDiv.style.display = "block";
+                } else if (roleDescription) {
+                    descDiv.textContent = roleDescription;
+                    descDiv.style.display = "block";
+                } else {
+                    descDiv.style.display = "none";
+                }
             } else {
                 descDiv.style.display = "none";
             }
@@ -878,8 +893,9 @@ class EventUIManager {
                 })
                 .then(response => response.json())
                 .then(data => {
-                    if (data.ok && data.items) {
-                        displayKey3AdultSearchResults(data.items);
+                    // ajax_search_adults.php returns an array directly
+                    if (Array.isArray(data) && data.length > 0) {
+                        displayKey3AdultSearchResults(data);
                     } else {
                         key3AdultSearchResults.innerHTML = "<div class=\\"search-result\\">No results found</div>";
                         key3AdultSearchResults.style.display = "block";
@@ -899,7 +915,12 @@ class EventUIManager {
             } else {
                 let html = "";
                 items.forEach(item => {
-                    html += `<div class="search-result" data-adult-id="${item.id}" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">${item.label}</div>`;
+                    // Format the display name
+                    const name = `${item.first_name || ""} ${item.last_name || ""}`.trim();
+                    const email = item.email || "";
+                    const label = email ? `${name} (${email})` : name;
+                    
+                    html += `<div class="search-result" data-adult-id="${item.id}" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">${label}</div>`;
                 });
                 key3AdultSearchResults.innerHTML = html;
                 
