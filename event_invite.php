@@ -709,9 +709,13 @@ if (empty($roles)) {
   const signupRoleDescription = document.getElementById('signupRoleDescription');
   const signupComment = document.getElementById('signupComment');
   
-  const rolesData = <?= json_encode($roles) ?>;
+  // Pre-render role descriptions with markdown/link formatting
+  const rolesData = <?= json_encode(array_map(function($role) {
+    $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+    return $role;
+  }, $roles)) ?>;
   
-  const openSignupModal = () => { 
+  const openSignupModal = () => {
     if (signupModal) { 
       signupModal.classList.remove('hidden'); 
       signupModal.setAttribute('aria-hidden','false');
@@ -745,8 +749,8 @@ if (empty($roles)) {
     if (signupRoleId) signupRoleId.value = roleId;
     if (signupRoleTitle) signupRoleTitle.textContent = role.title;
     if (signupRoleDescription) {
-      if (role.description) {
-        signupRoleDescription.innerHTML = role.description;
+      if (role.description_html) {
+        signupRoleDescription.innerHTML = role.description_html;
         signupRoleDescription.style.display = 'block';
       } else {
         signupRoleDescription.style.display = 'none';
