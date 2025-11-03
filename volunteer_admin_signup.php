@@ -1,69 +1,94 @@
 <?php
 require_once __DIR__ . '/partials.php';
-require_login();
 require_once __DIR__ . '/lib/Volunteers.php';
-require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/UserManagement.php';
-
-// Only Key 3 (approvers) can use this
-$me = current_user();
-if (!UserManagement::isApprover((int)$me['id'])) {
-  http_response_code(403);
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => 'Access denied. Only Key 3 leaders can sign up others.']);
-  exit;
-}
 
 // Accept POST only
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-  http_response_code(405);
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => 'Method Not Allowed']);
-  exit;
+    http_response_code(405);
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Method Not Allowed']);
+    exit;
 }
 
+// Require logged-in user
+require_login();
 require_csrf();
 
+$me = current_user();
+$actingUserId = (int)($me['id'] ?? 0);
+
+// Check if user has Key 3 permissions
+$isKey3 = false;
+try {
+    $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                             FROM adult_leadership_position_assignments alpa
+                             JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                             WHERE alpa.adult_id = ?");
+    $stPos->execute([$actingUserId]);
+    $rowsPos = $stPos->fetchAll();
+    if (is_array($rowsPos)) {
+        foreach ($rowsPos as $pr) {
+            $p = trim((string)($pr['p'] ?? ''));
+            if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+                $isKey3 = true;
+                break; 
+            }
+        }
+    }
+} catch (Throwable $e) {
+    $isKey3 = false;
+}
+
+if (!$isKey3) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'You do not have permission to sign up others.']);
+    exit;
+}
+
+// Get parameters
 $eventId = (int)($_POST['event_id'] ?? 0);
-$roleId  = (int)($_POST['role_id'] ?? 0);
-$userId  = (int)($_POST['user_id'] ?? 0);
+$roleId = (int)($_POST['role_id'] ?? 0);
+$userId = (int)($_POST['user_id'] ?? 0);
 $comment = isset($_POST['comment']) ? trim((string)$_POST['comment']) : null;
 
 if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => 'Invalid request.']);
-  exit;
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Invalid request parameters.']);
+    exit;
 }
 
-// Verify event exists
-$event = EventManagement::findById($eventId);
-if (!$event) {
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => 'Event not found.']);
-  exit;
-}
-
-// Verify user exists
-$user = UserManagement::findById($userId);
-if (!$user) {
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => 'User not found.']);
-  exit;
-}
-
+// Attempt to sign up the user
 try {
-  Volunteers::adminSignup($eventId, $roleId, $userId, $comment);
-  
-  header('Content-Type: application/json');
-  echo json_encode([
-    'ok' => true,
-    'message' => 'Signup successful.',
-    'roles' => Volunteers::rolesWithCounts($eventId),
-    'event_id' => $eventId,
-    'csrf' => csrf_token(),
-  ]);
+    Volunteers::adminSignup($eventId, $roleId, $userId, $comment);
+    
+    // Get updated volunteer data
+    $roles = Volunteers::rolesWithCounts($eventId);
+    
+    // Pre-render descriptions with markdown/link formatting for JavaScript
+    require_once __DIR__ . '/lib/Text.php';
+    foreach ($roles as &$role) {
+        $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+    }
+    unset($role);
+    
+    // Get the signed-up user's name
+    $signedUpUser = UserManagement::findById($userId);
+    $signedUpUserName = trim((string)($signedUpUser['first_name'] ?? '') . ' ' . (string)($signedUpUser['last_name'] ?? ''));
+    
+    header('Content-Type: application/json');
+    echo json_encode([
+        'ok' => true,
+        'message' => $signedUpUserName . ' has been signed up for the role.',
+        'roles' => $roles,
+        'user_id' => $actingUserId,
+        'event_id' => $eventId,
+        'csrf' => csrf_token(),
+    ]);
+    exit;
 } catch (Throwable $e) {
-  $msg = $e->getMessage() ?: 'Admin signup failed.';
-  header('Content-Type: application/json');
-  echo json_encode(['ok' => false, 'error' => $msg]);
+    $msg = $e->getMessage() ?: 'Failed to sign up user.';
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => $msg]);
+    exit;
 }
