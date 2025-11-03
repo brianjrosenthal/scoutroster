@@ -150,10 +150,30 @@ try {
 }
 
 if ($isAjax) {
+  // Load necessary dependencies for rendering volunteers section
+  require_once __DIR__ . '/lib/EventUIManager.php';
+  require_once __DIR__ . '/lib/UserManagement.php';
+  
+  $roles = Volunteers::rolesWithCounts($eventId);
+  $hasYes = Volunteers::userHasYesRsvp($eventId, $actingUserId);
+  
+  // Determine if acting user is admin
+  $actingUser = UserManagement::findById($actingUserId);
+  $isAdmin = !empty($actingUser['is_admin']);
+  
+  // Render volunteers section HTML using direct method call
+  $volunteersHtml = EventUIManager::renderVolunteersSection(
+    $roles, 
+    $hasYes, 
+    $actingUserId, 
+    $eventId, 
+    $isAdmin
+  );
+  
   header('Content-Type: application/json');
   echo json_encode([
     'ok' => true,
-    'roles' => Volunteers::rolesWithCounts($eventId),
+    'volunteers_html' => $volunteersHtml,
     'user_id' => $actingUserId,
     'event_id' => $eventId,
     'csrf' => csrf_token(),

@@ -388,30 +388,12 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               setTimeout(function(){ successMsg.style.display = 'none'; }, 3000);
             }
             
-            // Remove the volunteer from the list in the DOM
-            const li = removeLink.closest('li');
-            if (li) li.remove();
-            
-            // Update the role counts if available in response
-            if (json.roles) {
-              json.roles.forEach(function(role){
-                const roleDiv = document.querySelector('[data-role-id="' + role.id + '"]');
-                if (roleDiv) {
-                  const countSpan = roleDiv.querySelector('.remaining, .filled');
-                  if (countSpan) {
-                    if (role.is_unlimited) {
-                      countSpan.className = 'remaining small';
-                      countSpan.textContent = '(no limit)';
-                    } else if (role.open_count > 0) {
-                      countSpan.className = 'remaining small';
-                      countSpan.textContent = '(' + role.open_count + ' people still needed)';
-                    } else {
-                      countSpan.className = 'filled small';
-                      countSpan.textContent = 'Filled';
-                    }
-                  }
-                }
-              });
+            // Replace entire volunteers section with updated HTML
+            if (json.volunteers_html) {
+              const volunteersDiv = document.querySelector('.volunteers');
+              if (volunteersDiv && volunteersDiv.parentElement) {
+                volunteersDiv.outerHTML = json.volunteers_html;
+              }
             }
           } else {
             alert((json && json.error) ? json.error : 'Failed to remove signup.');

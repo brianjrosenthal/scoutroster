@@ -939,6 +939,111 @@ class EventUIManager {
     }
     
     /**
+     * Render the volunteers section HTML
+     * 
+     * @param array $roles Array of volunteer roles with counts
+     * @param bool $hasYes Whether the user has RSVP'd yes
+     * @param int $actingUserId The current user's ID
+     * @param int $eventId The event ID
+     * @param bool $isAdmin Whether the user is an admin
+     * @return string HTML content for volunteers section
+     */
+    public static function renderVolunteersSection(array $roles, bool $hasYes, int $actingUserId, int $eventId, bool $isAdmin): string {
+        require_once __DIR__ . '/Text.php';
+        
+        if (!$isAdmin && empty($roles)) {
+            return '';
+        }
+        
+        $html = '<div class="volunteers">';
+        
+        if (empty($roles)) {
+            $html .= '<p class="small">No volunteer roles have been defined for this event.</p>';
+            if ($isAdmin) {
+                $html .= '<a class="button" href="/admin_event_volunteers.php?event_id=' . (int)$eventId . '">Manager volunteer roles</a>';
+            }
+        } else {
+            foreach ($roles as $r) {
+                $html .= '<div class="role" style="margin-bottom:10px;">';
+                $html .= '<div>';
+                $html .= '<strong>' . h($r['title']) . '</strong>';
+                
+                if (!empty($r['is_unlimited'])) {
+                    $html .= '<span class="remaining small">(no limit)</span>';
+                } elseif ((int)$r['open_count'] > 0) {
+                    $html .= '<span class="remaining small">(' . (int)$r['open_count'] . ' people still needed)</span>';
+                } else {
+                    $html .= '<span class="filled small">Filled</span>';
+                }
+                
+                $html .= '</div>';
+                
+                if (trim((string)($r['description'] ?? '')) !== '') {
+                    $html .= '<div style="margin-top:4px;">' . Text::renderMarkup((string)$r['description']) . '</div>';
+                }
+                
+                if (!empty($r['volunteers'])) {
+                    $html .= '<ul style="margin:6px 0 0 16px;">';
+                    foreach ($r['volunteers'] as $v) {
+                        $html .= '<li>';
+                        $html .= h($v['name']);
+                        
+                        if (!empty($v['comment'])) {
+                            $html .= '<span class="small" style="font-style:italic;"> "' . h($v['comment']) . '"</span>';
+                        }
+                        
+                        if ((int)($v['user_id'] ?? 0) === (int)$actingUserId) {
+                            $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">';
+                            $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
+                            $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
+                            $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
+                            $html .= '<input type="hidden" name="action" value="remove">';
+                            $html .= '<a href="#" class="volunteer-remove-link small">(remove)</a>';
+                            $html .= '</form>';
+                        }
+                        
+                        $html .= '</li>';
+                    }
+                    $html .= '</ul>';
+                } else {
+                    $html .= '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
+                }
+                
+                if ($hasYes) {
+                    $amIn = false;
+                    foreach ($r['volunteers'] as $v) {
+                        if ((int)$v['user_id'] === (int)$actingUserId) {
+                            $amIn = true;
+                            break;
+                        }
+                    }
+                    
+                    if (!$amIn) {
+                        $html .= '<form method="post" action="/volunteer_actions.php" class="inline">';
+                        $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
+                        $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
+                        $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
+                        
+                        if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0) {
+                            $html .= '<input type="hidden" name="action" value="signup">';
+                            $html .= '<button style="margin-top:6px;" class="button primary">Sign up</button>';
+                        } else {
+                            $html .= '<button style="margin-top:6px;" class="button" disabled>Filled</button>';
+                        }
+                        
+                        $html .= '</form>';
+                    }
+                }
+                
+                $html .= '</div>';
+            }
+        }
+        
+        $html .= '</div>';
+        return $html;
+    }
+    
+    /**
      * Generate formatted event details text for email
      * 
      * @param array $event Event data array
