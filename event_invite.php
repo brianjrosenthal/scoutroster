@@ -652,13 +652,59 @@ if (empty($roles)) {
 <?php if ($inviteeHasYes): ?>
 <script>
 (function(){
-  // AJAX handling for main volunteer section forms - replace entire card
+  // AJAX handling for remove links
+  document.addEventListener('click', function(e){
+    const removeLink = e.target.closest('a.volunteer-remove-link');
+    if (!removeLink) return;
+    
+    const form = removeLink.closest('form');
+    if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+    if (!form.querySelector('input[name="action"][value="remove"]')) return;
+    
+    // Skip if this is in the volunteer modal (handled separately)
+    if (form.closest('#volunteerModal')) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const fd = new FormData(form);
+    fd.set('ajax', '1');
+    
+    fetch('/volunteer_actions.php', {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    })
+    .then(function(res){
+      if (!res.ok) throw new Error('Server error: ' + res.status);
+      return res.json();
+    })
+    .then(function(json){
+      if (json && json.ok) {
+        // Replace entire volunteers card with updated HTML (includes success message from server)
+        if (json.volunteers_card_html) {
+          const volunteersCard = document.getElementById('volunteersCard');
+          if (volunteersCard) {
+            volunteersCard.outerHTML = json.volunteers_card_html;
+          }
+        }
+      } else {
+        alert((json && json.error) ? json.error : 'Volunteer action failed.');
+      }
+    })
+    .catch(function(err){
+      alert(err.message || 'Network error.');
+    });
+  });
+  
+  // AJAX handling for signup buttons
   document.addEventListener('click', function(e){
     const btn = e.target.closest('button');
     if (!btn) return;
     
     const form = btn.closest('form');
     if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+    if (!form.querySelector('input[name="action"][value="signup"]')) return;
     
     // Skip if this is in the volunteer modal (handled separately)
     if (form.closest('#volunteerModal')) return;
