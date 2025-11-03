@@ -69,6 +69,12 @@ if ($inviteUid > 0 && $inviteSig !== '') {
     if ($err !== null) {
       // Fallback to logged-in flow on invalid signature
       if (!$me) {
+        // For AJAX, return JSON error; otherwise redirect
+        if ($isAjax) {
+          header('Content-Type: application/json');
+          echo json_encode(['ok' => false, 'error' => $err]);
+          exit;
+        }
         // Redirect back to invite page with error
         $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode($err);
         header('Location: '.$redirectUrl);
@@ -79,6 +85,12 @@ if ($inviteUid > 0 && $inviteSig !== '') {
       // Check token expiration against event end time (or +1h from start if no end)
       $ev = EventManagement::findById((int)$eventId);
       if (!$ev) {
+        // For AJAX, return JSON error; otherwise redirect
+        if ($isAjax) {
+          header('Content-Type: application/json');
+          echo json_encode(['ok' => false, 'error' => 'Event not found.']);
+          exit;
+        }
         $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('Event not found.');
         header('Location: '.$redirectUrl);
         exit;
@@ -93,6 +105,12 @@ if ($inviteUid > 0 && $inviteSig !== '') {
         }
         $nowTz = new DateTime('now', $tz);
         if ($nowTz >= $endRef) {
+          // For AJAX, return JSON error; otherwise redirect
+          if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => false, 'error' => 'This event has ended.']);
+            exit;
+          }
           $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
           header('Location: '.$redirectUrl);
           exit;
