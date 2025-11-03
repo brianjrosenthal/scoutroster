@@ -819,14 +819,37 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           }
           var open = parseInt(r.open_count, 10) || 0;
           var unlimited = !!r.is_unlimited;
-          html += '<div class="role" style="margin-bottom:8px;">'
-                +   '<div>'
-                +     '<strong>'+esc(r.title||'')+'</strong> '
-                +     (unlimited ? '<span class="remaining">(no limit)</span>' : (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>'))
-                +   '</div>';
-          if (r.description) {
-            html += '<div class="small" style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+          
+          html += '<div class="role" style="margin-bottom:14px;">';
+          
+          // Title line with sign-up button on the right
+          html += '<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">';
+          html += '<div>';
+          html += '<strong>'+esc(r.title||'')+'</strong> ';
+          html += (unlimited ? '<span class="remaining">(no limit)</span>' : (open > 0 ? '<span class="remaining">('+open+' people still needed)</span>' : '<span class="filled">Filled</span>'));
+          html += '</div>';
+          
+          // Add sign-up button on the same line if not signed up
+          if (!signed) {
+            html += '<form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">';
+            html += '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">';
+            html += '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">';
+            html += '<input type="hidden" name="role_id" value="'+esc(r.id)+'">';
+            if (unlimited || open > 0) {
+              html += '<input type="hidden" name="action" value="signup">';
+              html += '<button class="button primary" style="white-space: nowrap;">Sign up</button>';
+            } else {
+              html += '<button class="button" disabled style="white-space: nowrap;">Filled</button>';
+            }
+            html += '</form>';
           }
+          
+          html += '</div>';
+          
+          if (r.description) {
+            html += '<div style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+          }
+          
           if (volunteers.length > 0) {
             html += '<ul style="margin:6px 0 0 16px;">';
             for (var k=0;k<volunteers.length;k++) {
@@ -848,19 +871,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           } else {
             html += '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
           }
-          if (!signed) {
-            if (unlimited || open > 0) {
-              html += '<form method="post" action="/volunteer_actions.php" class="inline">'
-                    +   '<input type="hidden" name="csrf" value="'+esc(json.csrf)+'">'
-                    +   '<input type="hidden" name="event_id" value="'+esc(json.event_id)+'">'
-                    +   '<input type="hidden" name="role_id" value="'+esc(r.id)+'">'
-                    +   '<input type="hidden" name="action" value="signup">'
-                    +   '<button style="margin-top:6px;" class="button primary">Sign up</button>'
-                    + '</form>';
-            } else {
-              html += '<button style="margin-top:6px;" class="button" disabled>Filled</button>';
-            }
-          }
+          
           html += '</div>';
         }
         rolesWrap.innerHTML = html;
