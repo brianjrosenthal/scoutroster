@@ -174,8 +174,16 @@ if ($isAjax) {
   // Load necessary dependencies for rendering volunteers section
   require_once __DIR__ . '/lib/EventUIManager.php';
   require_once __DIR__ . '/lib/UserManagement.php';
+  require_once __DIR__ . '/lib/Text.php';
   
   $roles = Volunteers::rolesWithCounts($eventId);
+  
+  // Pre-render descriptions with markdown/link formatting for JavaScript
+  foreach ($roles as &$role) {
+    $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+  }
+  unset($role);
+  
   $hasYes = Volunteers::userHasYesRsvp($eventId, $actingUserId);
   
   // Determine if acting user is admin
