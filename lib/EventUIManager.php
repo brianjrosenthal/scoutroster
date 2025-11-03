@@ -876,6 +876,35 @@ class EventUIManager {
         });
     }
     
+    // Function to check if selected adult is already signed up for the selected role
+    function updateRemoveButtonVisibility() {
+        const removeBtn = document.getElementById("key3SignupRemoveBtn");
+        if (!removeBtn) return;
+        
+        if (!selectedRoleId || !selectedAdultId) {
+            removeBtn.style.display = "none";
+            return;
+        }
+        
+        // Find the role in roles data
+        const rolesData = ' . $rolesJson . ';
+        const roleData = rolesData.find(r => r.id == selectedRoleId);
+        
+        if (!roleData || !roleData.volunteers) {
+            removeBtn.style.display = "none";
+            return;
+        }
+        
+        // Check if selectedAdultId is in the volunteers list
+        const isSignedUp = roleData.volunteers.some(v => v.user_id == selectedAdultId);
+        
+        if (isSignedUp) {
+            removeBtn.style.display = "block";
+        } else {
+            removeBtn.style.display = "none";
+        }
+    }
+    
     // Adult search functionality
     if (key3AdultSearch && key3AdultSearchResults) {
         let searchTimeout = null;
@@ -890,6 +919,7 @@ class EventUIManager {
             if (query.length < 2) {
                 key3AdultSearchResults.style.display = "none";
                 selectedAdultId = null;
+                updateRemoveButtonVisibility();
                 return;
             }
             
@@ -936,11 +966,68 @@ class EventUIManager {
                         selectedAdultId = this.getAttribute("data-adult-id");
                         key3AdultSearch.value = this.textContent;
                         key3AdultSearchResults.style.display = "none";
+                        updateRemoveButtonVisibility();
                     });
                 });
             }
             key3AdultSearchResults.style.display = "block";
         }
+    }
+    
+    // Remove button handler
+    const key3SignupRemoveBtn = document.getElementById("key3SignupRemoveBtn");
+    if (key3SignupRemoveBtn) {
+        key3SignupRemoveBtn.addEventListener("click", function() {
+            if (!selectedRoleId || !selectedAdultId) {
+                key3SignupStatus.innerHTML = "<p class=\\"error\\">Please select a user.</p>";
+                return;
+            }
+            
+            // Get the selected user name from the search input
+            const userName = key3AdultSearch.value;
+            
+            if (!confirm("Are you sure you want to remove " + userName + " from this role?")) {
+                return;
+            }
+            
+            // Disable button during request
+            key3SignupRemoveBtn.disabled = true;
+            key3SignupStatus.innerHTML = "<p>Processing...</p>";
+            
+            // Send AJAX request
+            const fd = new FormData();
+            fd.append("csrf", "' . h($csrfToken) . '");
+            fd.append("event_id", "' . $eventId . '");
+            fd.append("role_id", selectedRoleId);
+            fd.append("user_id", selectedAdultId);
+            fd.append("action", "remove");
+            
+            fetch("/volunteer_admin_signup.php", {
+                method: "POST",
+                body: fd,
+                credentials: "same-origin"
+            })
+            .then(response => response.json())
+            .then(data => {
+                key3SignupRemoveBtn.disabled = false;
+                
+                if (data.ok) {
+                    key3SignupStatus.innerHTML = "<p style=\\"color: green;\\">" + (data.message || "Successfully removed!") + "</p>";
+                    
+                    // Reload page after a short delay to show updated volunteers
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    key3SignupStatus.innerHTML = "<p class=\\"error\\">" + (data.error || "Failed to remove.") + "</p>";
+                }
+            })
+            .catch(error => {
+                console.error("Key 3 remove error:", error);
+                key3SignupRemoveBtn.disabled = false;
+                key3SignupStatus.innerHTML = "<p class=\\"error\\">Network error. Please try again.</p>";
+            });
+        });
     }
     
     // Confirm button handler
@@ -1204,9 +1291,12 @@ class EventUIManager {
                 <textarea id="key3SignupComment" rows="3" placeholder="Optional comment..."></textarea>
             </label>
             
-            <div class="actions">
-                <button type="button" id="key3SignupConfirmBtn" class="button primary">Confirm</button>
-                <button type="button" id="key3SignupCancelBtn" class="button">Cancel</button>
+            <div class="actions" style="display: flex; justify-content: space-between;">
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" id="key3SignupConfirmBtn" class="button primary">Confirm</button>
+                    <button type="button" id="key3SignupCancelBtn" class="button">Cancel</button>
+                </div>
+                <button type="button" id="key3SignupRemoveBtn" class="button" style="background-color: #dc2626; color: white; display: none;">Remove</button>
             </div>
             
             <div id="key3SignupStatus" style="margin-top: 8px;"></div>
