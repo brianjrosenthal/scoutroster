@@ -831,10 +831,7 @@ class EventUIManager {
             const descDiv = document.getElementById("key3RoleDescription");
             if (roleDescription && roleDescription.trim() !== "") {
                 // Find the role in the roles data to get the pre-rendered HTML
-                const rolesData = <?= json_encode(array_map(function($role) {
-                    $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
-                    return $role;
-                }, $roles)) ?>;
+                const rolesData = ' . $rolesJson . ';
                 
                 const roleData = rolesData.find(r => r.id == selectedRoleId);
                 if (roleData && roleData.description_html) {
