@@ -156,11 +156,20 @@ class EventUIManager {
      * Render the JavaScript functionality for the admin menu
      * 
      * @param int $eventId The event ID
+     * @param array $roles Optional array of volunteer roles for Key 3 signup functionality
      * @return string JavaScript code for admin menu functionality
      */
-    public static function renderAdminMenuScript(int $eventId): string {
+    public static function renderAdminMenuScript(int $eventId, array $roles = []): string {
         $me = current_user();
         $csrfToken = csrf_token();
+        
+        // Pre-render role descriptions with markdown for Key 3 signup modal
+        require_once __DIR__ . '/Text.php';
+        $rolesWithHtml = array_map(function($role) {
+            $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+            return $role;
+        }, $roles);
+        $rolesJson = json_encode($rolesWithHtml);
         
         return '
 <script>
