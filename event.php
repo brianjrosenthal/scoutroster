@@ -294,7 +294,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div style="margin-top:4px;"><?= Text::renderMarkup((string)$r['description']) ?></div>
           <?php endif; ?>
 
           <?php if (!empty($r['volunteers'])): ?>
@@ -367,7 +367,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <?php endif; ?>
           </div>
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
-            <div  style="margin-top:4px; white-space:pre-wrap;"><?= h((string)$r['description']) ?></div>
+            <div style="margin-top:4px;"><?= Text::renderMarkup((string)$r['description']) ?></div>
           <?php endif; ?>
 
           <?php if (!empty($r['volunteers'])): ?>
