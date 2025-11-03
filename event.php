@@ -351,6 +351,84 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($hasYes): ?>
+  <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-top:10px;">You have been removed from the role.</div>
+  <script>
+    // Handle remove actions via AJAX on main page
+    (function(){
+      // Find all remove links on page load
+      document.addEventListener('click', function(e){
+        const removeLink = e.target.closest('a');
+        if (!removeLink) return;
+        
+        const onclick = removeLink.getAttribute('onclick');
+        if (!onclick || onclick.indexOf('remove') === -1) return;
+        
+        const form = removeLink.closest('form');
+        if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+        if (!form.querySelector('input[name="action"][value="remove"]')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const fd = new FormData(form);
+        fd.set('ajax', '1');
+        
+        fetch('/volunteer_actions.php', {
+          method: 'POST',
+          body: fd,
+          credentials: 'same-origin'
+        })
+        .then(function(res){
+          if (!res.ok) throw new Error('Server error: ' + res.status);
+          return res.json();
+        })
+        .then(function(json){
+          if (json && json.ok) {
+            // Show success message
+            const successMsg = document.getElementById('volunteerRemoveSuccess');
+            if (successMsg) {
+              successMsg.style.display = 'block';
+              setTimeout(function(){ successMsg.style.display = 'none'; }, 3000);
+            }
+            
+            // Remove the volunteer from the list in the DOM
+            const li = removeLink.closest('li');
+            if (li) li.remove();
+            
+            // Update the role counts if available in response
+            if (json.roles) {
+              json.roles.forEach(function(role){
+                const roleDiv = document.querySelector('[data-role-id="' + role.id + '"]');
+                if (roleDiv) {
+                  const countSpan = roleDiv.querySelector('.remaining, .filled');
+                  if (countSpan) {
+                    if (role.is_unlimited) {
+                      countSpan.className = 'remaining small';
+                      countSpan.textContent = '(no limit)';
+                    } else if (role.open_count > 0) {
+                      countSpan.className = 'remaining small';
+                      countSpan.textContent = '(' + role.open_count + ' people still needed)';
+                    } else {
+                      countSpan.className = 'filled small';
+                      countSpan.textContent = 'Filled';
+                    }
+                  }
+                }
+              });
+            }
+          } else {
+            alert((json && json.error) ? json.error : 'Failed to remove signup.');
+          }
+        })
+        .catch(function(err){
+          alert(err.message || 'Network error.');
+        });
+      });
+    })();
+  </script>
+<?php endif; ?>
+
+<?php if ($hasYes): ?>
   <!-- Volunteer signup confirmation modal -->
   <div id="volunteerSignupModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
