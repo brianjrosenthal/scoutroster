@@ -200,6 +200,13 @@ class Volunteers {
     $st->execute([(int)$roleId, (int)$userId]);
   }
 
+  // Update a user's comment for their volunteer signup
+  public static function updateComment(int $roleId, int $userId, ?string $comment): void {
+    $commentValue = ($comment !== null && trim($comment) !== '') ? trim($comment) : null;
+    $st = pdo()->prepare("UPDATE volunteer_signups SET comment=? WHERE role_id=? AND user_id=?");
+    $st->execute([$commentValue, (int)$roleId, (int)$userId]);
+  }
+
   // Save roles for an event: upsert present rows, delete missing
   // Input: $roles = [ ['id'=>int|0, 'title'=>string, 'slots_needed'=>int>=0, 'sort_order'=>int>=0], ... ]
   public static function saveRoles(int $eventId, array $roles): void {
