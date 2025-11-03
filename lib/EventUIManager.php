@@ -1237,7 +1237,7 @@ class EventUIManager {
      * @return string JavaScript code for volunteer modal
      */
     private static function renderVolunteerModalScript(int $actingUserId, int $eventId, bool $showModal, ?int $inviteUid, ?string $inviteSig): string {
-        $sigJs = $inviteSig !== null ? "'" . h($inviteSig) . "'" : 'null';
+        $sigJs = $inviteSig !== null ? json_encode($inviteSig) : 'null';
         
         $script = '<script>';
         $script .= '(function(){';
