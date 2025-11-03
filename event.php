@@ -351,8 +351,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($hasYes): ?>
+  <!-- Success messages for volunteer actions (positioned outside volunteers section) -->
   <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-top:10px;">You have been removed from the role.</div>
   <div id="volunteerSignupSuccess" class="flash" style="display:none;margin-top:10px;">You have been signed up for the role!</div>
+  
   <script>
     // Handle remove actions via AJAX on main page
     (function(){
