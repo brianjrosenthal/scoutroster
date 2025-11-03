@@ -878,4 +878,134 @@ if (empty($roles)) {
 </script>
 <?php endif; ?>
 
+<?php if ($inviteeHasYes): ?>
+  <!-- Edit comment modal -->
+  <div id="volunteerEditCommentModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close" type="button" id="editCommentModalClose" aria-label="Close">&times;</button>
+      <h3>Edit Volunteer Comment</h3>
+      <form id="editCommentForm" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+        <input type="hidden" name="role_id" id="editCommentRoleId" value="">
+        <input type="hidden" name="action" value="edit_comment">
+        <input type="hidden" name="uid" value="<?= (int)$uid ?>">
+        <input type="hidden" name="sig" value="<?= h($sig) ?>">
+        
+        <p>Editing comment for <strong id="editCommentRoleTitle"></strong></p>
+        
+        <label>
+          Comment:
+          <textarea name="comment" id="editCommentText" rows="3" placeholder="e.g., I'm bringing chips and salsa"></textarea>
+        </label>
+        
+        <div class="actions">
+          <button type="submit" class="primary">Save</button>
+          <button type="button" class="button" id="editCommentCancel">Cancel</button>
+        </div>
+      </form>
+      <div id="editCommentError" class="error" style="display:none;margin-top:12px;"></div>
+    </div>
+  </div>
+  
+  <script>
+    // Edit comment modal handling
+    (function(){
+      const editModal = document.getElementById('volunteerEditCommentModal');
+      const editForm = document.getElementById('editCommentForm');
+      const editCloseBtn = document.getElementById('editCommentModalClose');
+      const editCancelBtn = document.getElementById('editCommentCancel');
+      const editError = document.getElementById('editCommentError');
+      const editRoleId = document.getElementById('editCommentRoleId');
+      const editRoleTitle = document.getElementById('editCommentRoleTitle');
+      const editCommentText = document.getElementById('editCommentText');
+      
+      const openEditModal = () => {
+        if (editModal) {
+          editModal.classList.remove('hidden');
+          editModal.setAttribute('aria-hidden', 'false');
+          if (editError) editError.style.display = 'none';
+        }
+      };
+      
+      const closeEditModal = () => {
+        if (editModal) {
+          editModal.classList.add('hidden');
+          editModal.setAttribute('aria-hidden', 'true');
+          if (editCommentText) editCommentText.value = '';
+          if (editError) editError.style.display = 'none';
+        }
+      };
+      
+      if (editCloseBtn) editCloseBtn.addEventListener('click', closeEditModal);
+      if (editCancelBtn) editCancelBtn.addEventListener('click', closeEditModal);
+      
+      // Handle edit comment link clicks
+      document.addEventListener('click', function(e){
+        const editLink = e.target.closest('a.volunteer-edit-comment-link');
+        if (!editLink) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const roleId = editLink.getAttribute('data-role-id');
+        const roleTitle = editLink.getAttribute('data-role-title');
+        const currentComment = editLink.getAttribute('data-comment');
+        
+        if (editRoleId) editRoleId.value = roleId;
+        if (editRoleTitle) editRoleTitle.textContent = roleTitle;
+        if (editCommentText) editCommentText.value = currentComment || '';
+        
+        openEditModal();
+      });
+      
+      // Handle form submission
+      if (editForm) {
+        editForm.addEventListener('submit', function(e){
+          e.preventDefault();
+          
+          const fd = new FormData(editForm);
+          fd.set('ajax', '1');
+          
+          fetch('/volunteer_actions.php', {
+            method: 'POST',
+            body: fd,
+            credentials: 'same-origin'
+          })
+          .then(function(res){
+            if (!res.ok) throw new Error('Server error: ' + res.status);
+            return res.json();
+          })
+          .then(function(json){
+            if (json && json.ok) {
+              closeEditModal();
+              
+              // Replace entire volunteers card with updated HTML
+              if (json.volunteers_card_html) {
+                const volunteersCard = document.getElementById('volunteersCard');
+                if (volunteersCard) {
+                  volunteersCard.outerHTML = json.volunteers_card_html;
+                }
+              }
+            } else {
+              if (editError) {
+                editError.textContent = (json && json.error) ? json.error : 'Failed to update comment.';
+                editError.style.display = 'block';
+              }
+            }
+          })
+          .catch(function(err){
+            if (editError) {
+              editError.textContent = err.message || 'Network error.';
+              editError.style.display = 'block';
+            }
+          });
+        });
+      }
+      
+      if (editModal) editModal.addEventListener('click', function(e){ if (e.target === editModal) closeEditModal(); });
+    })();
+  </script>
+<?php endif; ?>
+
 <?php footer_html(); ?>

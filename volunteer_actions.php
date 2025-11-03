@@ -154,6 +154,9 @@ try {
   } elseif ($action === 'remove') {
     Volunteers::removeSignup($roleId, $actingUserId);
     $redirectUrl .= (str_contains($redirectUrl, '?') ? '&' : '?') . 'volunteer_removed=1';
+  } elseif ($action === 'edit_comment') {
+    Volunteers::updateComment($roleId, $actingUserId, $comment);
+    $redirectUrl .= (str_contains($redirectUrl, '?') ? '&' : '?') . 'volunteer_comment_updated=1';
   } else {
     throw new RuntimeException('Unknown action.');
   }
@@ -185,6 +188,8 @@ if ($isAjax) {
     $successMessage = 'You have been signed up for the role!';
   } elseif ($action === 'remove') {
     $successMessage = 'You have been removed from the role.';
+  } elseif ($action === 'edit_comment') {
+    $successMessage = 'Your comment has been updated.';
   }
   
   // Render complete volunteers card HTML using direct method call

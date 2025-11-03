@@ -1028,6 +1028,7 @@ class EventUIManager {
                         }
                         
                         if ((int)($v['user_id'] ?? 0) === (int)$actingUserId) {
+                            $html .= '<a href="#" class="volunteer-edit-comment-link small" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-comment="' . h($v['comment']) . '">(edit comment)</a>';
                             $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">';
                             $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
                             $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
