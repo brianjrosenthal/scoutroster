@@ -352,6 +352,7 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 
 <?php if ($hasYes): ?>
   <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-top:10px;">You have been removed from the role.</div>
+  <div id="volunteerSignupSuccess" class="flash" style="display:none;margin-top:10px;">You have been signed up for the role!</div>
   <script>
     // Handle remove actions via AJAX on main page
     (function(){
@@ -381,11 +382,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         })
         .then(function(json){
           if (json && json.ok) {
-            // Show success message
+            // Show success message (persistent)
             const successMsg = document.getElementById('volunteerRemoveSuccess');
             if (successMsg) {
               successMsg.style.display = 'block';
-              setTimeout(function(){ successMsg.style.display = 'none'; }, 3000);
             }
             
             // Replace entire volunteers section with updated HTML
@@ -539,8 +539,22 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           })
           .then(function(json){
             if (json && json.ok) {
-              // Success - redirect to event page with success message
-              window.location.href = '/event.php?id=<?= (int)$e['id'] ?>&volunteer=1';
+              // Success - close modal and refresh volunteers section
+              closeSignupModal();
+              
+              // Show success message (persistent)
+              const successMsg = document.getElementById('volunteerSignupSuccess');
+              if (successMsg) {
+                successMsg.style.display = 'block';
+              }
+              
+              // Replace entire volunteers section with updated HTML
+              if (json.volunteers_html) {
+                const volunteersDiv = document.querySelector('.volunteers');
+                if (volunteersDiv && volunteersDiv.parentElement) {
+                  volunteersDiv.outerHTML = json.volunteers_html;
+                }
+              }
             } else {
               // Show error
               if (signupError) {
