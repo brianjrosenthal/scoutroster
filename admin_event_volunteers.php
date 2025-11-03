@@ -112,10 +112,19 @@ header_html('Manage Volunteer Roles');
         </div>
       <?php else: ?>
         <?php foreach ($roles as $idx => $r): ?>
-          <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px;align-items:center;margin:6px 0;">
+          <div class="grid" style="grid-template-columns:repeat(5,1fr);gap:12px;align-items:start;margin:6px 0;">
             <input type="hidden" name="role_id[]" value="<?= (int)$r['id'] ?>">
-            <input type="text" name="title[]" value="<?= h($r['title']) ?>">
-            <input type="text" name="description[]" value="<?= h((string)($r['description'] ?? '')) ?>">
+            <div>
+              <input type="text" name="title[]" value="<?= h($r['title']) ?>">
+            </div>
+            <div>
+              <input type="text" name="description[]" value="<?= h((string)($r['description'] ?? '')) ?>">
+              <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
+                <div class="small" style="margin-top:4px;padding:6px;background:#f5f5f5;border-radius:4px;">
+                  <?= Text::renderMarkup((string)$r['description']) ?>
+                </div>
+              <?php endif; ?>
+            </div>
             <input type="number" name="slots_needed[]" min="0" value="<?= (int)$r['slots_needed'] ?>" style="max-width:120px">
             <input type="number" name="sort_order[]" min="0" value="<?= (int)$r['sort_order'] ?>" style="max-width:120px">
             <div class="small"><?= (int)$r['filled_count'] ?> filled<?= !empty($r['is_unlimited']) ? ' / no limit' : ((int)$r['open_count'] > 0 ? ' / '.(int)$r['open_count'].' open' : '') ?></div>
