@@ -208,6 +208,7 @@ if ($isAjax) {
   echo json_encode([
     'ok' => true,
     'volunteers_card_html' => $volunteersCardHtml,
+    'roles' => $roles,  // Add roles data for modal's renderRoles function
     'user_id' => $actingUserId,
     'event_id' => $eventId,
     'csrf' => csrf_token(),
