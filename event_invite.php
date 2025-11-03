@@ -603,6 +603,10 @@ if (empty($roles)) {
           html += '</form>';
           html += '</div>';
           
+          if (r.description_html) {
+            html += '<div style="margin-top:4px;">'+r.description_html+'</div>';
+          }
+          
           if (volunteers.length > 0) {
             html += '<ul style="margin:6px 0 0 16px;">';
             for (var k=0;k<volunteers.length;k++) {

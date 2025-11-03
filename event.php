@@ -846,8 +846,8 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
           
           html += '</div>';
           
-          if (r.description) {
-            html += '<div style="margin-top:4px; white-space:pre-wrap;">'+esc(r.description)+'</div>';
+          if (r.description_html) {
+            html += '<div style="margin-top:4px;">'+r.description_html+'</div>';
           }
           
           if (volunteers.length > 0) {
