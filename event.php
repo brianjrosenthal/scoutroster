@@ -440,11 +440,15 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       const signupRoleId = document.getElementById('signupRoleId');
       const signupRoleTitle = document.getElementById('signupRoleTitle');
       const signupRoleDescription = document.getElementById('signupRoleDescription');
-      const signupComment = document.getElementById('signupComment');
-      
-      const rolesData = <?= json_encode($roles) ?>;
-      
-      const openSignupModal = () => { 
+  const signupComment = document.getElementById('signupComment');
+  
+  // Pre-render role descriptions with markdown/link formatting
+  const rolesData = <?= json_encode(array_map(function($role) {
+    $role['description_html'] = !empty($role['description']) ? Text::renderMarkup((string)$role['description']) : '';
+    return $role;
+  }, $roles)) ?>;
+  
+  const openSignupModal = () => {
         if (signupModal) { 
           signupModal.classList.remove('hidden'); 
           signupModal.setAttribute('aria-hidden','false');
@@ -478,8 +482,8 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
         if (signupRoleId) signupRoleId.value = roleId;
         if (signupRoleTitle) signupRoleTitle.textContent = role.title;
         if (signupRoleDescription) {
-          if (role.description) {
-            signupRoleDescription.innerHTML = role.description;
+          if (role.description_html) {
+            signupRoleDescription.innerHTML = role.description_html;
             signupRoleDescription.style.display = 'block';
           } else {
             signupRoleDescription.style.display = 'none';
