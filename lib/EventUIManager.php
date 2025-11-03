@@ -5,6 +5,39 @@ require_once __DIR__ . '/EventManagement.php';
 class EventUIManager {
     
     /**
+     * Check if the current user has Key 3 permissions
+     * 
+     * @return bool Whether the user is a Key 3 member
+     */
+    private static function isKey3User(): bool {
+        $me = current_user();
+        if (!$me) {
+            return false;
+        }
+        
+        try {
+            $stPos = pdo()->prepare("SELECT LOWER(alp.name) AS p 
+                                     FROM adult_leadership_position_assignments alpa
+                                     JOIN adult_leadership_positions alp ON alp.id = alpa.adult_leadership_position_id
+                                     WHERE alpa.adult_id = ?");
+            $stPos->execute([(int)($me['id'] ?? 0)]);
+            $rowsPos = $stPos->fetchAll();
+            if (is_array($rowsPos)) {
+                foreach ($rowsPos as $pr) {
+                    $p = trim((string)($pr['p'] ?? ''));
+                    if ($p === 'cubmaster' || $p === 'treasurer' || $p === 'committee chair') { 
+                        return true;
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            return false;
+        }
+        
+        return false;
+    }
+    
+    /**
      * Render the admin menu dropdown for event management pages
      * 
      * @param int $eventId The event ID
@@ -760,6 +793,195 @@ class EventUIManager {
             }
         }
     });
+    
+    // Key 3 Admin Volunteer Signup modal functionality
+    const key3SignupModal = document.getElementById("key3SignupModal");
+    const key3SignupModalClose = document.getElementById("key3SignupModalClose");
+    const key3SignupCancelBtn = document.getElementById("key3SignupCancelBtn");
+    const key3SignupConfirmBtn = document.getElementById("key3SignupConfirmBtn");
+    const key3AdultSearch = document.getElementById("key3AdultSearch");
+    const key3AdultSearchResults = document.getElementById("key3AdultSearchResults");
+    const key3SignupComment = document.getElementById("key3SignupComment");
+    const key3SignupStatus = document.getElementById("key3SignupStatus");
+    
+    let selectedRoleId = null;
+    let selectedAdultId = null;
+    
+    // Handle clicking on Key 3 signup links
+    document.addEventListener("click", function(e) {
+        if (e.target.classList.contains("key3-signup-link")) {
+            e.preventDefault();
+            selectedRoleId = e.target.getAttribute("data-role-id");
+            const roleTitle = e.target.getAttribute("data-role-title");
+            const roleDescription = e.target.getAttribute("data-role-description");
+            
+            // Update modal title and description
+            document.getElementById("key3SignupModalTitle").textContent = "Sign up someone for " + roleTitle;
+            
+            const descDiv = document.getElementById("key3RoleDescription");
+            if (roleDescription && roleDescription.trim() !== "") {
+                descDiv.innerHTML = roleDescription;
+                descDiv.style.display = "block";
+            } else {
+                descDiv.style.display = "none";
+            }
+            
+            // Reset form
+            key3AdultSearch.value = "";
+            key3AdultSearchResults.style.display = "none";
+            key3SignupComment.value = "";
+            key3SignupStatus.innerHTML = "";
+            selectedAdultId = null;
+            
+            // Show modal
+            key3SignupModal.classList.remove("hidden");
+            key3SignupModal.setAttribute("aria-hidden", "false");
+            key3AdultSearch.focus();
+        }
+    });
+    
+    // Close modal handlers
+    if (key3SignupModalClose) {
+        key3SignupModalClose.addEventListener("click", function() {
+            key3SignupModal.classList.add("hidden");
+            key3SignupModal.setAttribute("aria-hidden", "true");
+        });
+    }
+    
+    if (key3SignupCancelBtn) {
+        key3SignupCancelBtn.addEventListener("click", function() {
+            key3SignupModal.classList.add("hidden");
+            key3SignupModal.setAttribute("aria-hidden", "true");
+        });
+    }
+    
+    // Adult search functionality
+    if (key3AdultSearch && key3AdultSearchResults) {
+        let searchTimeout = null;
+        
+        key3AdultSearch.addEventListener("input", function() {
+            const query = this.value.trim();
+            
+            if (searchTimeout) {
+                clearTimeout(searchTimeout);
+            }
+            
+            if (query.length < 2) {
+                key3AdultSearchResults.style.display = "none";
+                selectedAdultId = null;
+                return;
+            }
+            
+            searchTimeout = setTimeout(() => {
+                fetch("/ajax_search_adults.php?q=" + encodeURIComponent(query), {
+                    headers: { "Accept": "application/json" }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.ok && data.items) {
+                        displayKey3AdultSearchResults(data.items);
+                    } else {
+                        key3AdultSearchResults.innerHTML = "<div class=\\"search-result\\">No results found</div>";
+                        key3AdultSearchResults.style.display = "block";
+                    }
+                })
+                .catch(error => {
+                    console.error("Adult search error:", error);
+                    key3AdultSearchResults.innerHTML = "<div class=\\"search-result\\">Search failed</div>";
+                    key3AdultSearchResults.style.display = "block";
+                });
+            }, 300);
+        });
+        
+        function displayKey3AdultSearchResults(items) {
+            if (items.length === 0) {
+                key3AdultSearchResults.innerHTML = "<div class=\\"search-result\\">No results found</div>";
+            } else {
+                let html = "";
+                items.forEach(item => {
+                    html += `<div class="search-result" data-adult-id="${item.id}" style="padding: 8px; cursor: pointer; border-bottom: 1px solid #eee;">${item.label}</div>`;
+                });
+                key3AdultSearchResults.innerHTML = html;
+                
+                // Add click handlers to results
+                key3AdultSearchResults.querySelectorAll(".search-result").forEach(result => {
+                    result.addEventListener("click", function() {
+                        selectedAdultId = this.getAttribute("data-adult-id");
+                        key3AdultSearch.value = this.textContent;
+                        key3AdultSearchResults.style.display = "none";
+                    });
+                });
+            }
+            key3AdultSearchResults.style.display = "block";
+        }
+    }
+    
+    // Confirm button handler
+    if (key3SignupConfirmBtn) {
+        key3SignupConfirmBtn.addEventListener("click", function() {
+            if (!selectedRoleId) {
+                key3SignupStatus.innerHTML = "<p class=\\"error\\">No role selected.</p>";
+                return;
+            }
+            
+            if (!selectedAdultId) {
+                key3SignupStatus.innerHTML = "<p class=\\"error\\">Please select an adult from the search results.</p>";
+                return;
+            }
+            
+            const comment = key3SignupComment.value.trim();
+            
+            // Disable button during request
+            key3SignupConfirmBtn.disabled = true;
+            key3SignupStatus.innerHTML = "<p>Processing...</p>";
+            
+            // Send AJAX request
+            const fd = new FormData();
+            fd.append("csrf", "' . h($csrfToken) . '");
+            fd.append("event_id", "' . $eventId . '");
+            fd.append("role_id", selectedRoleId);
+            fd.append("user_id", selectedAdultId);
+            if (comment !== "") {
+                fd.append("comment", comment);
+            }
+            
+            fetch("/volunteer_admin_signup.php", {
+                method: "POST",
+                body: fd,
+                credentials: "same-origin"
+            })
+            .then(response => response.json())
+            .then(data => {
+                key3SignupConfirmBtn.disabled = false;
+                
+                if (data.ok) {
+                    key3SignupStatus.innerHTML = "<p style=\\"color: green;\\">" + (data.message || "Successfully signed up!") + "</p>";
+                    
+                    // Reload page after a short delay to show updated volunteers
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    key3SignupStatus.innerHTML = "<p class=\\"error\\">" + (data.error || "Failed to sign up.") + "</p>";
+                }
+            })
+            .catch(error => {
+                console.error("Key 3 signup error:", error);
+                key3SignupConfirmBtn.disabled = false;
+                key3SignupStatus.innerHTML = "<p class=\\"error\\">Network error. Please try again.</p>";
+            });
+        });
+    }
+    
+    // Close modal on outside click
+    if (key3SignupModal) {
+        key3SignupModal.addEventListener("click", function(e) {
+            if (e.target === key3SignupModal) {
+                key3SignupModal.classList.add("hidden");
+                key3SignupModal.setAttribute("aria-hidden", "true");
+            }
+        });
+    }
 })();
 </script>';
     }
@@ -935,6 +1157,34 @@ class EventUIManager {
             </form>
         </div>
     </div>
+</div>
+
+<!-- Key 3 Admin Volunteer Signup modal -->
+<div id="key3SignupModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+        <button class="close" type="button" id="key3SignupModalClose" aria-label="Close">&times;</button>
+        <h3 id="key3SignupModalTitle">Sign up someone for Role</h3>
+        
+        <div class="stack">
+            <div id="key3RoleDescription" style="margin-bottom: 16px;"></div>
+            
+            <label>Select an adult:
+                <input type="text" id="key3AdultSearch" placeholder="Type name to search" autocomplete="off">
+                <div id="key3AdultSearchResults" class="typeahead-results" style="display:none;"></div>
+            </label>
+            
+            <label>Would you like to add a comment about the sign-up?
+                <textarea id="key3SignupComment" rows="3" placeholder="Optional comment..."></textarea>
+            </label>
+            
+            <div class="actions">
+                <button type="button" id="key3SignupConfirmBtn" class="button primary">Confirm</button>
+                <button type="button" id="key3SignupCancelBtn" class="button">Cancel</button>
+            </div>
+            
+            <div id="key3SignupStatus" style="margin-top: 8px;"></div>
+        </div>
+    </div>
 </div>';
     }
     
@@ -1053,6 +1303,13 @@ class EventUIManager {
                 
                 if (trim((string)($r['description'] ?? '')) !== '') {
                     $html .= '<div style="margin-top:4px;">' . Text::renderMarkup((string)$r['description']) . '</div>';
+                }
+                
+                // Add Key 3 admin signup link if user has Key 3 permissions (event.php only, no invite params)
+                if ($inviteUid === null && $inviteSig === null && self::isKey3User()) {
+                    $html .= '<div style="margin-top:6px;">';
+                    $html .= '<a href="#" class="small key3-signup-link" data-role-id="' . (int)$r['id'] . '" data-role-title="' . h($r['title']) . '" data-role-description="' . h($r['description']) . '" style="color: #0b5ed7;">Key 3: Sign up someone else</a>';
+                    $html .= '</div>';
                 }
                 
                 if (!empty($r['volunteers'])) {
