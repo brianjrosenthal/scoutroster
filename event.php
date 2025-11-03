@@ -443,8 +443,10 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       
       // Intercept signup button clicks on main page
       document.addEventListener('click', function(e){
-        const btn = e.target.closest('button[type="submit"]');
+        // Check if clicked element is a button (with or without explicit type="submit")
+        const btn = e.target.closest('button');
         if (!btn) return;
+        
         const form = btn.closest('form');
         if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
         if (!form.querySelector('input[name="action"][value="signup"]')) return;
