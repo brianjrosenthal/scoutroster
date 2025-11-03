@@ -283,16 +283,41 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
     <div class="volunteers">
       <?php foreach ($roles as $r): ?>
         <div class="role" style="margin-bottom:10px;">
-          <div>
-            <strong><?= h($r['title']) ?></strong>
-            <?php if (!empty($r['is_unlimited'])): ?>
-              <span class="remaining small">(no limit)</span>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
-              <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
-            <?php else: ?>
-              <span class="filled small">Filled</span>
+          <?php
+            $amIn = false;
+            if ($hasYes) {
+              foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
+            }
+          ?>
+          
+          <!-- Title line with sign-up button on the right -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <div>
+              <strong><?= h($r['title']) ?></strong> 
+              <?php if (!empty($r['is_unlimited'])): ?>
+                <span class="remaining small">(no limit)</span>
+              <?php elseif ((int)$r['open_count'] > 0): ?>
+                <span class="remaining small">(<?= (int)$r['open_count'] ?> people still needed)</span>
+              <?php else: ?>
+                <span class="filled small">Filled</span>
+              <?php endif; ?>
+            </div>
+            
+            <?php if ($hasYes && !$amIn): ?>
+              <form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">
+                <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+                <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+                <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
+                  <input type="hidden" name="action" value="signup">
+                  <button class="button primary" style="white-space: nowrap;">Sign up</button>
+                <?php else: ?>
+                  <button class="button" disabled style="white-space: nowrap;">Filled</button>
+                <?php endif; ?>
+              </form>
             <?php endif; ?>
           </div>
+          
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
             <div style="margin-top:4px;"><?= Text::renderMarkup((string)$r['description']) ?></div>
           <?php endif; ?>
@@ -322,26 +347,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <ul style="margin:6px 0 0 16px;">
               <li>No one yet.</li>
             </ul>
-          <?php endif; ?>
-
-          <?php if ($hasYes): ?>
-            <?php
-              $amIn = false;
-              foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
-            ?>
-            <?php if (!$amIn): ?>
-              <form method="post" action="/volunteer_actions.php" class="inline">
-                <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-                <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
-                <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-                <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
-                  <input type="hidden" name="action" value="signup">
-                  <button style="margin-top:6px;" class="button primary">Sign up</button>
-                <?php else: ?>
-                  <button style="margin-top:6px;" class="button" disabled>Filled</button>
-                <?php endif; ?>
-              </form>
-            <?php endif; ?>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
@@ -705,16 +710,39 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       <div id="volRoles" class="stack">
       <?php foreach ($roles as $r): ?>
         <div class="role" style="margin-bottom:14px;">
-          <div>
-            <strong><?= h($r['title']) ?></strong>
-            <?php if (!empty($r['is_unlimited'])): ?>
-              <span class="remaining">(no limit)</span>
-            <?php elseif ((int)$r['open_count'] > 0): ?>
-              <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
-            <?php else: ?>
-              <span class="filled">Filled</span>
+          <?php
+            $amIn = false;
+            foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
+          ?>
+          
+          <!-- Title line with sign-up button on the right -->
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+            <div>
+              <strong><?= h($r['title']) ?></strong> 
+              <?php if (!empty($r['is_unlimited'])): ?>
+                <span class="remaining">(no limit)</span>
+              <?php elseif ((int)$r['open_count'] > 0): ?>
+                <span class="remaining">(<?= (int)$r['open_count'] ?> people still needed)</span>
+              <?php else: ?>
+                <span class="filled">Filled</span>
+              <?php endif; ?>
+            </div>
+            
+            <?php if (!$amIn): ?>
+              <form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">
+                <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+                <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
+                <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
+                  <input type="hidden" name="action" value="signup">
+                  <button class="button primary" style="white-space: nowrap;">Sign up</button>
+                <?php else: ?>
+                  <button class="button" disabled style="white-space: nowrap;">Filled</button>
+                <?php endif; ?>
+              </form>
             <?php endif; ?>
           </div>
+          
           <?php if (trim((string)($r['description'] ?? '')) !== ''): ?>
             <div style="margin-top:4px;"><?= Text::renderMarkup((string)$r['description']) ?></div>
           <?php endif; ?>
@@ -743,24 +771,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
             <ul style="margin:6px 0 0 16px;">
               <li>No one yet.</li>
             </ul>
-          <?php endif; ?>
-
-          <?php
-            $amIn = false;
-            foreach ($r['volunteers'] as $v) { if ((int)$v['user_id'] === (int)$me['id']) { $amIn = true; break; } }
-          ?>
-          <?php if (!$amIn): ?>
-          <form method="post" action="/volunteer_actions.php" class="inline">
-            <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
-            <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
-            <input type="hidden" name="role_id" value="<?= (int)$r['id'] ?>">
-            <?php if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0): ?>
-              <input type="hidden" name="action" value="signup">
-              <button  style="margin-top:6px;" class="button primary">Sign up</button>
-            <?php else: ?>
-              <button  style="margin-top:6px;" class="button" disabled>Filled</button>
-            <?php endif; ?>
-          </form>
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
