@@ -274,6 +274,13 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php if ($isAdmin || !empty($roles)): ?>
 <div class="card">
   <h3>Event Volunteers</h3>
+  
+  <?php if ($hasYes): ?>
+    <!-- Success messages for volunteer actions (positioned right under heading) -->
+    <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-bottom:16px;">You have been removed from the role.</div>
+    <div id="volunteerSignupSuccess" class="flash" style="display:none;margin-bottom:16px;">You have been signed up for the role!</div>
+  <?php endif; ?>
+  
   <?php if (empty($roles)): ?>
     <p class="small">No volunteer roles have been defined for this event.</p>
       <?php if ($isAdmin): ?>
@@ -351,10 +358,6 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($hasYes): ?>
-  <!-- Success messages for volunteer actions (positioned outside volunteers section) -->
-  <div id="volunteerRemoveSuccess" class="flash" style="display:none;margin-top:10px;">You have been removed from the role.</div>
-  <div id="volunteerSignupSuccess" class="flash" style="display:none;margin-top:10px;">You have been signed up for the role!</div>
-  
   <script>
     // Handle remove actions via AJAX on main page
     (function(){
