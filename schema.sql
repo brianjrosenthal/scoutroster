@@ -388,6 +388,7 @@ CREATE TABLE volunteer_signups (
   event_id INT NOT NULL,
   role_id INT NOT NULL,
   user_id INT NOT NULL,
+  comment TEXT DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_vs_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
   CONSTRAINT fk_vs_role  FOREIGN KEY (role_id)  REFERENCES volunteer_roles(id) ON DELETE CASCADE,

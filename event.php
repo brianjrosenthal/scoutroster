@@ -302,6 +302,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <?php foreach ($r['volunteers'] as $v): ?>
                 <li>
                   <?= h($v['name']) ?>
+                  <?php if (!empty($v['comment'])): ?>
+                    <span class="small" style="font-style:italic;"> "<?= h($v['comment']) ?>"</span>
+                  <?php endif; ?>
                   <?php if ((int)($v['user_id'] ?? 0) === (int)$me['id']): ?>
                     <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">
                       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -375,6 +378,9 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
               <?php foreach ($r['volunteers'] as $v): ?>
                 <li>
                   <?= h($v['name']) ?>
+                  <?php if (!empty($v['comment'])): ?>
+                    <span class="small" style="font-style:italic;"> "<?= h($v['comment']) ?>"</span>
+                  <?php endif; ?>
                   <?php if ((int)($v['user_id'] ?? 0) === (int)$me['id']): ?>
                     <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">
                       <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">

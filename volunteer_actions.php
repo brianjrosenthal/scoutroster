@@ -15,6 +15,7 @@ require_csrf();
 $action  = trim((string)($_POST['action'] ?? ''));
 $eventId = (int)($_POST['event_id'] ?? 0);
 $roleId  = (int)($_POST['role_id'] ?? 0);
+$comment = isset($_POST['comment']) ? trim((string)$_POST['comment']) : null;
 $isAjax = !empty($_POST['ajax']);
 
 // Determine acting user
@@ -130,7 +131,7 @@ try {
   }
 
   if ($action === 'signup') {
-    Volunteers::signup($eventId, $roleId, $actingUserId);
+    Volunteers::signup($eventId, $roleId, $actingUserId, $comment);
     $redirectUrl .= (str_contains($redirectUrl, '?') ? '&' : '?') . 'volunteer=1';
   } elseif ($action === 'remove') {
     Volunteers::removeSignup($roleId, $actingUserId);
