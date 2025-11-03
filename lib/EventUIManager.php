@@ -1251,7 +1251,7 @@ class EventUIManager {
         
         // For invite flow, redirect to clean URL
         if ($inviteUid !== null && $inviteSig !== null) {
-            $script .= 'const cleanUrl = "/event_invite.php?uid=' . (int)$inviteUid . '&event_id=' . (int)$eventId . '&sig=' . urlencode($inviteSig) . '";';
+            $script .= 'const cleanUrl = "/event_invite.php?uid=' . (int)$inviteUid . '&event_id=' . (int)$eventId . '&sig=" + encodeURIComponent(' . json_encode($inviteSig) . ');';
             $script .= 'window.location.href = cleanUrl;';
         }
         
