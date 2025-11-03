@@ -194,7 +194,9 @@ if ($isAjax) {
     $actingUserId, 
     $eventId, 
     $isAdmin,
-    $successMessage
+    $successMessage,
+    $inviteUid,
+    $inviteSig
   );
   
   header('Content-Type: application/json');
