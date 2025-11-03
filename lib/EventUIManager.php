@@ -1265,7 +1265,7 @@ class EventUIManager {
         $script .= 'const rolesWrap = document.getElementById("volRoles");' . "\n";
         $script .= 'function esc(s) {' . "\n";
         $script .= 'return String(s).replace(/[&<>"\']/g, function(c){' . "\n";
-        $script .= 'return {"&":"&","<":"<",">":">","\"":""", "\'":"&#39;"}[c];' . "\n";
+        $script .= 'return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\'":"&#39;"}[c];' . "\n";
         $script .= '});' . "\n";
         $script .= '}' . "\n";
         
