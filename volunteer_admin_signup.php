@@ -50,6 +50,7 @@ if (!$isKey3) {
 $eventId = (int)($_POST['event_id'] ?? 0);
 $roleId = (int)($_POST['role_id'] ?? 0);
 $userId = (int)($_POST['user_id'] ?? 0);
+$action = isset($_POST['action']) ? trim((string)$_POST['action']) : 'signup';
 $comment = isset($_POST['comment']) ? trim((string)$_POST['comment']) : null;
 
 if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
@@ -58,9 +59,23 @@ if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
     exit;
 }
 
-// Attempt to sign up the user
+if (!in_array($action, ['signup', 'remove'], true)) {
+    header('Content-Type: application/json');
+    echo json_encode(['ok' => false, 'error' => 'Invalid action.']);
+    exit;
+}
+
+// Attempt to perform the requested action
 try {
-    Volunteers::adminSignup($eventId, $roleId, $userId, $comment);
+    if ($action === 'remove') {
+        // Remove the user's signup
+        Volunteers::removeSignup($roleId, $userId);
+        $actionMessage = ' has been removed from the role.';
+    } else {
+        // Sign up the user
+        Volunteers::adminSignup($eventId, $roleId, $userId, $comment);
+        $actionMessage = ' has been signed up for the role.';
+    }
     
     // Get updated volunteer data
     $roles = Volunteers::rolesWithCounts($eventId);
@@ -79,7 +94,7 @@ try {
     header('Content-Type: application/json');
     echo json_encode([
         'ok' => true,
-        'message' => $signedUpUserName . ' has been signed up for the role.',
+        'message' => $signedUpUserName . $actionMessage,
         'roles' => $roles,
         'user_id' => $actingUserId,
         'event_id' => $eventId,
