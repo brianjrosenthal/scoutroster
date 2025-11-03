@@ -351,6 +351,35 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
 <?php endif; ?>
 
 <?php if ($hasYes && $openVolunteerRoles): ?>
+  <!-- Volunteer signup confirmation modal -->
+  <div id="volunteerSignupModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
+    <div class="modal-content">
+      <button class="close" type="button" id="volunteerSignupModalClose" aria-label="Close">&times;</button>
+      <h3>Confirm Volunteer Signup</h3>
+      <form id="volunteerSignupForm" class="stack">
+        <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+        <input type="hidden" name="event_id" value="<?= (int)$e['id'] ?>">
+        <input type="hidden" name="role_id" id="signupRoleId" value="">
+        <input type="hidden" name="action" value="signup">
+        
+        <p>Please confirm you wish to sign up for <strong id="signupRoleTitle"></strong>.</p>
+        
+        <div id="signupRoleDescription" style="margin-top:8px;"></div>
+        
+        <label style="margin-top:16px;">
+          Would you like to add a comment about your sign-up?
+          <textarea name="comment" id="signupComment" rows="3" placeholder="e.g., I'm bringing chips and salsa"></textarea>
+        </label>
+        
+        <div class="actions">
+          <button type="submit" class="primary">Confirm</button>
+          <button type="button" class="button" id="volunteerSignupCancel">Cancel</button>
+        </div>
+      </form>
+      <div id="signupError" class="error" style="display:none;margin-top:12px;"></div>
+    </div>
+  </div>
+
   <!-- Volunteer prompt modal -->
   <div id="volunteerModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
     <div class="modal-content">
@@ -536,6 +565,105 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       }
 
       if (modal) modal.addEventListener('click', function(e){ if (e.target === modal) closeModal(); });
+    })();
+
+    // Signup confirmation modal handling
+    (function(){
+      const signupModal = document.getElementById('volunteerSignupModal');
+      const signupForm = document.getElementById('volunteerSignupForm');
+      const signupCloseBtn = document.getElementById('volunteerSignupModalClose');
+      const signupCancelBtn = document.getElementById('volunteerSignupCancel');
+      const signupError = document.getElementById('signupError');
+      const signupRoleId = document.getElementById('signupRoleId');
+      const signupRoleTitle = document.getElementById('signupRoleTitle');
+      const signupRoleDescription = document.getElementById('signupRoleDescription');
+      const signupComment = document.getElementById('signupComment');
+      
+      const rolesData = <?= json_encode($roles) ?>;
+      
+      const openSignupModal = () => { 
+        if (signupModal) { 
+          signupModal.classList.remove('hidden'); 
+          signupModal.setAttribute('aria-hidden','false');
+          if (signupError) signupError.style.display = 'none';
+        } 
+      };
+      const closeSignupModal = () => { 
+        if (signupModal) { 
+          signupModal.classList.add('hidden'); 
+          signupModal.setAttribute('aria-hidden','true');
+          if (signupComment) signupComment.value = '';
+          if (signupError) signupError.style.display = 'none';
+        } 
+      };
+      
+      if (signupCloseBtn) signupCloseBtn.addEventListener('click', closeSignupModal);
+      if (signupCancelBtn) signupCancelBtn.addEventListener('click', closeSignupModal);
+      
+      // Intercept signup button clicks
+      document.addEventListener('click', function(e){
+        const btn = e.target.closest('button[type="submit"]');
+        if (!btn) return;
+        const form = btn.closest('form');
+        if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
+        if (!form.querySelector('input[name="action"][value="signup"]')) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const roleId = form.querySelector('input[name="role_id"]').value;
+        const role = rolesData.find(r => r.id == roleId);
+        if (!role) return;
+        
+        if (signupRoleId) signupRoleId.value = roleId;
+        if (signupRoleTitle) signupRoleTitle.textContent = role.title;
+        if (signupRoleDescription) {
+          if (role.description) {
+            signupRoleDescription.innerHTML = role.description;
+            signupRoleDescription.style.display = 'block';
+          } else {
+            signupRoleDescription.style.display = 'none';
+          }
+        }
+        
+        openSignupModal();
+      }, true);
+      
+      // Handle signup form submission
+      if (signupForm) {
+        signupForm.addEventListener('submit', function(e){
+          e.preventDefault();
+          
+          const fd = new FormData(signupForm);
+          
+          fetch('/volunteer_actions.php', { 
+            method:'POST', 
+            body: fd, 
+            credentials:'same-origin' 
+          })
+          .then(function(res){ return res.json(); })
+          .then(function(json){
+            if (json && json.ok) {
+              // Success - redirect to event page with success message
+              window.location.href = '/event.php?id=<?= (int)$e['id'] ?>&volunteer=1';
+            } else {
+              // Show error
+              if (signupError) {
+                signupError.textContent = (json && json.error) ? json.error : 'Signup failed.';
+                signupError.style.display = 'block';
+              }
+            }
+          })
+          .catch(function(){
+            if (signupError) {
+              signupError.textContent = 'Network error.';
+              signupError.style.display = 'block';
+            }
+          });
+        });
+      }
+      
+      if (signupModal) signupModal.addEventListener('click', function(e){ if (e.target === signupModal) closeSignupModal(); });
     })();
   </script>
 <?php endif; ?>
