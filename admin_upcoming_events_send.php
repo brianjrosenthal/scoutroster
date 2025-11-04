@@ -78,13 +78,14 @@ try {
     
     // Log email send
     try {
-      EmailLog::logEmail(
+      EmailLog::log(
         $ctx,
         $recipientEmail,
+        $recipientName,
         $subject,
-        'upcoming_events',
-        0, // No specific event
-        $userId
+        $htmlBody,
+        true, // success
+        null  // errorMessage
       );
     } catch (Throwable $e) {
       // Log error but don't fail the send
