@@ -59,7 +59,7 @@ if ($eventId <= 0 || $roleId <= 0 || $userId <= 0) {
     exit;
 }
 
-if (!in_array($action, ['signup', 'remove'], true)) {
+if (!in_array($action, ['signup', 'remove', 'update_comment'], true)) {
     header('Content-Type: application/json');
     echo json_encode(['ok' => false, 'error' => 'Invalid action.']);
     exit;
@@ -71,6 +71,10 @@ try {
         // Remove the user's signup
         Volunteers::removeSignup($roleId, $userId);
         $actionMessage = ' has been removed from the role.';
+    } elseif ($action === 'update_comment') {
+        // Update the comment for existing signup
+        Volunteers::updateComment($roleId, $userId, $comment);
+        $actionMessage = '\'s signup comment has been updated.';
     } else {
         // Sign up the user
         Volunteers::adminSignup($eventId, $roleId, $userId, $comment);

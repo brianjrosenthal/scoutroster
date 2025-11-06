@@ -815,6 +815,60 @@ class EventUIManager {
     
     let selectedRoleId = null;
     let selectedAdultId = null;
+    let isEditMode = false;
+    
+    // Function to check if selected adult is already signed up for the selected role
+    function checkExistingSignup() {
+        if (!selectedRoleId || !selectedAdultId) {
+            // Reset to signup mode if either is missing
+            isEditMode = false;
+            updateButtonState();
+            return;
+        }
+        
+        // Make AJAX request to check for existing signup
+        const fd = new FormData();
+        fd.append("csrf", "' . h($csrfToken) . '");
+        fd.append("event_id", "' . $eventId . '");
+        fd.append("role_id", selectedRoleId);
+        fd.append("user_id", selectedAdultId);
+        
+        fetch("/volunteer_check_existing_signup.php", {
+            method: "POST",
+            body: fd,
+            credentials: "same-origin"
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.ok) {
+                if (data.exists) {
+                    // Signup exists - switch to edit mode
+                    isEditMode = true;
+                    key3SignupComment.value = data.comment || "";
+                    updateButtonState();
+                } else {
+                    // No signup - stay in signup mode
+                    isEditMode = false;
+                    key3SignupComment.value = "";
+                    updateButtonState();
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Error checking existing signup:", error);
+        });
+    }
+    
+    // Function to update button text based on mode
+    function updateButtonState() {
+        const confirmBtn = document.getElementById("key3SignupConfirmBtn");
+        if (confirmBtn) {
+            confirmBtn.textContent = isEditMode ? "Edit Signup" : "Confirm";
+        }
+        
+        // Also update remove button visibility
+        updateRemoveButtonVisibility();
+    }
     
     // Handle clicking on Key 3 signup links
     document.addEventListener("click", function(e) {
@@ -853,6 +907,8 @@ class EventUIManager {
             key3SignupComment.value = "";
             key3SignupStatus.innerHTML = "";
             selectedAdultId = null;
+            isEditMode = false;
+            updateButtonState();
             
             // Show modal
             key3SignupModal.classList.remove("hidden");
@@ -966,7 +1022,9 @@ class EventUIManager {
                         selectedAdultId = this.getAttribute("data-adult-id");
                         key3AdultSearch.value = this.textContent;
                         key3AdultSearchResults.style.display = "none";
-                        updateRemoveButtonVisibility();
+                        
+                        // Check for existing signup when user is selected
+                        checkExistingSignup();
                     });
                 });
             }
@@ -1055,6 +1113,7 @@ class EventUIManager {
             fd.append("event_id", "' . $eventId . '");
             fd.append("role_id", selectedRoleId);
             fd.append("user_id", selectedAdultId);
+            fd.append("action", isEditMode ? "update_comment" : "signup");
             if (comment !== "") {
                 fd.append("comment", comment);
             }
