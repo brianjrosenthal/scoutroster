@@ -538,9 +538,23 @@ class YouthManagement {
       $grade = (int)$filters['grade'];
     }
 
-    // Calculate end of next month for expiration logic
-    // If it's September 15th, we want to show registrations expiring before November 1st
-    $nextMonthEnd = date('Y-m-d', strtotime('last day of next month'));
+    // Calculate expiration cutoff date with conditional logic:
+    // - Between June 1st and October 15th: use end of next month
+    // - Otherwise: use July 1st of next year
+    $currentDate = date('Y-m-d');
+    $currentYear = (int)date('Y');
+    $june1ThisYear = $currentYear . '-06-01';
+    $oct15ThisYear = $currentYear . '-10-15';
+
+    if ($currentDate >= $june1ThisYear && $currentDate <= $oct15ThisYear) {
+      // Keep existing logic: end of next month
+      // e.g., if it's September 15th, we want to show registrations expiring before November 1st
+      $expirationCutoff = date('Y-m-d', strtotime('last day of next month'));
+    } else {
+      // Use July 1st of next year
+      $nextYear = $currentYear + 1;
+      $expirationCutoff = $nextYear . '-07-01';
+    }
     
     // Calculate next June 1st for registration year boundary
     $currentYear = (int)date('Y');
@@ -572,10 +586,10 @@ class YouthManagement {
                 AND y.sibling = 0
                 -- Include youth WITH pending payments or registrations
                 AND (pn.id IS NOT NULL OR pr.id IS NOT NULL)";
-      $params[] = $nextMonthEnd;
+      $params[] = $expirationCutoff;
     } elseif ($status === 'action_needed_payment') {
       // Action needed to Scouting.org - needs youth payment
-      // Show youth whose BSA registration expires before next month end
+      // Show youth whose BSA registration expires before expiration cutoff
       // AND they either have paid until after next June 1st OR have a pending payment notification
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
                      y.bsa_registration_number, y.bsa_registration_expires_date, y.date_paid_until,
@@ -594,8 +608,8 @@ class YouthManagement {
                 AND y.sibling = 0
                 AND y.bsa_registration_expires_date < ?
                 AND (y.date_paid_until > ? OR pn.id IS NOT NULL)";
-      $params[] = $nextMonthEnd;
-      $params[] = $nextMonthEnd;
+      $params[] = $expirationCutoff;
+      $params[] = $expirationCutoff;
       $params[] = $nextJune1;
     } elseif ($status === 'action_needed_registration') {
       // Action needed to Scouting.org - needs youth registration submitted
@@ -617,7 +631,7 @@ class YouthManagement {
                 AND pr.payment_status = 'paid'
               WHERE y.left_troop = 0 
                 AND y.sibling = 0";
-      $params[] = $nextMonthEnd;
+      $params[] = $expirationCutoff;
     } elseif ($status === 'notification_needed') {
       // Notification of family needed - need to renew
       // Show youth WITHOUT pending actions who need registration renewal
@@ -643,16 +657,16 @@ class YouthManagement {
                 -- Exclude youth who have already paid until after next June 1st
                 AND (y.date_paid_until IS NULL OR y.date_paid_until <= ?)
                 AND (
-                  -- Has BSA ID and expires before end of next month OR is expired
+                  -- Has BSA ID and expires before expiration cutoff OR is expired
                   (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
                    AND (y.bsa_registration_expires_date IS NULL OR y.bsa_registration_expires_date <= ?))
                   -- OR has BSA ID but hasn't paid dues (regardless of registration expiration)
                   OR (y.bsa_registration_number IS NOT NULL AND y.bsa_registration_number <> '' 
                       AND (y.date_paid_until IS NULL OR y.date_paid_until < CURDATE()))
                 )";
-      $params[] = $nextMonthEnd;
+      $params[] = $expirationCutoff;
       $params[] = $nextJune1;
-      $params[] = $nextMonthEnd;
+      $params[] = $expirationCutoff;
     } else {
       // Default: return empty result set
       $sql = "SELECT y.id, y.first_name, y.last_name, y.preferred_name, y.suffix, y.class_of, 
