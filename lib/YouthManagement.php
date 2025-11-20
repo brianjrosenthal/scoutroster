@@ -546,15 +546,9 @@ class YouthManagement {
     $june1ThisYear = $currentYear . '-06-01';
     $oct15ThisYear = $currentYear . '-10-15';
 
-    if ($currentDate >= $june1ThisYear && $currentDate <= $oct15ThisYear) {
-      // Keep existing logic: end of next month
-      // e.g., if it's September 15th, we want to show registrations expiring before November 1st
-      $expirationCutoff = date('Y-m-d', strtotime('last day of next month'));
-    } else {
-      // Use July 1st of next year
-      $nextYear = $currentYear + 1;
-      $expirationCutoff = $nextYear . '-07-01';
-    }
+    // Keep existing logic: end of next month
+    // e.g., if it's September 15th, we want to show registrations expiring before November 1st
+    $expirationCutoff = date('Y-m-d', strtotime('last day of next month'));
     
     // Calculate next June 1st for registration year boundary
     $currentYear = (int)date('Y');
