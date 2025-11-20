@@ -37,7 +37,7 @@ try {
     if ($paymentMethod === '') respond_json(false, 'Payment method is required');
     
     // Validate payment method is one of the allowed values
-    $allowedMethods = ['Paypal', 'Check', 'I will pay later'];
+    $allowedMethods = ['Zelle', 'Paypal', 'Check', 'I will pay later'];
     if (!in_array($paymentMethod, $allowedMethods, true)) {
       respond_json(false, 'Invalid payment method');
     }
