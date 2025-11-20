@@ -624,7 +624,7 @@ class YouthManagement {
                 AND pr.status = 'new' 
                 AND pr.payment_status = 'paid'
               WHERE y.left_troop = 0 
-                AND y.sibling = 0";
+                ";
       $params[] = $expirationCutoff;
     } elseif ($status === 'notification_needed') {
       // Notification of family needed - need to renew
