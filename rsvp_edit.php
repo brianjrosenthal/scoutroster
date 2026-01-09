@@ -6,6 +6,7 @@ require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/UserContext.php';
+require_once __DIR__ . '/lib/EventRegistrationFieldDefinitionManagement.php';
 
 $me = current_user();
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
@@ -95,8 +96,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   if (!$error) {
     try {
+      // Track if this is a NEW "Yes" RSVP (not editing an existing "Yes")
+      $previousAnswer = $myRsvp ? strtolower((string)($myRsvp['answer'] ?? '')) : null;
+      $isNewYesRsvp = (strtolower($answer) === 'yes' && $previousAnswer !== 'yes');
+      
       $ctx = \UserContext::getLoggedInUserContext();
       RSVPManagement::setFamilyRSVP($ctx, (int)$me['id'], (int)$eventId, (string)$answer, (array)$adults, (array)$youths, ($comments !== '' ? $comments : null), (int)$nGuests);
+      
+      // Only redirect to registration fields if this is a NEW "Yes" RSVP
+      if ($isNewYesRsvp) {
+        $fieldDefs = EventRegistrationFieldDefinitionManagement::listForEvent($eventId);
+        if (!empty($fieldDefs)) {
+          // Redirect to registration data entry for new Yes RSVPs
+          header('Location: /event_registration_field_data/edit.php?event_id=' . $eventId);
+          exit;
+        }
+      }
+      
+      // For all other cases (editing existing Yes, or non-Yes answers), redirect to event page
       $vol = (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) ? '&vol=1' : '';
       header('Location: /event.php?id='.$eventId.'&rsvp=1'.$vol); exit;
     } catch (Throwable $e) {

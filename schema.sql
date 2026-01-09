@@ -202,6 +202,40 @@ CREATE TABLE events (
   INDEX (starts_at)
 ) ENGINE=InnoDB;
 
+-- Event Registration Field Definitions
+CREATE TABLE event_registration_field_definitions (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_id INT NOT NULL,
+  scope ENUM('per_person','per_youth','per_family') NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT DEFAULT NULL,
+  field_type ENUM('text','select','boolean','numeric') NOT NULL,
+  required TINYINT(1) NOT NULL DEFAULT 0,
+  option_list TEXT DEFAULT NULL COMMENT 'JSON array of options for select fields',
+  sequence_number INT NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_by INT NOT NULL,
+  CONSTRAINT fk_erfd_event FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE,
+  CONSTRAINT fk_erfd_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE RESTRICT,
+  INDEX idx_erfd_event (event_id),
+  INDEX idx_erfd_sequence (event_id, sequence_number)
+) ENGINE=InnoDB;
+
+-- Event Registration Field Data (user-entered values)
+CREATE TABLE event_registration_field_data (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_registration_field_definition_id INT NOT NULL,
+  participant_type ENUM('youth','adult') NOT NULL,
+  participant_id INT NOT NULL,
+  value TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_erfd_field_def FOREIGN KEY (event_registration_field_definition_id) REFERENCES event_registration_field_definitions(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_erfd_field_participant (event_registration_field_definition_id, participant_type, participant_id),
+  INDEX idx_erfd_field_def (event_registration_field_definition_id),
+  INDEX idx_erfd_participant (participant_type, participant_id)
+) ENGINE=InnoDB;
+
 -- RSVP group (creator + multiple members)
 CREATE TABLE rsvps (
   id INT AUTO_INCREMENT PRIMARY KEY,
