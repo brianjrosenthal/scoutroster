@@ -117,7 +117,8 @@ class EventUIManager {
         
         $html .= '
                 <a href="/admin_event_invite.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'invite' ? ' background-color: #f5f5f5;' : '') . '">Invite</a>
-                <a href="/admin_event_volunteers.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'volunteers' ? ' background-color: #f5f5f5;' : '') . '">Manage Volunteers</a>';
+                <a href="/admin_event_volunteers.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'volunteers' ? ' background-color: #f5f5f5;' : '') . '">Manage Volunteers</a>
+                <a href="/event_registration_field_definitions/list.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Manage Registration Fields</a>';
         
         if ($rsvpUrl === '') {
             $html .= '
