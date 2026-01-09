@@ -52,7 +52,7 @@ header_html($pageTitle);
           <tr style="background-color: #f5f5f5;">
             <th style="text-align: left; padding: 8px; border: 1px solid #ddd;">Last Name</th>
             <th style="text-align: left; padding: 8px; border: 1px solid #ddd;">First Name</th>
-            <th style="text-align: left; padding: 8px; border: 1px solid #ddd;">Phone</th>
+            <th style="text-align: left; padding: 8px; border: 1px solid #ddd; min-width: 150px;">Phone</th>
             <th style="text-align: left; padding: 8px; border: 1px solid #ddd;">Email</th>
             <?php foreach ($fields as $field): ?>
               <th style="text-align: left; padding: 8px; border: 1px solid #ddd;"><?= h($field['name']) ?></th>
@@ -73,7 +73,7 @@ header_html($pageTitle);
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['last_name']) ?></td>
               <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['first_name']) ?></td>
-              <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['phone']) ?></td>
+              <td style="padding: 8px; border: 1px solid #ddd; min-width: 150px;"><?= h($participant['phone']) ?></td>
               <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['email']) ?></td>
               <?php foreach ($fields as $field): ?>
                 <?php $fieldId = (int)$field['id']; ?>
