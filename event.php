@@ -11,6 +11,7 @@ require_login();
 
 require_once __DIR__ . '/lib/Text.php';
 require_once __DIR__ . '/lib/Volunteers.php';
+require_once __DIR__ . '/lib/EventRegistrationFieldDataManagement.php';
 
 $me = current_user();
 $isAdmin = !empty($me['is_admin']);
@@ -154,6 +155,32 @@ if (!in_array($myAnswer, ['yes','maybe','no'], true)) $myAnswer = 'yes';
       </div>
   <?php endif; ?>
 </div>
+
+<?php
+// Check registration field completion status (only for users with yes RSVP)
+if ($rsvpUrl === '' && $hasYes) {
+  $regFieldStatus = EventRegistrationFieldDataManagement::getCompletionStatusForUserRSVP((int)$id, (int)$me['id']);
+  if ($regFieldStatus['hasFields']):
+?>
+<div class="card" style="background-color: <?= $regFieldStatus['complete'] ? '#d4edda' : '#fff3cd' ?>; border-color: <?= $regFieldStatus['complete'] ? '#c3e6cb' : '#ffc107' ?>;">
+  <?php if ($regFieldStatus['complete']): ?>
+    <p style="margin: 0; color: #155724;">
+      <strong>✓ Registration Information Complete</strong><br>
+      <span class="small">You have provided all required information for this event.</span>
+      <a class="button" href="/event_registration_field_data/edit.php?event_id=<?= (int)$id ?>" style="margin-left: 12px;">Click here to edit</a>
+    </p>
+  <?php else: ?>
+    <p style="margin: 0; color: #856404;">
+      <strong>⚠ Additional Information Required</strong><br>
+      <span class="small">This event requires some extra information. Please complete your registration.</span>
+      <a class="button primary" href="/event_registration_field_data/edit.php?event_id=<?= (int)$id ?>" style="margin-left: 12px;">Finish Registering for this Event</a>
+    </p>
+  <?php endif; ?>
+</div>
+<?php
+  endif;
+}
+?>
 
 <div class="card">
   <?php $imgUrl = Files::eventPhotoUrl($e['photo_public_file_id'] ?? null); ?>

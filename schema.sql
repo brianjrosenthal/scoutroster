@@ -221,6 +221,21 @@ CREATE TABLE event_registration_field_definitions (
   INDEX idx_erfd_sequence (event_id, sequence_number)
 ) ENGINE=InnoDB;
 
+-- Event Registration Field Data (user-entered values)
+CREATE TABLE event_registration_field_data (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  event_registration_field_definition_id INT NOT NULL,
+  participant_type ENUM('youth','adult') NOT NULL,
+  participant_id INT NOT NULL,
+  value TEXT DEFAULT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_erfd_field_def FOREIGN KEY (event_registration_field_definition_id) REFERENCES event_registration_field_definitions(id) ON DELETE CASCADE,
+  UNIQUE KEY uniq_erfd_field_participant (event_registration_field_definition_id, participant_type, participant_id),
+  INDEX idx_erfd_field_def (event_registration_field_definition_id),
+  INDEX idx_erfd_participant (participant_type, participant_id)
+) ENGINE=InnoDB;
+
 -- RSVP group (creator + multiple members)
 CREATE TABLE rsvps (
   id INT AUTO_INCREMENT PRIMARY KEY,

@@ -6,6 +6,7 @@ require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/UserManagement.php';
 require_once __DIR__ . '/lib/RSVPManagement.php';
 require_once __DIR__ . '/lib/UserContext.php';
+require_once __DIR__ . '/lib/EventRegistrationFieldDefinitionManagement.php';
 
 $me = current_user();
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : (int)($_POST['event_id'] ?? 0);
@@ -97,6 +98,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
       $ctx = \UserContext::getLoggedInUserContext();
       RSVPManagement::setFamilyRSVP($ctx, (int)$me['id'], (int)$eventId, (string)$answer, (array)$adults, (array)$youths, ($comments !== '' ? $comments : null), (int)$nGuests);
+      
+      // Check if event has registration fields and RSVP is yes
+      if (strtolower($answer) === 'yes') {
+        $fieldDefs = EventRegistrationFieldDefinitionManagement::listForEvent($eventId);
+        if (!empty($fieldDefs)) {
+          // Redirect to registration data entry
+          header('Location: /event_registration_field_data/edit.php?event_id=' . $eventId);
+          exit;
+        }
+      }
+      
+      // No registration fields, redirect to event page
       $vol = (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) ? '&vol=1' : '';
       header('Location: /event.php?id='.$eventId.'&rsvp=1'.$vol); exit;
     } catch (Throwable $e) {
