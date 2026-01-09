@@ -204,4 +204,102 @@ final class EventRegistrationFieldDataManagement {
     
     return (int)$st->rowCount();
   }
+
+  /**
+   * Check if any registration data exists for an event
+   * 
+   * @param int $eventId Event ID
+   * @return bool True if any data exists
+   */
+  public static function hasDataForEvent(int $eventId): bool {
+    $sql = "SELECT 1 FROM event_registration_field_data erfd
+            INNER JOIN event_registration_field_definitions erfd_def ON erfd.event_registration_field_definition_id = erfd_def.id
+            WHERE erfd_def.event_id = ?
+            LIMIT 1";
+    
+    $st = self::pdo()->prepare($sql);
+    $st->execute([$eventId]);
+    
+    return $st->fetch() !== false;
+  }
+
+  /**
+   * Get all registration data for an event (for admin viewing)
+   * Returns participants who RSVP'd Yes with their registration field data
+   * 
+   * @param int $eventId Event ID
+   * @return array ['participants' => array, 'fields' => array]
+   */
+  public static function getRegistrationDataForEvent(int $eventId): array {
+    require_once __DIR__ . '/UserManagement.php';
+    require_once __DIR__ . '/YouthManagement.php';
+    
+    // Get field definitions for this event
+    $fieldDefs = EventRegistrationFieldDefinitionManagement::listForEvent($eventId);
+    if (empty($fieldDefs)) {
+      return ['participants' => [], 'fields' => []];
+    }
+    
+    // Get all Yes RSVPs for this event
+    $rsvps = RSVPManagement::listRSVPsByAnswer($eventId, 'yes');
+    
+    $participants = [];
+    
+    foreach ($rsvps as $rsvp) {
+      $rsvpId = (int)$rsvp['id'];
+      $memberIds = RSVPManagement::getMemberIdsByType($rsvpId);
+      
+      // Process adults
+      foreach ($memberIds['adult_ids'] ?? [] as $adultId) {
+        $adult = UserManagement::findById($adultId);
+        if ($adult) {
+          $participants[] = [
+            'type' => 'adult',
+            'id' => $adultId,
+            'last_name' => $adult['last_name'] ?? '',
+            'first_name' => $adult['first_name'] ?? '',
+            'phone' => $adult['phone_cell'] ?? $adult['phone_home'] ?? '',
+            'email' => $adult['email'] ?? ''
+          ];
+        }
+      }
+      
+      // Process youth
+      foreach ($memberIds['youth_ids'] ?? [] as $youthId) {
+        $youth = YouthManagement::findBasicById($youthId);
+        if ($youth) {
+          $participants[] = [
+            'type' => 'youth',
+            'id' => $youthId,
+            'last_name' => $youth['last_name'] ?? '',
+            'first_name' => $youth['first_name'] ?? '',
+            'phone' => '',
+            'email' => ''
+          ];
+        }
+      }
+    }
+    
+    // Get all field data for these participants
+    $participantList = array_map(function($p) {
+      return ['type' => $p['type'], 'id' => $p['id']];
+    }, $participants);
+    
+    $fieldData = self::getFieldDataForParticipants($participantList);
+    
+    // Add field data to each participant
+    foreach ($participants as &$participant) {
+      $participant['field_data'] = [];
+      foreach ($fieldDefs as $field) {
+        $fieldId = (int)$field['id'];
+        $key = $fieldId . '_' . $participant['type'] . '_' . $participant['id'];
+        $participant['field_data'][$fieldId] = $fieldData[$key] ?? '';
+      }
+    }
+    
+    return [
+      'participants' => $participants,
+      'fields' => $fieldDefs
+    ];
+  }
 }

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../partials.php';
 require_once __DIR__ . '/../lib/EventManagement.php';
 require_once __DIR__ . '/../lib/EventRegistrationFieldDefinitionManagement.php';
+require_once __DIR__ . '/../lib/EventRegistrationFieldDataManagement.php';
 require_once __DIR__ . '/../lib/EventUIManager.php';
 require_admin();
 
@@ -53,7 +54,12 @@ header_html($pageTitle);
 <div class="card">
   <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
     <h3 style="margin: 0;">Registration Field Definitions</h3>
-    <a class="button primary" href="/event_registration_field_definitions/add.php?event_id=<?= (int)$eventId ?>">Add Field Definition</a>
+    <div style="display: flex; gap: 8px;">
+      <?php if (EventRegistrationFieldDataManagement::hasDataForEvent($eventId)): ?>
+        <a class="button" href="/event_registration_field_data/view.php?event_id=<?= (int)$eventId ?>">View Registration Data</a>
+      <?php endif; ?>
+      <a class="button primary" href="/event_registration_field_definitions/add.php?event_id=<?= (int)$eventId ?>">Add Field Definition</a>
+    </div>
   </div>
 
   <?php if (empty($fields)): ?>

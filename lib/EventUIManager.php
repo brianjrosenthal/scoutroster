@@ -120,6 +120,14 @@ class EventUIManager {
                 <a href="/admin_event_volunteers.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'volunteers' ? ' background-color: #f5f5f5;' : '') . '">Manage Volunteers</a>
                 <a href="/event_registration_field_definitions/list.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Manage Registration Fields</a>';
         
+        // Add View Registration Data link if event has registration field definitions
+        require_once __DIR__ . '/EventRegistrationFieldDefinitionManagement.php';
+        $fieldDefs = EventRegistrationFieldDefinitionManagement::listForEvent($eventId);
+        if (!empty($fieldDefs)) {
+            $html .= '
+                <a href="/event_registration_field_data/view.php?event_id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'registration_data' ? ' background-color: #f5f5f5;' : '') . '">View Registration Data</a>';
+        }
+        
         if ($rsvpUrl === '') {
             $html .= '
                 <a href="#" id="adminCopyEmailsBtn" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;">Copy Emails</a>
