@@ -82,7 +82,7 @@ final class EventRegistrationFieldDefinitionManagement {
    * Validate field_type value
    */
   private static function validateFieldType(string $fieldType): void {
-    $validTypes = ['text', 'select', 'boolean'];
+    $validTypes = ['text', 'select', 'boolean', 'numeric'];
     if (!in_array($fieldType, $validTypes, true)) {
       throw new \InvalidArgumentException('Invalid field type. Must be one of: ' . implode(', ', $validTypes));
     }

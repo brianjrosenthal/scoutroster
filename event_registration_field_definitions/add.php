@@ -24,7 +24,7 @@ if (!$event) {
 
 // Get max sequence number for default
 $maxSeq = EventRegistrationFieldDefinitionManagement::getMaxSequenceNumber($eventId);
-$defaultSeq = $maxSeq + 10;
+$defaultSeq = $maxSeq + 1;
 
 $pageTitle = 'Add Registration Field';
 header_html($pageTitle);
@@ -65,6 +65,7 @@ header_html($pageTitle);
       <select name="field_type" id="field_type" required>
         <option value="">-- Select Type --</option>
         <option value="text">Text (single line input)</option>
+        <option value="numeric">Numeric (numbers only)</option>
         <option value="select">Select (dropdown menu)</option>
         <option value="boolean">Boolean (checkbox yes/no)</option>
       </select>
@@ -83,7 +84,7 @@ header_html($pageTitle);
     </label>
 
     <label>Sequence Number
-      <input type="number" name="sequence_number" value="<?= (int)$defaultSeq ?>" min="0" step="10">
+      <input type="number" name="sequence_number" value="<?= (int)$defaultSeq ?>" min="0" step="1">
       <p class="small">Controls the order fields are displayed (lower numbers appear first)</p>
     </label>
 

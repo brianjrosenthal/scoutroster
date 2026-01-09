@@ -63,7 +63,7 @@ if ($scope === '') {
 
 if ($fieldType === '') {
   $errors[] = 'Field type is required.';
-} elseif (!in_array($fieldType, ['text', 'select', 'boolean'])) {
+} elseif (!in_array($fieldType, ['text', 'select', 'boolean', 'numeric'])) {
   $errors[] = 'Invalid field type value.';
 }
 

@@ -71,6 +71,7 @@ header_html($pageTitle);
       <select name="field_type" id="field_type" required>
         <option value="">-- Select Type --</option>
         <option value="text" <?= $field['field_type'] === 'text' ? 'selected' : '' ?>>Text (single line input)</option>
+        <option value="numeric" <?= $field['field_type'] === 'numeric' ? 'selected' : '' ?>>Numeric (numbers only)</option>
         <option value="select" <?= $field['field_type'] === 'select' ? 'selected' : '' ?>>Select (dropdown menu)</option>
         <option value="boolean" <?= $field['field_type'] === 'boolean' ? 'selected' : '' ?>>Boolean (checkbox yes/no)</option>
       </select>
@@ -89,7 +90,7 @@ header_html($pageTitle);
     </label>
 
     <label>Sequence Number
-      <input type="number" name="sequence_number" value="<?= (int)$field['sequence_number'] ?>" min="0" step="10">
+      <input type="number" name="sequence_number" value="<?= (int)$field['sequence_number'] ?>" min="0" step="1">
       <p class="small">Controls the order fields are displayed (lower numbers appear first)</p>
     </label>
 

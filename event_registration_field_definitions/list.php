@@ -101,6 +101,9 @@ header_html($pageTitle);
                   case 'text':
                     $typeLabel = 'Text';
                     break;
+                  case 'numeric':
+                    $typeLabel = 'Numeric';
+                    break;
                   case 'select':
                     $typeLabel = 'Select';
                     break;

@@ -208,7 +208,7 @@ CREATE TABLE event_registration_field_definitions (
   event_id INT NOT NULL,
   scope ENUM('per_person','per_youth','per_family') NOT NULL,
   name VARCHAR(255) NOT NULL,
-  field_type ENUM('text','select','boolean') NOT NULL,
+  field_type ENUM('text','select','boolean','numeric') NOT NULL,
   required TINYINT(1) NOT NULL DEFAULT 0,
   option_list TEXT DEFAULT NULL COMMENT 'JSON array of options for select fields',
   sequence_number INT NOT NULL DEFAULT 0,
