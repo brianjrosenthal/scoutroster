@@ -403,7 +403,7 @@ try {
   $icsDownloadLink = $baseUrl . '/event_ics.php?event_id='.(int)$eventId . ($organizer !== '' ? ('&organizer='.rawurlencode($organizer)) : '');
 
   // Email HTML template data
-  $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
+  $whenText = EventManagement::getWhenText($event);
   $whereHtml = $locCombined !== '' ? nl2br(htmlspecialchars($locCombined, ENT_QUOTES, 'UTF-8')) : '';
 
   // Get user context for class method calls

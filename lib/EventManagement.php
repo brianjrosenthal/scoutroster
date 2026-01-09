@@ -203,6 +203,25 @@ final class EventManagement {
   }
 
   /**
+   * Get the "when" text for an event, using where_string override if set.
+   * @param array $event Event data with starts_at, ends_at, where_string keys
+   * @return string Formatted "when" text
+   */
+  public static function getWhenText(array $event): string {
+    // Use where_string if it's set and not empty
+    $whereString = trim((string)($event['where_string'] ?? ''));
+    if ($whereString !== '') {
+      return $whereString;
+    }
+    
+    // Otherwise format the date/time range
+    require_once __DIR__ . '/../settings.php';
+    $startsAt = (string)($event['starts_at'] ?? '');
+    $endsAt = !empty($event['ends_at']) ? (string)$event['ends_at'] : null;
+    return \Settings::formatDateTimeRange($startsAt, $endsAt);
+  }
+
+  /**
    * Set or clear event photo_public_file_id and log.
    */
   public static function setPhotoPublicFileId(\UserContext $ctx, int $eventId, ?int $publicFileId): bool {

@@ -18,7 +18,7 @@ class EmailPreviewUI {
         string $defaultEmailType = 'none'
     ): void {
         // Generate static preview data
-        $whenText = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
+        $whenText = EventManagement::getWhenText($event);
         $locName = trim((string)($event['location'] ?? ''));
         $locAddr = trim((string)($event['location_address'] ?? ''));
         $locCombined = ($locName !== '' && $locAddr !== '') ? ($locName . "\n" . $locAddr) : ($locAddr !== '' ? $locAddr : $locName);
