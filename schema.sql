@@ -197,6 +197,7 @@ CREATE TABLE events (
   needs_medical_form TINYINT(1) NOT NULL DEFAULT 0,
   rsvp_url VARCHAR(512) DEFAULT NULL,
   rsvp_url_label VARCHAR(100) DEFAULT NULL,
+  where_string VARCHAR(500) DEFAULT NULL,
   google_maps_url VARCHAR(512) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (starts_at)

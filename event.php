@@ -187,7 +187,13 @@ if ($rsvpUrl === '' && $hasYes) {
   <?php if ($imgUrl !== ''): ?>
     <img src="<?= h($imgUrl) ?>" alt="<?= h($e['name']) ?> image" class="event-hero" width="220">
   <?php endif; ?>
-  <p><strong>When:</strong> <?= h(Settings::formatDateTimeRange($e['starts_at'], !empty($e['ends_at']) ? $e['ends_at'] : null)) ?></p>
+  <p><strong>When:</strong> 
+    <?php if (!empty($e['where_string'])): ?>
+      <?= h($e['where_string']) ?>
+    <?php else: ?>
+      <?= h(Settings::formatDateTimeRange($e['starts_at'], !empty($e['ends_at']) ? $e['ends_at'] : null)) ?>
+    <?php endif; ?>
+  </p>
   <?php
     $locName = trim((string)($e['location'] ?? ''));
     $locAddr = trim((string)($e['location_address'] ?? ''));

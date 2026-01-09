@@ -84,6 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $needs_medical_form = isset($_POST['needs_medical_form']) ? 1 : 0;
     $rsvp_url = trim($_POST['rsvp_url'] ?? '');
     $rsvp_url_label = trim($_POST['rsvp_url_label'] ?? '');
+    $where_string = trim($_POST['where_string'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
     $errors = [];
@@ -106,6 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'needs_medical_form' => $needs_medical_form,
           'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
           'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
+          'where_string' => ($where_string !== '' ? $where_string : null),
           'google_maps_url' => ($google_maps_url !=='' ? $google_maps_url : null),
         ];
         if ($id > 0) {
@@ -170,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'needs_medical_form' => $needs_medical_form,
         'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
         'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
+        'where_string' => ($where_string !== '' ? $where_string : null),
         'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
       ];
     }
@@ -254,7 +257,10 @@ header_html($pageTitle);
     <label>RSVP Button Label
       <input type="text" name="rsvp_url_label" value="<?= h($editing['rsvp_url_label'] ?? '') ?>" placeholder="RSVP Here" maxlength="100">
     </label>
-    <p class="small">If External RSVP URL is provided, internal RSVP buttons are replaced by a button with your custom label (or "RSVP Here" if no label is specified) across logged-in, invite, and public pages.</p>
+    <label>Custom "When" Text
+      <input type="text" name="where_string" value="<?= h($editing['where_string'] ?? '') ?>" placeholder="Check-in: 5pm, Event: 6pm, Dinner: 8pm" maxlength="500">
+    </label>
+    <p class="small">If provided, this text replaces the date/time range display. Use for complex timing (check-in, event, dinner, etc.).</p>
     <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
     <?php
       $imgUrl = '';
