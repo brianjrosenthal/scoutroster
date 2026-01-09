@@ -10,7 +10,12 @@ require_once __DIR__ . '/../lib/ParentRelationships.php';
 require_login();
 
 $me = current_user();
+$isAdmin = !empty($me['is_admin']);
 $eventId = isset($_GET['event_id']) ? (int)$_GET['event_id'] : 0;
+$rsvpId = isset($_GET['rsvp_id']) ? (int)$_GET['rsvp_id'] : 0;
+
+// Determine if this is admin mode (editing someone else's RSVP)
+$isAdminMode = ($rsvpId > 0);
 
 if ($eventId <= 0) {
   http_response_code(400);
@@ -27,17 +32,38 @@ if (!$event) {
 // Get field definitions for this event
 $fieldDefs = EventRegistrationFieldDefinitionManagement::listForEvent($eventId);
 if (empty($fieldDefs)) {
-  // No fields for this event, redirect back to event page
-  header('Location: /event.php?id=' . $eventId);
+  // No fields for this event, redirect back
+  $backUrl = $isAdminMode ? "/event_registration_field_data/view.php?event_id={$eventId}" : "/event.php?id={$eventId}";
+  header('Location: ' . $backUrl);
   exit;
 }
 
-// Get user's RSVP
-$rsvp = RSVPManagement::getRSVPForFamilyByAdultID($eventId, (int)$me['id']);
-if (!$rsvp || strtolower((string)($rsvp['answer'] ?? '')) !== 'yes') {
-  // No RSVP or not yes, redirect back to event page
-  header('Location: /event.php?id=' . $eventId);
-  exit;
+// Get the RSVP to edit
+if ($isAdminMode) {
+  // Admin mode: require admin and load specified RSVP
+  if (!$isAdmin) {
+    http_response_code(403);
+    exit('Admin access required');
+  }
+  
+  // Load RSVP by ID
+  $sql = "SELECT * FROM rsvps WHERE id = ? AND event_id = ? LIMIT 1";
+  $st = pdo()->prepare($sql);
+  $st->execute([$rsvpId, $eventId]);
+  $rsvp = $st->fetch();
+  
+  if (!$rsvp || strtolower((string)($rsvp['answer'] ?? '')) !== 'yes') {
+    header('Location: /event_registration_field_data/view.php?event_id=' . $eventId . '&err=' . urlencode('RSVP not found or answer is not Yes.'));
+    exit;
+  }
+} else {
+  // User mode: load user's own RSVP
+  $rsvp = RSVPManagement::getRSVPForFamilyByAdultID($eventId, (int)$me['id']);
+  if (!$rsvp || strtolower((string)($rsvp['answer'] ?? '')) !== 'yes') {
+    // No RSVP or not yes, redirect back to event page
+    header('Location: /event.php?id=' . $eventId);
+    exit;
+  }
 }
 
 // Get participants from RSVP
@@ -90,7 +116,11 @@ header_html($pageTitle);
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;"><?= h($event['name']) ?> Registration Data</h2>
-  <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
+  <?php if ($isAdminMode): ?>
+    <a class="button" href="/event_registration_field_data/view.php?event_id=<?= (int)$eventId ?>">Back to Registration Data</a>
+  <?php else: ?>
+    <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
+  <?php endif; ?>
 </div>
 
 <div class="card">
@@ -175,7 +205,11 @@ header_html($pageTitle);
     
     <div class="actions">
       <button type="submit" class="primary">Save Registration Data</button>
-      <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Cancel</a>
+      <?php if ($isAdminMode): ?>
+        <a class="button" href="/event_registration_field_data/view.php?event_id=<?= (int)$eventId ?>">Cancel</a>
+      <?php else: ?>
+        <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Cancel</a>
+      <?php endif; ?>
     </div>
   </form>
 </div>

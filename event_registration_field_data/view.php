@@ -57,10 +57,19 @@ header_html($pageTitle);
             <?php foreach ($fields as $field): ?>
               <th style="text-align: left; padding: 8px; border: 1px solid #ddd;"><?= h($field['name']) ?></th>
             <?php endforeach; ?>
+            <th style="text-align: center; padding: 8px; border: 1px solid #ddd;">Actions</th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($participants as $participant): ?>
+          <?php 
+          $displayedRsvpIds = [];
+          foreach ($participants as $participant): 
+            $rsvpId = (int)$participant['rsvp_id'];
+            $showEditButton = !in_array($rsvpId, $displayedRsvpIds);
+            if ($showEditButton) {
+              $displayedRsvpIds[] = $rsvpId;
+            }
+          ?>
             <tr>
               <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['last_name']) ?></td>
               <td style="padding: 8px; border: 1px solid #ddd;"><?= h($participant['first_name']) ?></td>
@@ -72,6 +81,11 @@ header_html($pageTitle);
                   <?= h($participant['field_data'][$fieldId] ?? '') ?>
                 </td>
               <?php endforeach; ?>
+              <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                <?php if ($showEditButton): ?>
+                  <a href="/event_registration_field_data/edit.php?event_id=<?= (int)$eventId ?>&rsvp_id=<?= $rsvpId ?>" class="button" style="font-size: 14px; padding: 4px 8px;">Edit</a>
+                <?php endif; ?>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>

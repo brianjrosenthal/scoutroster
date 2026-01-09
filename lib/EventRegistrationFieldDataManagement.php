@@ -259,6 +259,7 @@ final class EventRegistrationFieldDataManagement {
           $participants[] = [
             'type' => 'adult',
             'id' => $adultId,
+            'rsvp_id' => $rsvpId,
             'last_name' => $adult['last_name'] ?? '',
             'first_name' => $adult['first_name'] ?? '',
             'phone' => $adult['phone_cell'] ?? $adult['phone_home'] ?? '',
@@ -274,6 +275,7 @@ final class EventRegistrationFieldDataManagement {
           $participants[] = [
             'type' => 'youth',
             'id' => $youthId,
+            'rsvp_id' => $rsvpId,
             'last_name' => $youth['last_name'] ?? '',
             'first_name' => $youth['first_name'] ?? '',
             'phone' => '',
