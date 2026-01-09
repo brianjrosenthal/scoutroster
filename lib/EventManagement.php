@@ -123,15 +123,16 @@ final class EventManagement {
     $needs_medical_form = self::boolInt($data['needs_medical_form'] ?? 0);
     $rsvp_url = self::nn($data['rsvp_url'] ?? null);
     $rsvp_url_label = self::nn($data['rsvp_url_label'] ?? null);
+    $where_string = self::nn($data['where_string'] ?? null);
     $google_maps_url = self::nn($data['google_maps_url'] ?? null);
 
     $sql = "INSERT INTO events
-      (name, starts_at, ends_at, location, location_address, description, evaluation, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, google_maps_url)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
+      (name, starts_at, ends_at, location, location_address, description, evaluation, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, where_string, google_maps_url)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute([
       $name, $starts_at, $ends_at, $location, $location_address, $description, $evaluation,
-      $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $rsvp_url, $rsvp_url_label, $google_maps_url,
+      $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $rsvp_url, $rsvp_url_label, $where_string, $google_maps_url,
     ]);
     if (!$ok) throw new \RuntimeException('Failed to create event.');
     $id = (int)self::pdo()->lastInsertId();
@@ -149,7 +150,7 @@ final class EventManagement {
 
     $allowed = [
       'name','starts_at','ends_at','location','location_address','description','evaluation',
-      'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','rsvp_url','rsvp_url_label','google_maps_url'
+      'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','rsvp_url','rsvp_url_label','where_string','google_maps_url'
     ];
     $set = [];
     $params = [];
