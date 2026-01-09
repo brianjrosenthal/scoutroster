@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $needs_medical_form = isset($_POST['needs_medical_form']) ? 1 : 0;
     $rsvp_url = trim($_POST['rsvp_url'] ?? '');
     $rsvp_url_label = trim($_POST['rsvp_url_label'] ?? '');
-    $where_string = trim($_POST['where_string'] ?? '');
+    $when_string = trim($_POST['when_string'] ?? '');
     $registration_field_data_instructions = trim($_POST['registration_field_data_instructions'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
@@ -108,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'needs_medical_form' => $needs_medical_form,
           'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
           'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
-          'where_string' => ($where_string !== '' ? $where_string : null),
+          'when_string' => ($when_string !== '' ? $when_string : null),
           'registration_field_data_instructions' => ($registration_field_data_instructions !== '' ? $registration_field_data_instructions : null),
           'google_maps_url' => ($google_maps_url !=='' ? $google_maps_url : null),
         ];
@@ -174,7 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'needs_medical_form' => $needs_medical_form,
         'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
         'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
-        'where_string' => ($where_string !== '' ? $where_string : null),
+        'when_string' => ($when_string !== '' ? $when_string : null),
         'registration_field_data_instructions' => ($registration_field_data_instructions !== '' ? $registration_field_data_instructions : null),
         'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
       ];
@@ -261,7 +261,7 @@ header_html($pageTitle);
       <input type="text" name="rsvp_url_label" value="<?= h($editing['rsvp_url_label'] ?? '') ?>" placeholder="RSVP Here" maxlength="100">
     </label>
     <label>Custom "When" Text
-      <input type="text" name="where_string" value="<?= h($editing['where_string'] ?? '') ?>" placeholder="Check-in: 5pm, Event: 6pm, Dinner: 8pm" maxlength="500">
+      <input type="text" name="when_string" value="<?= h($editing['when_string'] ?? '') ?>" placeholder="Check-in: 5pm, Event: 6pm, Dinner: 8pm" maxlength="500">
     </label>
     <p class="small">If provided, this text replaces the date/time range display. Use for complex timing (check-in, event, dinner, etc.).</p>
     <label>Registration Instructions
