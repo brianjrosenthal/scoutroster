@@ -136,10 +136,7 @@ header_html($pageTitle);
           
           <div style="margin-bottom: 16px;">
             <label>
-              <strong><?= h($fieldName) ?></strong>
-              <?php if ($required): ?>
-                <span style="color: red;">(required)</span>
-              <?php endif; ?>
+              <strong><?= h($fieldName) ?><?php if ($required): ?> *<?php endif; ?></strong>
               
               <?php if ($fieldDescription !== ''): ?>
                 <p class="small" style="margin: 4px 0 8px 0; color: #666;"><?= h($fieldDescription) ?></p>
@@ -184,3 +181,4 @@ header_html($pageTitle);
 </div>
 
 <?php footer_html(); ?>
+
