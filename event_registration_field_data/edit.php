@@ -5,6 +5,7 @@ require_once __DIR__ . '/../lib/EventRegistrationFieldDefinitionManagement.php';
 require_once __DIR__ . '/../lib/EventRegistrationFieldDataManagement.php';
 require_once __DIR__ . '/../lib/RSVPManagement.php';
 require_once __DIR__ . '/../lib/UserManagement.php';
+require_once __DIR__ . '/../lib/YouthManagement.php';
 require_once __DIR__ . '/../lib/ParentRelationships.php';
 require_login();
 
@@ -60,7 +61,7 @@ foreach ($memberIds['adult_ids'] ?? [] as $adultId) {
 
 // Get youth details
 foreach ($memberIds['youth_ids'] ?? [] as $youthId) {
-  $youth = UserManagement::findYouthById($youthId);
+  $youth = YouthManagement::findBasicById($youthId);
   if ($youth) {
     $participants[] = [
       'type' => 'youth',
