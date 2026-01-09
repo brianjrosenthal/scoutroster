@@ -124,7 +124,7 @@ header_html($pageTitle);
 </div>
 
 <div class="card">
-  <p class="small">Please provide the following information for each person attending this event.</p>
+  <p>Please provide the following information for each person attending this event.</p>
   
   <form method="post" action="/event_registration_field_data/edit_eval.php" class="stack">
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -169,7 +169,7 @@ header_html($pageTitle);
               <strong><?= h($fieldName) ?><?php if ($required): ?> *<?php endif; ?></strong>
               
               <?php if ($fieldDescription !== ''): ?>
-                <p class="small" style="margin: 4px 0 8px 0; color: #666;"><?= h($fieldDescription) ?></p>
+                <p style="margin: 4px 0 8px 0; color: #666;"><?= h($fieldDescription) ?></p>
               <?php endif; ?>
               
               <?php if ($fieldType === 'text'): ?>
