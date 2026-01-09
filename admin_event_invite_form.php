@@ -324,6 +324,7 @@ header_html('Send Event Invitations');
 
     <div class="actions">
       <button class="primary" id="previewEmailsBtn">Preview Invitations to (<span id="recipientCount">0</span>) Recipients</button>
+      <button type="button" class="button" id="copyEmailsBtn">Copy Emails</button>
       <a class="button" href="/event.php?id=<?= (int)$eventId ?>">Back to Event</a>
       <a class="button" href="/events.php">Manage Events</a>
     </div>
@@ -339,6 +340,31 @@ header_html('Send Event Invitations');
   <?= EventUIManager::renderAdminModals((int)$eventId) ?>
   <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
 <?php endif; ?>
+
+<!-- Email Copy Modal -->
+<div id="emailCopyModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
+  <div style="background: white; border-radius: 8px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0;">Recipient Email Addresses</h3>
+      <button type="button" id="closeEmailModalBtn" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #666;">&times;</button>
+    </div>
+    
+    <p id="emailCountText" style="margin-bottom: 12px; color: #666;">Loading...</p>
+    
+    <div style="margin-bottom: 16px;">
+      <textarea id="emailListTextarea" readonly style="width: 100%; min-height: 300px; font-family: monospace; font-size: 14px; padding: 12px; border: 1px solid #ced4da; border-radius: 4px; resize: vertical;"></textarea>
+    </div>
+    
+    <div id="copySuccessMessage" style="display: none; padding: 8px 12px; background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; border-radius: 4px; margin-bottom: 12px;">
+      ✓ Emails copied to clipboard!
+    </div>
+    
+    <div style="display: flex; gap: 8px; justify-content: flex-end;">
+      <button type="button" id="closeEmailModalBtn2" class="button">Close</button>
+      <button type="button" id="copyEmailsToClipboardBtn" class="button primary">Copy to Clipboard</button>
+    </div>
+  </div>
+</div>
 
 <!-- Adult Selector Modal -->
 <div id="adultSelectorModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center;">
@@ -688,6 +714,122 @@ header_html('Send Event Invitations');
     
     // NOTE: Email preview functionality (radio buttons, description changes) 
     // is handled by EmailPreviewUI class JavaScript above
+    
+    // ===== Email Copy Modal Functionality =====
+    const copyEmailsBtn = document.getElementById('copyEmailsBtn');
+    const emailCopyModal = document.getElementById('emailCopyModal');
+    const closeEmailModalBtn = document.getElementById('closeEmailModalBtn');
+    const closeEmailModalBtn2 = document.getElementById('closeEmailModalBtn2');
+    const copyEmailsToClipboardBtn = document.getElementById('copyEmailsToClipboardBtn');
+    const emailListTextarea = document.getElementById('emailListTextarea');
+    const emailCountText = document.getElementById('emailCountText');
+    const copySuccessMessage = document.getElementById('copySuccessMessage');
+    
+    // Open email copy modal
+    if (copyEmailsBtn) {
+        copyEmailsBtn.addEventListener('click', function() {
+            if (!form) return;
+            
+            // Reset modal state
+            emailListTextarea.value = '';
+            emailCountText.textContent = 'Loading...';
+            copySuccessMessage.style.display = 'none';
+            copyEmailsToClipboardBtn.disabled = false;
+            
+            // Show modal
+            emailCopyModal.style.display = 'flex';
+            
+            // Fetch emails
+            const formData = new FormData(form);
+            fetch('admin_event_invite_get_emails.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const emails = data.emails || [];
+                    const count = data.count || 0;
+                    
+                    if (count === 0) {
+                        emailCountText.textContent = 'No recipients match your filters.';
+                        emailListTextarea.value = '';
+                        copyEmailsToClipboardBtn.disabled = true;
+                    } else {
+                        emailCountText.textContent = `${count} email address${count !== 1 ? 'es' : ''}:`;
+                        emailListTextarea.value = emails.join('\n');
+                    }
+                } else {
+                    emailCountText.textContent = 'Error loading emails.';
+                    emailListTextarea.value = 'Error: ' + (data.error || 'Unknown error');
+                    copyEmailsToClipboardBtn.disabled = true;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching emails:', error);
+                emailCountText.textContent = 'Error loading emails.';
+                emailListTextarea.value = 'Error fetching emails. Please try again.';
+                copyEmailsToClipboardBtn.disabled = true;
+            });
+        });
+    }
+    
+    // Close email modal
+    function closeEmailModal() {
+        emailCopyModal.style.display = 'none';
+        copySuccessMessage.style.display = 'none';
+    }
+    
+    if (closeEmailModalBtn) closeEmailModalBtn.addEventListener('click', closeEmailModal);
+    if (closeEmailModalBtn2) closeEmailModalBtn2.addEventListener('click', closeEmailModal);
+    
+    // Close on background click
+    emailCopyModal.addEventListener('click', function(e) {
+        if (e.target === emailCopyModal) {
+            closeEmailModal();
+        }
+    });
+    
+    // Copy to clipboard
+    if (copyEmailsToClipboardBtn) {
+        copyEmailsToClipboardBtn.addEventListener('click', function() {
+            const text = emailListTextarea.value;
+            
+            if (!text) return;
+            
+            // Use modern clipboard API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text)
+                    .then(() => {
+                        copySuccessMessage.style.display = 'block';
+                        setTimeout(() => {
+                            copySuccessMessage.style.display = 'none';
+                        }, 3000);
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy:', err);
+                        alert('Failed to copy to clipboard. Please select and copy manually.');
+                    });
+            } else {
+                // Fallback for older browsers
+                emailListTextarea.select();
+                try {
+                    const successful = document.execCommand('copy');
+                    if (successful) {
+                        copySuccessMessage.style.display = 'block';
+                        setTimeout(() => {
+                            copySuccessMessage.style.display = 'none';
+                        }, 3000);
+                    } else {
+                        alert('Failed to copy to clipboard. Please select and copy manually.');
+                    }
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    alert('Failed to copy to clipboard. Please select and copy manually.');
+                }
+            }
+        });
+    }
 })();
 </script>
 
