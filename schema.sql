@@ -198,6 +198,7 @@ CREATE TABLE events (
   rsvp_url VARCHAR(512) DEFAULT NULL,
   rsvp_url_label VARCHAR(100) DEFAULT NULL,
   where_string VARCHAR(500) DEFAULT NULL,
+  registration_field_data_instructions TEXT DEFAULT NULL,
   google_maps_url VARCHAR(512) DEFAULT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   INDEX (starts_at)

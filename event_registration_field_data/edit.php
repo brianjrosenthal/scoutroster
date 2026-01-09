@@ -7,6 +7,7 @@ require_once __DIR__ . '/../lib/RSVPManagement.php';
 require_once __DIR__ . '/../lib/UserManagement.php';
 require_once __DIR__ . '/../lib/YouthManagement.php';
 require_once __DIR__ . '/../lib/ParentRelationships.php';
+require_once __DIR__ . '/../lib/Text.php';
 require_login();
 
 $me = current_user();
@@ -124,6 +125,12 @@ header_html($pageTitle);
 </div>
 
 <div class="card">
+  <?php if (!empty($event['registration_field_data_instructions'])): ?>
+    <div style="background-color: #e7f3ff; border: 1px solid #b3d9ff; border-radius: 4px; padding: 12px; margin-bottom: 16px;">
+      <?= Text::renderMarkup((string)$event['registration_field_data_instructions']) ?>
+    </div>
+  <?php endif; ?>
+  
   <p>Please provide the following information for each person attending this event.</p>
   
   <form method="post" action="/event_registration_field_data/edit_eval.php" class="stack">

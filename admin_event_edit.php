@@ -85,6 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $rsvp_url = trim($_POST['rsvp_url'] ?? '');
     $rsvp_url_label = trim($_POST['rsvp_url_label'] ?? '');
     $where_string = trim($_POST['where_string'] ?? '');
+    $registration_field_data_instructions = trim($_POST['registration_field_data_instructions'] ?? '');
     $google_maps_url = trim($_POST['google_maps_url'] ?? '');
 
     $errors = [];
@@ -108,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
           'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
           'where_string' => ($where_string !== '' ? $where_string : null),
+          'registration_field_data_instructions' => ($registration_field_data_instructions !== '' ? $registration_field_data_instructions : null),
           'google_maps_url' => ($google_maps_url !=='' ? $google_maps_url : null),
         ];
         if ($id > 0) {
@@ -173,6 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'rsvp_url' => ($rsvp_url !== '' ? $rsvp_url : null),
         'rsvp_url_label' => ($rsvp_url_label !== '' ? $rsvp_url_label : null),
         'where_string' => ($where_string !== '' ? $where_string : null),
+        'registration_field_data_instructions' => ($registration_field_data_instructions !== '' ? $registration_field_data_instructions : null),
         'google_maps_url' => ($google_maps_url !== '' ? $google_maps_url : null),
       ];
     }
@@ -261,6 +264,10 @@ header_html($pageTitle);
       <input type="text" name="where_string" value="<?= h($editing['where_string'] ?? '') ?>" placeholder="Check-in: 5pm, Event: 6pm, Dinner: 8pm" maxlength="500">
     </label>
     <p class="small">If provided, this text replaces the date/time range display. Use for complex timing (check-in, event, dinner, etc.).</p>
+    <label>Registration Instructions
+      <textarea name="registration_field_data_instructions" rows="3" placeholder="Instructions for participants completing registration fields..."><?= h($editing['registration_field_data_instructions'] ?? '') ?></textarea>
+    </label>
+    <p class="small">If provided, these instructions appear at the top of the registration data form.</p>
     <p class="small">Formatting: Use <code>[label](https://example.com)</code> for links, or paste a full URL (http/https) to auto-link. New lines are preserved.</p>
     <?php
       $imgUrl = '';
