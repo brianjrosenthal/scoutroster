@@ -254,7 +254,7 @@ final class EventRegistrationFieldDataManagement {
       
       // Process adults
       foreach ($memberIds['adult_ids'] ?? [] as $adultId) {
-        $adult = UserManagement::findById($adultId);
+        $adult = UserManagement::findFullById($adultId);
         if ($adult) {
           $participants[] = [
             'type' => 'adult',
