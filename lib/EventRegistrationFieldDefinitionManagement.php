@@ -140,7 +140,8 @@ final class EventRegistrationFieldDefinitionManagement {
    * - event_id (required, int)
    * - scope (required, 'per_person'|'per_youth'|'per_family')
    * - name (required, string)
-   * - field_type (required, 'text'|'select'|'boolean')
+   * - description (optional, string)
+   * - field_type (required, 'text'|'select'|'boolean'|'numeric')
    * - required (bool, default false)
    * - option_list (string, JSON array for select fields)
    * - sequence_number (int, default 0)
@@ -172,6 +173,7 @@ final class EventRegistrationFieldDefinitionManagement {
     self::validateFieldType($fieldType);
 
     // Optional fields
+    $description = self::str($data['description'] ?? null);
     $required = self::boolInt($data['required'] ?? 0);
     $sequenceNumber = isset($data['sequence_number']) ? (int)$data['sequence_number'] : 0;
     
@@ -190,12 +192,12 @@ final class EventRegistrationFieldDefinitionManagement {
     }
 
     $sql = "INSERT INTO event_registration_field_definitions
-      (event_id, scope, name, field_type, required, option_list, sequence_number, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+      (event_id, scope, name, description, field_type, required, option_list, sequence_number, created_by)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute([
-      $eventId, $scope, $name, $fieldType, $required, $optionList, $sequenceNumber, $ctx->id
+      $eventId, $scope, $name, $description, $fieldType, $required, $optionList, $sequenceNumber, $ctx->id
     ]);
     
     if (!$ok) {
@@ -218,12 +220,12 @@ final class EventRegistrationFieldDefinitionManagement {
    * Update an existing field definition
    * 
    * Data keys (provide only keys to update):
-   * - name, scope, field_type, required, option_list, sequence_number
+   * - name, description, scope, field_type, required, option_list, sequence_number
    */
   public static function update(\UserContext $ctx, int $id, array $data): bool {
     self::assertAdmin($ctx);
 
-    $allowed = ['name', 'scope', 'field_type', 'required', 'option_list', 'sequence_number'];
+    $allowed = ['name', 'description', 'scope', 'field_type', 'required', 'option_list', 'sequence_number'];
     $set = [];
     $params = [];
 

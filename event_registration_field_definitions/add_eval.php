@@ -33,6 +33,7 @@ if (!$event) {
 
 // Collect form data
 $name = trim($_POST['name'] ?? '');
+$description = trim($_POST['description'] ?? '');
 $scope = trim($_POST['scope'] ?? '');
 $fieldType = trim($_POST['field_type'] ?? '');
 $required = isset($_POST['required']) ? 1 : 0;
@@ -86,6 +87,7 @@ try {
   $data = [
     'event_id' => $eventId,
     'name' => $name,
+    'description' => $description !== '' ? $description : null,
     'scope' => $scope,
     'field_type' => $fieldType,
     'required' => $required,

@@ -54,6 +54,11 @@ header_html($pageTitle);
       <p class="small">The label that will be shown to users (e.g., "Confirmation Number", "Age", "Ability Level")</p>
     </label>
 
+    <label>Description
+      <textarea name="description" rows="3" placeholder="Optional description to help users understand what information to provide"><?= h($field['description'] ?? '') ?></textarea>
+      <p class="small">Provide context or instructions for this field (e.g., "Please enter your child's current skiing ability")</p>
+    </label>
+
     <fieldset style="border: 1px solid #ddd; padding: 12px; border-radius: 4px;">
       <legend style="font-weight: bold;">Scope <span style="color: red;">*</span></legend>
       <p class="small" style="margin-top: 0;">Who should provide this information?</p>
