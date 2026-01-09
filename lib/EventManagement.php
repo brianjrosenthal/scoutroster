@@ -123,17 +123,17 @@ final class EventManagement {
     $needs_medical_form = self::boolInt($data['needs_medical_form'] ?? 0);
     $rsvp_url = self::nn($data['rsvp_url'] ?? null);
     $rsvp_url_label = self::nn($data['rsvp_url_label'] ?? null);
-    $where_string = self::nn($data['where_string'] ?? null);
+    $when_string = self::nn($data['when_string'] ?? null);
     $registration_field_data_instructions = self::nn($data['registration_field_data_instructions'] ?? null);
     $google_maps_url = self::nn($data['google_maps_url'] ?? null);
 
     $sql = "INSERT INTO events
-      (name, starts_at, ends_at, location, location_address, description, evaluation, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, where_string, registration_field_data_instructions, google_maps_url)
+      (name, starts_at, ends_at, location, location_address, description, evaluation, max_cub_scouts, allow_non_user_rsvp, needs_medical_form, rsvp_url, rsvp_url_label, when_string, registration_field_data_instructions, google_maps_url)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
     $st = self::pdo()->prepare($sql);
     $ok = $st->execute([
       $name, $starts_at, $ends_at, $location, $location_address, $description, $evaluation,
-      $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $rsvp_url, $rsvp_url_label, $where_string, $registration_field_data_instructions, $google_maps_url,
+      $max_cub_scouts, $allow_non_user_rsvp, $needs_medical_form, $rsvp_url, $rsvp_url_label, $when_string, $registration_field_data_instructions, $google_maps_url,
     ]);
     if (!$ok) throw new \RuntimeException('Failed to create event.');
     $id = (int)self::pdo()->lastInsertId();
@@ -151,7 +151,7 @@ final class EventManagement {
 
     $allowed = [
       'name','starts_at','ends_at','location','location_address','description','evaluation',
-      'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','rsvp_url','rsvp_url_label','where_string','registration_field_data_instructions','google_maps_url'
+      'max_cub_scouts','allow_non_user_rsvp','needs_medical_form','rsvp_url','rsvp_url_label','when_string','registration_field_data_instructions','google_maps_url'
     ];
     $set = [];
     $params = [];
@@ -203,15 +203,15 @@ final class EventManagement {
   }
 
   /**
-   * Get the "when" text for an event, using where_string override if set.
-   * @param array $event Event data with starts_at, ends_at, where_string keys
+   * Get the "when" text for an event, using when_string override if set.
+   * @param array $event Event data with starts_at, ends_at, when_string keys
    * @return string Formatted "when" text
    */
   public static function getWhenText(array $event): string {
-    // Use where_string if it's set and not empty
-    $whereString = trim((string)($event['where_string'] ?? ''));
-    if ($whereString !== '') {
-      return $whereString;
+    // Use when_string if it's set and not empty
+    $whenString = trim((string)($event['when_string'] ?? ''));
+    if ($whenString !== '') {
+      return $whenString;
     }
     
     // Otherwise format the date/time range
