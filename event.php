@@ -792,4 +792,3 @@ if ($rsvpUrl === '' && $hasYes) {
 <?php endif; ?>
 
 <?php footer_html(); ?>
-<?php endif; ?>
