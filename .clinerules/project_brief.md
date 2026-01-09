@@ -96,4 +96,5 @@ I've noticed recently that I need to push a lot for work done within this projec
 ## On checking your work
 Anytime you change a file, you should check a few things:
 - That when you call a function, it exists and the signature is what you expect
+- When you call a function that fetches a set of data elements, you must absolutely check to see that the function exists and the signature is correct.  I've had an issue in the past with this particular type of call.
 - That the file parses correctly (ie, it's unacceptable for there to be syntax errors for your changes)

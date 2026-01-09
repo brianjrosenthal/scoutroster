@@ -240,8 +240,11 @@ final class EventRegistrationFieldDataManagement {
       return ['participants' => [], 'fields' => []];
     }
     
-    // Get all Yes RSVPs for this event
-    $rsvps = RSVPManagement::listRSVPsByAnswer($eventId, 'yes');
+    // Get all Yes RSVPs for this event directly from database
+    $sql = "SELECT id FROM rsvps WHERE event_id = ? AND LOWER(answer) = 'yes'";
+    $st = self::pdo()->prepare($sql);
+    $st->execute([$eventId]);
+    $rsvps = $st->fetchAll();
     
     $participants = [];
     
