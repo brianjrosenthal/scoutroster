@@ -296,7 +296,12 @@ async function sendNextEmail() {
     } else {
       const error = result.error || 'Unknown error';
       
-      if (isAuthError(error)) {
+      if (error === 'ALREADY_PROCESSED') {
+        // Email was already processed (likely from a page refresh) - treat as success
+        updateProgressRow(currentIndex, 'success');
+        currentIndex++;
+        setTimeout(sendNextEmail, 100);
+      } else if (isAuthError(error)) {
         // SMTP auth error - wait 60 seconds and retry
         updateProgressRow(currentIndex, 'retrying');
         setTimeout(() => {

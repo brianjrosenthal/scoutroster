@@ -64,10 +64,10 @@ try {
   $subject = $emailData['subject'];
   $htmlBody = $emailData['body'];
   
-  // No ICS attachment for upcoming events emails (use send_email function)
-  $sent = send_email($recipientEmail, $subject, $htmlBody, $recipientName);
+  // No ICS attachment for upcoming events emails (use send_email_detailed function for detailed error messages)
+  $result = send_email_detailed($recipientEmail, $subject, $htmlBody, $recipientName);
   
-  if ($sent) {
+  if ($result['success']) {
     // Track invitation sent (NULL event_id for upcoming events digest)
     try {
       EventInvitationTracking::recordInvitationSent(null, $userId);
@@ -105,7 +105,9 @@ try {
       'recipient' => $recipientName . ' <' . $recipientEmail . '>'
     ]);
   } else {
-    throw new RuntimeException('Failed to send email');
+    // Pass through the detailed error message from the email send
+    $error = $result['error'] ?? 'Failed to send email';
+    throw new RuntimeException($error);
   }
   
 } catch (Throwable $e) {
