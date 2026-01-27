@@ -1518,7 +1518,7 @@ class UserManagement {
    * @return array Array of adult records with expiration_status field
    */
   public static function listForRenewals(UserContext $ctx): array {
-    self::assertLogin($ctx);
+    if (!$ctx) { throw new RuntimeException('Login required'); }
 
     // Calculate date ranges
     $threeMonthsFromNow = date('Y-m-d', strtotime('+3 months'));
