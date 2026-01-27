@@ -16,39 +16,59 @@ if (!\UserManagement::isApprover((int)($me['id'] ?? 0))) {
 function hq($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
 // Inputs
-$status = trim((string)($_GET['status'] ?? '')); // ''|notification_needed|action_needed_payment|action_needed_registration|processing_needed
-if (!in_array($status, ['','notification_needed','action_needed_payment','action_needed_registration','processing_needed'], true)) { $status = ''; }
+$status = trim((string)($_GET['status'] ?? '')); // ''|notification_needed|action_needed_payment|action_needed_registration|processing_needed|action_needed_adult_payment
+if (!in_array($status, ['','notification_needed','action_needed_payment','action_needed_registration','processing_needed','action_needed_adult_payment'], true)) { $status = ''; }
 
 $gLabel = trim((string)($_GET['g'] ?? '')); // Grade filter: K,0..5
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
 
-$filters = [
-  'status' => $status,
-  'grade_label' => $gLabel,
-];
+// Determine if showing adults or youth
+$showingAdults = ($status === 'action_needed_adult_payment');
 
-$rows = YouthManagement::listForRenewals($ctx, $filters);
-$youthIds = array_map(static function($r){ return (int)$r['id']; }, $rows);
-$parentsByYouth = !empty($youthIds) ? UserManagement::listParentsForYouthIds($ctx, $youthIds) : [];
+if ($showingAdults) {
+  // Adult renewals
+  $rows = UserManagement::listForRenewals($ctx);
+  $youthIds = [];
+  $parentsByYouth = [];
+} else {
+  // Youth renewals
+  $filters = [
+    'status' => $status,
+    'grade_label' => $gLabel,
+  ];
+  $rows = YouthManagement::listForRenewals($ctx, $filters);
+  $youthIds = array_map(static function($r){ return (int)$r['id']; }, $rows);
+  $parentsByYouth = !empty($youthIds) ? UserManagement::listParentsForYouthIds($ctx, $youthIds) : [];
+}
 
 // Build emails payload (deduped) for Copy Emails
 $emailsMap = [];
-foreach ($youthIds as $yid) {
-  $plist = $parentsByYouth[$yid] ?? [];
-  foreach ($plist as $p) {
-    $e = trim((string)($p['email'] ?? ''));
+if ($showingAdults) {
+  // For adults, use their emails directly
+  foreach ($rows as $r) {
+    $e = trim((string)($r['email'] ?? ''));
     if ($e !== '') { $emailsMap[$e] = true; }
+  }
+} else {
+  // For youth, use parent emails
+  foreach ($youthIds as $yid) {
+    $plist = $parentsByYouth[$yid] ?? [];
+    foreach ($plist as $p) {
+      $e = trim((string)($p['email'] ?? ''));
+      if ($e !== '') { $emailsMap[$e] = true; }
+    }
   }
 }
 $emailList = implode("\n", array_keys($emailsMap));
 
-// Build names and BSA IDs payload for action_needed_payment status
+// Build names and BSA IDs payload for action_needed_payment or action_needed_adult_payment status
 $namesAndIdsLines = [];
-if ($status === 'action_needed_payment') {
+if ($status === 'action_needed_payment' || $status === 'action_needed_adult_payment') {
   foreach ($rows as $r) {
     $lastName = trim((string)($r['last_name'] ?? ''));
     $firstName = trim((string)($r['first_name'] ?? ''));
-    $bsaId = trim((string)($r['bsa_registration_number'] ?? ''));
+    // For youth, use bsa_registration_number; for adults, use bsa_membership_number
+    $bsaId = trim((string)(($r['bsa_registration_number'] ?? '') ?: ($r['bsa_membership_number'] ?? '')));
     if ($lastName !== '' && $firstName !== '' && $bsaId !== '') {
       $namesAndIdsLines[] = $lastName . ', ' . $firstName . ', ' . $bsaId;
     }
@@ -56,36 +76,40 @@ if ($status === 'action_needed_payment') {
 }
 $namesAndIdsList = implode("\n", $namesAndIdsLines);
 
-/**
- * Group by grade buckets:
- * - 'pre' bucket for any grade < 0
- * - string "0".."5" buckets for K..5
- * - numeric string > 5 buckets for older siblings
- */
-$byGrade = []; // key => list (key 'pre' or '0','1',... as strings)
-foreach ($rows as $r) {
-  $gcalc = GradeCalculator::gradeForClassOf((int)$r['class_of']);
-  $key = ($gcalc < 0) ? 'pre' : (string)$gcalc;
-  if (!isset($byGrade[$key])) $byGrade[$key] = [];
-  $byGrade[$key][] = $r;
-}
-
-// Build ordered keys: Pre-K, grades 0..5, then >5 ascending
+// Group youth by grade buckets (not applicable for adults)
+$byGrade = [];
 $orderedKeys = [];
-if (isset($byGrade['pre'])) $orderedKeys[] = 'pre';
-for ($i = 0; $i <= 5; $i++) {
-  $k = (string)$i;
-  if (isset($byGrade[$k])) $orderedKeys[] = $k;
-}
-$other = [];
-foreach ($byGrade as $k => $_) {
-  if ($k === 'pre') continue;
-  $ki = (int)$k;
-  if ($ki > 5) $other[] = $ki;
-}
-sort($other);
-foreach ($other as $ki) {
-  $orderedKeys[] = (string)$ki;
+
+if (!$showingAdults) {
+  /**
+   * Group by grade buckets:
+   * - 'pre' bucket for any grade < 0
+   * - string "0".."5" buckets for K..5
+   * - numeric string > 5 buckets for older siblings
+   */
+  foreach ($rows as $r) {
+    $gcalc = GradeCalculator::gradeForClassOf((int)$r['class_of']);
+    $key = ($gcalc < 0) ? 'pre' : (string)$gcalc;
+    if (!isset($byGrade[$key])) $byGrade[$key] = [];
+    $byGrade[$key][] = $r;
+  }
+
+  // Build ordered keys: Pre-K, grades 0..5, then >5 ascending
+  if (isset($byGrade['pre'])) $orderedKeys[] = 'pre';
+  for ($i = 0; $i <= 5; $i++) {
+    $k = (string)$i;
+    if (isset($byGrade[$k])) $orderedKeys[] = $k;
+  }
+  $other = [];
+  foreach ($byGrade as $k => $_) {
+    if ($k === 'pre') continue;
+    $ki = (int)$k;
+    if ($ki > 5) $other[] = $ki;
+  }
+  sort($other);
+  foreach ($other as $ki) {
+    $orderedKeys[] = (string)$ki;
+  }
 }
 
 header_html('Registration Renewals');
@@ -94,7 +118,7 @@ header_html('Registration Renewals');
   <h2>Registration Renewals</h2>
 </div>
 
-<div class="card">
+  <div class="card">
   <h3>How to Use This Page</h3>
   <p>This page helps treasurers and committee chairs manage Scout registrations and renewals. Use the <strong>Report Type</strong> filter below to focus on specific tasks:</p>
   
@@ -104,6 +128,7 @@ header_html('Registration Renewals');
       <li><strong>"Notification of family needed - need to renew"</strong> - Shows families whose BSA registrations are expired or expiring soon, but who haven't submitted any payments or registration forms yet. These families need to be contacted about renewing.</li>
       <li><strong>"Action needed to Scouting.org - needs youth payment"</strong> - Shows Scouts whose BSA registrations expire before the end of next month AND who either have paid until after next June 1st OR have submitted a payment notification. You need to log into Scouting.org and process their payments.</li>
       <li><strong>"Action needed to Scouting.org - needs youth registration submitted"</strong> - Shows Scouts who have paid pending registration forms that need to be submitted to Scouting.org.</li>
+      <li><strong>"Action needed to Scouting.org - Adults that need payment"</strong> - Shows adult leaders whose BSA registrations are expiring in the next 3 months or expired in the last 6 months.</li>
       <li><strong>"Processing Needed - needs payment verified"</strong> - Shows all pending payments and registration forms that need to be reviewed and verified, regardless of their current registration status.</li>
     </ul>
   </div>
@@ -120,6 +145,7 @@ header_html('Registration Renewals');
           <option value="notification_needed" <?= $status === 'notification_needed' ? 'selected' : '' ?>>Notification of family needed - need to renew</option>
           <option value="action_needed_payment" <?= $status === 'action_needed_payment' ? 'selected' : '' ?>>Action needed to Scouting.org - needs youth payment</option>
           <option value="action_needed_registration" <?= $status === 'action_needed_registration' ? 'selected' : '' ?>>Action needed to Scouting.org - needs youth registration submitted</option>
+          <option value="action_needed_adult_payment" <?= $status === 'action_needed_adult_payment' ? 'selected' : '' ?>>Action needed to Scouting.org - Adults that need payment</option>
           <option value="processing_needed" <?= $status === 'processing_needed' ? 'selected' : '' ?>>Processing Needed - needs payment verified</option>
         </select>
       </label>
@@ -138,8 +164,8 @@ header_html('Registration Renewals');
       <button class="primary">Filter</button>
       <a class="button" href="/admin/registration_renewals.php">Reset</a>
       <button type="button" class="button" id="copyEmailsBtn">Copy emails</button>
-      <?php if ($status === 'action_needed_payment'): ?>
-        <button type="button" class="button" id="copyNamesIdsBtn">Copy names and BSA Registration IDs</button>
+      <?php if ($status === 'action_needed_payment' || $status === 'action_needed_adult_payment'): ?>
+        <button type="button" class="button" id="copyNamesIdsBtn">Copy names and BSA <?= $status === 'action_needed_adult_payment' ? 'Membership' : 'Registration' ?> IDs</button>
       <?php endif; ?>
       <span id="copyEmailsStatus" class="small" style="display:none;margin-left:8px;"></span>
     </div>
@@ -147,12 +173,12 @@ header_html('Registration Renewals');
 </div>
 
 <!-- Names and BSA IDs Modal -->
-<?php if ($status === 'action_needed_payment'): ?>
+<?php if ($status === 'action_needed_payment' || $status === 'action_needed_adult_payment'): ?>
 <div id="namesIdsModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">
   <div class="modal-content" style="max-width:600px;">
     <button class="close" type="button" id="namesIdsModalClose" aria-label="Close">&times;</button>
-    <h3>Names and BSA Registration IDs</h3>
-    <p class="small">Copy this list to send to the council for processing renewals.</p>
+    <h3>Names and BSA <?= $status === 'action_needed_adult_payment' ? 'Membership' : 'Registration' ?> IDs</h3>
+    <p class="small">Copy this list to send to the council for processing <?= $status === 'action_needed_adult_payment' ? 'adult' : 'youth' ?> renewals.</p>
     <textarea id="namesIdsTextarea" readonly style="width:100%; height:300px; font-family:monospace; font-size:12px; padding:8px; border:1px solid #ccc; border-radius:4px; resize:vertical;"><?= hq($namesAndIdsList) ?></textarea>
     <div class="actions" style="margin-top:12px;">
       <button class="button primary" type="button" id="copyNamesIdsModalBtn">Copy to Clipboard</button>
@@ -267,11 +293,60 @@ header_html('Registration Renewals');
 
 <div class="card">
   <?php if (empty($rows)): ?>
-    <p class="small">No matching youths.</p>
+    <p class="small">No matching <?= $showingAdults ? 'adults' : 'youths' ?>.</p>
   <?php else: ?>
     <textarea id="emailsPayload" readonly style="position:absolute;left:-9999px;top:-9999px;"><?= hq($emailList) ?></textarea>
 
-    <?php foreach ($orderedKeys as $gradeKey): $list = $byGrade[$gradeKey]; ?>
+    <?php if ($showingAdults): ?>
+      <!-- Adult renewals table -->
+      <table class="list">
+        <thead>
+          <tr>
+            <th>Last Name</th>
+            <th>First Name</th>
+            <th>BSA Membership ID</th>
+            <th>Expiration Date</th>
+          </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($rows as $adult): ?>
+          <tr>
+            <td><?= hq($adult['last_name']) ?></td>
+            <td><?= hq($adult['first_name']) ?></td>
+            <td>
+              <?php
+                $bsaId = (string)($adult['bsa_membership_number'] ?? '');
+                echo $bsaId !== '' ? hq($bsaId) : '<span style="color:#999">&mdash;</span>';
+              ?>
+            </td>
+            <td>
+              <?php
+                $expiresDate = (string)($adult['bsa_registration_expires_on'] ?? '');
+                $expirationStatus = (int)($adult['expiration_status'] ?? 0);
+                
+                if ($expiresDate === '') {
+                  echo '<span style="color:#999">&mdash;</span>';
+                } else {
+                  if ($expirationStatus === 1) {
+                    // Expired - red
+                    echo '<span style="color:#c00;font-weight:bold;">'.hq($expiresDate).'</span>';
+                  } elseif ($expirationStatus === 2) {
+                    // Expiring soon - orange
+                    echo '<span style="color:#e67e22;font-weight:bold;">'.hq($expiresDate).'</span>';
+                  } else {
+                    // Current - normal
+                    echo '<span>'.hq($expiresDate).'</span>';
+                  }
+                }
+              ?>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    <?php else: ?>
+      <!-- Youth renewals table (grouped by grade) -->
+      <?php foreach ($orderedKeys as $gradeKey): $list = $byGrade[$gradeKey]; ?>
       <div class="card">
         <h3>
           <?php if ($gradeKey === 'pre'): ?>
@@ -424,7 +499,8 @@ header_html('Registration Renewals');
           </tbody>
         </table>
       </div>
-    <?php endforeach; ?>
+      <?php endforeach; ?>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
 
