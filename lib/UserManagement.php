@@ -1507,4 +1507,50 @@ class UserManagement {
     
     return $result;
   }
+
+  /**
+   * List adults needing registration renewal.
+   * Returns adults with BSA Membership IDs that are:
+   * - Expiring in the next 3 months, OR
+   * - Expired in the last 6 months
+   * 
+   * @param UserContext $ctx
+   * @return array Array of adult records with expiration_status field
+   */
+  public static function listForRenewals(UserContext $ctx): array {
+    self::assertLogin($ctx);
+
+    // Calculate date ranges
+    $threeMonthsFromNow = date('Y-m-d', strtotime('+3 months'));
+    $sixMonthsAgo = date('Y-m-d', strtotime('-6 months'));
+    $today = date('Y-m-d');
+
+    $sql = "SELECT 
+              u.id,
+              u.first_name,
+              u.last_name,
+              u.bsa_membership_number,
+              u.bsa_registration_expires_on,
+              u.email,
+              CASE 
+                WHEN u.bsa_registration_expires_on IS NULL THEN 0
+                WHEN u.bsa_registration_expires_on < ? THEN 1  -- expired
+                WHEN u.bsa_registration_expires_on <= ? THEN 2  -- expiring soon
+                ELSE 0  -- current
+              END as expiration_status
+            FROM users u
+            WHERE u.bsa_membership_number IS NOT NULL 
+              AND u.bsa_membership_number <> ''
+              AND (
+                -- Expiring in next 3 months
+                u.bsa_registration_expires_on <= ?
+                -- OR expired in last 6 months
+                OR u.bsa_registration_expires_on >= ?
+              )
+            ORDER BY u.last_name, u.first_name";
+
+    $st = self::pdo()->prepare($sql);
+    $st->execute([$today, $threeMonthsFromNow, $threeMonthsFromNow, $sixMonthsAgo]);
+    return $st->fetchAll();
+  }
 }
