@@ -827,7 +827,7 @@ header_html('Home');
     $now = date('Y-m-d H:i:s');
     $in2mo = date('Y-m-d H:i:s', strtotime('+2 months'));
     $events = EventManagement::listBetween($now, $in2mo);
-    $homeEvents = array_slice($events, 0, 5);
+    $homeEvents = array_slice($events, 0, 9);
   } catch (Throwable $e) {
     $homeEvents = [];
   }
