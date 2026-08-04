@@ -23,7 +23,7 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   $s = strtotime($startsAt);
   if ($s === false) return $startsAt;
   
-  $dateStr = date('F j, Y', $s);
+  $dateStr = date('l, F j, Y', $s);
   $startTime = formatTime($s);
   
   if (!$endsAt) {
@@ -43,7 +43,7 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   }
   
   // Different-day event: show full end date
-  $endDateStr = date('F j, Y', $e);
+  $endDateStr = date('l, F j, Y', $e);
   return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime;
 }
 
