@@ -60,12 +60,14 @@ CREATE TABLE users (
 
   -- Unsubscribe from emails
   unsubscribed TINYINT(1) NOT NULL DEFAULT 0,
+  include_in_most_emails TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Always include this adult in most email communications',
 
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
 CREATE INDEX idx_users_email_verify_token ON users(email_verify_token);
 CREATE INDEX idx_users_pwreset_expires ON users(password_reset_expires_at);
+CREATE INDEX idx_users_include_in_most_emails ON users(include_in_most_emails);
 
 -- Youth (cub scouts)
 CREATE TABLE youth (
