@@ -9,7 +9,7 @@ $isAdmin = !empty($me['is_admin']);
 
 // Inputs
 $q = trim($_GET['q'] ?? '');
-$gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0..5
+$gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0..6
 $g = ($gLabel !== '') ? GradeCalculator::parseGradeLabel($gLabel) : null;
 $showAll = $isAdmin ? (isset($_GET['all']) ? (!empty($_GET['all'])) : true) : false;
 
@@ -66,7 +66,7 @@ header_html('Adults Roster');
       <label>Grade of child
         <select name="g">
           <option value="">All</option>
-          <?php for($i=0;$i<=5;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
+          <?php for($i=0;$i<=6;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
             <option value="<?=h($lbl)?>" <?= ($gLabel === $lbl ? 'selected' : '') ?>>
               <?= $i === 0 ? 'K' : $i ?>
             </option>

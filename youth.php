@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // Inputs
 $q = trim($_GET['q'] ?? '');
-$gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0,1..5
+$gLabel = trim($_GET['g'] ?? ''); // grade filter: K,0,1..6
 $g = $gLabel !== '' ? GradeCalculator::parseGradeLabel($gLabel) : null;
 $onlyRegSib = array_key_exists('only_reg_sib', $_GET) ? (!empty($_GET['only_reg_sib'])) : true;
 $includeUnreg = !$onlyRegSib;
@@ -113,7 +113,7 @@ header_html('Youth Roster');
       <label>Grade
         <select name="g">
           <option value="">All</option>
-          <?php for($i=0;$i<=5;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
+          <?php for($i=0;$i<=6;$i++): $lbl = GradeCalculator::gradeLabel($i); ?>
             <option value="<?=h($lbl)?>" <?= ($gLabel === $lbl ? 'selected' : '') ?>>
               <?= $i === 0 ? 'K' : $i ?>
             </option>
