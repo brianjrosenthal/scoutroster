@@ -99,11 +99,42 @@ $hasYes = ($myRsvp && strtolower((string)($myRsvp['answer'] ?? '')) === 'yes');
 $openVolunteerRoles = Volunteers::openRolesExist((int)$id);
 $showVolunteerModal = $hasYes && $openVolunteerRoles && !empty($_GET['vol']);
 
+// Build "Add to Google Calendar" link (same fields as the ICS export)
+$gcalTzId = Settings::timezoneId();
+$gcalFmtUtc = function (string $sqlDateTime) use ($gcalTzId): string {
+  try {
+    $dt = new DateTime($sqlDateTime, new DateTimeZone($gcalTzId));
+  } catch (Throwable $ex) {
+    $dt = new DateTime($sqlDateTime);
+  }
+  $dt->setTimezone(new DateTimeZone('UTC'));
+  return $dt->format('Ymd\THis\Z');
+};
+$gcalStart = $gcalFmtUtc((string)$e['starts_at']);
+$gcalEndSql = !empty($e['ends_at'])
+  ? (string)$e['ends_at']
+  : date('Y-m-d H:i:s', strtotime((string)$e['starts_at'] . ' +1 hour'));
+$gcalEnd = $gcalFmtUtc($gcalEndSql);
+
+$gcalScheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$gcalEventUrl = $gcalScheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . '/event.php?id=' . (int)$id;
+
+$gcalLocParts = array_filter([trim((string)($e['location'] ?? '')), trim((string)($e['location_address'] ?? ''))], fn($s) => $s !== '');
+$gcalDesc = trim((string)($e['description'] ?? ''));
+$gcalUrl = 'https://calendar.google.com/calendar/render?' . http_build_query([
+  'action' => 'TEMPLATE',
+  'text' => (string)$e['name'],
+  'dates' => $gcalStart . '/' . $gcalEnd,
+  'details' => $gcalDesc !== '' ? ($gcalDesc . "\n\n" . $gcalEventUrl) : $gcalEventUrl,
+  'location' => implode(', ', $gcalLocParts),
+]);
+
 header_html('Event');
 ?>
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
   <h2 style="margin: 0;"><?=h($e['name'])?></h2>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+    <a class="button" target="_blank" rel="noopener" href="<?= h($gcalUrl) ?>">Add to Google Calendar</a>
     <a class="button" href="/events.php">Back to Events</a>
     <?= EventUIManager::renderAdminMenu((int)$e['id']) ?>
   </div>

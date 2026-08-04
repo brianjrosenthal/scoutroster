@@ -47,12 +47,18 @@ class MailingListManagement {
 
   /**
    * Get IDs of youth who are considered "registered" using the same logic as youth.php
+   * When $preK5Only is true, restrict to grades Pre-K through 5 (class_of >= current 5th grade class_of).
    */
-  private static function getRegisteredYouthIds(array $filters): array {
+  private static function getRegisteredYouthIds(array $filters, bool $preK5Only = false): array {
     $f = self::normalizeFilters($filters);
     $params = [];
-    
+
     $sql = "SELECT DISTINCT y.id FROM youth y WHERE 1=1";
+
+    if ($preK5Only) {
+      $sql .= " AND y.class_of >= ?";
+      $params[] = \GradeCalculator::schoolYearEndYear();
+    }
     
     // Apply search filter if provided
     if (!empty($f['q'])) {
@@ -99,8 +105,8 @@ class MailingListManagement {
   /**
    * Get adults who are parents of registered youth
    */
-  private static function getParentsOfRegisteredYouth(array $filters): array {
-    $registeredYouthIds = self::getRegisteredYouthIds($filters);
+  private static function getParentsOfRegisteredYouth(array $filters, bool $preK5Only = false): array {
+    $registeredYouthIds = self::getRegisteredYouthIds($filters, $preK5Only);
     if (empty($registeredYouthIds)) {
       return [];
     }
@@ -132,19 +138,22 @@ class MailingListManagement {
   }
 
   /**
-   * Get adults who are parents of youth marked with include_in_most_emails = 1
+   * Get adults who are parents of youth marked with include_in_most_emails = 1.
+   * Restricted to youth in grades Pre-K through 5.
    */
   private static function getParentsOfActiveLeads(array $filters): array {
     $f = self::normalizeFilters($filters);
     $params = [];
-    
-    $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email 
+
+    $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
             FROM users u
             JOIN parent_relationships pr ON pr.adult_id = u.id
             JOIN youth y ON y.id = pr.youth_id
             WHERE y.include_in_most_emails = 1
-              AND y.left_troop = 0";
-    
+              AND y.left_troop = 0
+              AND y.class_of >= ?";
+    $params[] = \GradeCalculator::schoolYearEndYear();
+
     // Apply search filter if provided
     if (!empty($f['q'])) {
       $tokens = \Search::tokenize($f['q']);
@@ -161,6 +170,44 @@ class MailingListManagement {
       $params[] = (int)$f['class_of'];
     }
     
+    $sql .= " ORDER BY u.last_name, u.first_name";
+    $st = self::pdo()->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll() ?: [];
+  }
+
+  /**
+   * Get adults flagged with include_in_most_emails = 1 (always included in
+   * "Registered + Active Leads" regardless of their children's status).
+   */
+  private static function getFlaggedAdults(array $filters): array {
+    $f = self::normalizeFilters($filters);
+    $params = [];
+
+    $sql = "SELECT DISTINCT u.id, u.first_name, u.last_name, u.email
+            FROM users u
+            WHERE u.include_in_most_emails = 1";
+
+    // Apply search filter if provided
+    if (!empty($f['q'])) {
+      $tokens = \Search::tokenize($f['q']);
+      $sql .= \Search::buildAndLikeClause(
+        ['u.first_name','u.last_name','u.email'],
+        $tokens,
+        $params
+      );
+    }
+
+    // If a specific grade filter is active, only include flagged adults with a child in that grade
+    if ($f['class_of'] !== null) {
+      $sql .= " AND EXISTS (
+                  SELECT 1 FROM parent_relationships pr
+                  JOIN youth y ON y.id = pr.youth_id
+                  WHERE pr.adult_id = u.id AND y.class_of = ?
+                )";
+      $params[] = (int)$f['class_of'];
+    }
+
     $sql .= " ORDER BY u.last_name, u.first_name";
     $st = self::pdo()->prepare($sql);
     $st->execute($params);
@@ -205,10 +252,12 @@ class MailingListManagement {
     }
     
     if ($f['registered'] === 'registered_plus_leads') {
-      // Return parents of registered youth PLUS parents of active leads
-      $registeredParents = self::getParentsOfRegisteredYouth($filters);
+      // Parents of registered youth (Pre-K..5) PLUS parents of active leads (Pre-K..5)
+      // PLUS adults flagged include_in_most_emails
+      $registeredParents = self::getParentsOfRegisteredYouth($filters, true);
       $activeLeadParents = self::getParentsOfActiveLeads($filters);
-      
+      $flaggedAdults = self::getFlaggedAdults($filters);
+
       // Merge and deduplicate by user ID
       $adultsById = [];
       foreach ($registeredParents as $adult) {
@@ -217,7 +266,10 @@ class MailingListManagement {
       foreach ($activeLeadParents as $adult) {
         $adultsById[(int)$adult['id']] = $adult;
       }
-      
+      foreach ($flaggedAdults as $adult) {
+        $adultsById[(int)$adult['id']] = $adult;
+      }
+
       $adults = array_values($adultsById);
       return self::filterUnsubscribedAdults($adults);
     }

@@ -187,6 +187,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
   $shirt_size = $nn($_POST['shirt_size'] ?? '');
   $suppress_email_directory = !empty($_POST['suppress_email_directory']) ? 1 : 0;
   $suppress_phone_directory = !empty($_POST['suppress_phone_directory']) ? 1 : 0;
+  $include_in_most_emails = !empty($_POST['include_in_most_emails']) ? 1 : 0;
 
   // Scouting info (admin-editable)
   $bsa_membership_number = $nn($_POST['bsa_membership_number'] ?? '');
@@ -228,7 +229,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
   if (!$err) {
     try {
-      $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, [
+      $profileFields = [
         'first_name' => $first,
         'last_name'  => $last,
         'email'      => $email,
@@ -252,7 +253,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
         'emergency_contact1_phone' => $em1_phone,
         'emergency_contact2_name' => $em2_name,
         'emergency_contact2_phone' => $em2_phone,
-      ], true);
+      ];
+      if ($canEditAll) {
+        $profileFields['include_in_most_emails'] = $include_in_most_emails;
+      }
+      $ok = UserManagement::updateProfile(UserContext::getLoggedInUserContext(), $id, $profileFields, true);
       if ($ok) {
         header('Location: /adult_edit.php?id='.(int)$id.'&saved=1'); exit;
       } else {
@@ -264,6 +269,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
   }
 
   // Merge for redisplay on error
+  if ($canEditAll) {
+    $u['include_in_most_emails'] = $include_in_most_emails;
+  }
   $u = array_merge($u, [
     'first_name' => $first,
     'last_name' => $last,
@@ -462,6 +470,15 @@ header_html('Edit Adult');
         Suppress phone number from the directory
         <div class="small">This hides the adult's phone numbers from non-admin users. Administrators can still see them.</div>
       </label>
+
+      <?php if ($canEditAll): ?>
+      <label class="inline">
+        <input type="hidden" name="include_in_most_emails" value="0">
+        <input type="checkbox" name="include_in_most_emails" value="1" <?= !empty($u['include_in_most_emails']) ? 'checked' : '' ?>>
+        Include in most emails
+        <div class="small">Always include this adult in "Registered + Active Leads" emails, regardless of their children's status.</div>
+      </label>
+      <?php endif; ?>
     </div>
 
     <h3>Scouting</h3>

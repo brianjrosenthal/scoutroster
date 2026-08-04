@@ -394,13 +394,20 @@ class UserManagement {
         throw new InvalidArgumentException('Forbidden - not approver');
       }
     }
-    
+
+    // Include-in-most-emails flag: admin-only
+    if (array_key_exists('include_in_most_emails', $fields)) {
+      if (!$ctx->admin) {
+        throw new InvalidArgumentException('Forbidden - admin only');
+      }
+    }
+
     // Whitelist of updatable columns
     $allowed = [
       'first_name','last_name','email',
       'preferred_name','street1','street2','city','state','zip',
       'email2','phone_home','phone_cell','shirt_size',
-      'suppress_email_directory','suppress_phone_directory',
+      'suppress_email_directory','suppress_phone_directory','include_in_most_emails',
       'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
       'medical_forms_expiration_date','medical_form_in_person_opt_in',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone',
@@ -425,8 +432,9 @@ class UserManagement {
       } elseif ($key === 'is_admin') {
         $set[] = 'is_admin = ?';
         $params[] = self::boolInt($fields['is_admin']);
-      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory' || $key === 'medical_form_in_person_opt_in' || 
-                $key === 'dietary_vegetarian' || $key === 'dietary_vegan' || $key === 'dietary_lactose_free' || 
+      } elseif ($key === 'suppress_email_directory' || $key === 'suppress_phone_directory' || $key === 'medical_form_in_person_opt_in' ||
+                $key === 'include_in_most_emails' ||
+                $key === 'dietary_vegetarian' || $key === 'dietary_vegan' || $key === 'dietary_lactose_free' ||
                 $key === 'dietary_no_pork_shellfish' || $key === 'dietary_nut_allergy') {
         $set[] = "$key = ?";
         $params[] = self::boolInt($fields[$key] ?? 0);
@@ -984,29 +992,42 @@ class UserManagement {
       $wheres[] = "pr_reg.youth_id IN ($placeholders)";
       $params = array_merge($params, $qualifyingYouthIds);
     } elseif ($registrationStatus === 'registered_plus_leads') {
-      // Include parents of registered youth PLUS parents of active leads
+      // Include parents of registered youth PLUS parents of active leads (both limited
+      // to grades Pre-K..5), PLUS adults flagged include_in_most_emails
       $ctx = \UserContext::getLoggedInUserContext();
       if (!$ctx || !$ctx->admin) {
         throw new RuntimeException('Admin context required for registered_plus_leads filter');
       }
-      
-      // Get qualifying registered youth using the same logic as youth.php
+
+      // Pre-K..5 means class_of >= the current 5th grade class_of (grade 6+ have earlier class_of)
+      $minClassOf = \GradeCalculator::schoolYearEndYear();
+
+      // Get qualifying registered youth using the same logic as youth.php, capped at grade 5
       $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
-      $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
-      
-      // Build the WHERE clause to include both registered youth and active leads
-      $joins[] = "JOIN parent_relationships pr_reg_leads ON pr_reg_leads.adult_id = u.id";
-      $joins[] = "JOIN youth y_reg_leads ON y_reg_leads.id = pr_reg_leads.youth_id";
-      
-      if (empty($qualifyingYouthIds)) {
-        // Only active leads (youth with include_in_most_emails = 1)
-        $wheres[] = "y_reg_leads.include_in_most_emails = 1 AND y_reg_leads.left_troop = 0";
-      } else {
-        // Registered youth OR active leads
-        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
-        $wheres[] = "(y_reg_leads.id IN ($placeholders) OR (y_reg_leads.include_in_most_emails = 1 AND y_reg_leads.left_troop = 0))";
-        $params = array_merge($params, $qualifyingYouthIds);
+      $qualifyingYouthIds = [];
+      foreach ($qualifyingYouth as $qy) {
+        if ((int)$qy['class_of'] >= $minClassOf) {
+          $qualifyingYouthIds[] = (int)$qy['id'];
+        }
       }
+
+      // Child qualifies if registered (Pre-K..5) OR an active lead (Pre-K..5)
+      $childCondition = "(y_rpl.include_in_most_emails = 1 AND y_rpl.left_troop = 0)";
+      $childParams = [];
+      if (!empty($qualifyingYouthIds)) {
+        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
+        $childCondition = "(y_rpl.id IN ($placeholders) OR $childCondition)";
+        $childParams = $qualifyingYouthIds;
+      }
+
+      $wheres[] = "(u.include_in_most_emails = 1 OR EXISTS (
+        SELECT 1 FROM parent_relationships pr_rpl
+        JOIN youth y_rpl ON y_rpl.id = pr_rpl.youth_id
+        WHERE pr_rpl.adult_id = u.id
+          AND y_rpl.class_of >= ?
+          AND $childCondition
+      ))";
+      $params = array_merge($params, [$minClassOf], $childParams);
     } elseif ($registrationStatus === 'unregistered') {
       // Get all adults who would be included in registered_plus_leads
       $registeredPlusLeads = self::listAdultsWithFilters([
@@ -1016,9 +1037,9 @@ class UserManagement {
         'event_id' => null,
         'specific_adult_ids' => []
       ]);
-      
+
       $excludeIds = array_column($registeredPlusLeads, 'id');
-      
+
       if (!empty($excludeIds)) {
         $placeholders = implode(',', array_fill(0, count($excludeIds), '?'));
         $wheres[] = "u.id NOT IN ($placeholders)";
@@ -1040,30 +1061,35 @@ class UserManagement {
     }
 
     // Exclude adults who have any children that have left the troop
-    $leftParentsQuery = "SELECT DISTINCT pr.adult_id 
-                         FROM parent_relationships pr 
-                         JOIN youth y ON y.id = pr.youth_id 
+    // (adults flagged include_in_most_emails are exempt in registered_plus_leads)
+    $leftParentsQuery = "SELECT DISTINCT pr.adult_id
+                         FROM parent_relationships pr
+                         JOIN youth y ON y.id = pr.youth_id
                          WHERE y.left_troop = 1";
     $leftParentsStmt = self::pdo()->query($leftParentsQuery);
     $leftParentIds = array_column($leftParentsStmt->fetchAll(), 'adult_id');
-    
+
     if (!empty($leftParentIds)) {
       $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
-      $wheres[] = "u.id NOT IN ($placeholders)";
+      if ($registrationStatus === 'registered_plus_leads') {
+        $wheres[] = "(u.include_in_most_emails = 1 OR u.id NOT IN ($placeholders))";
+      } else {
+        $wheres[] = "u.id NOT IN ($placeholders)";
+      }
       $params = array_merge($params, $leftParentIds);
     }
 
     // For unregistered filter: exclude adults with no children (adult volunteers)
     if ($registrationStatus === 'unregistered') {
-      $noKidsQuery = "SELECT DISTINCT u.id 
-                      FROM users u 
+      $noKidsQuery = "SELECT DISTINCT u.id
+                      FROM users u
                       WHERE NOT EXISTS (
-                        SELECT 1 FROM parent_relationships pr 
+                        SELECT 1 FROM parent_relationships pr
                         WHERE pr.adult_id = u.id
                       )";
       $noKidsStmt = self::pdo()->query($noKidsQuery);
       $noKidsIds = array_column($noKidsStmt->fetchAll(), 'id');
-      
+
       if (!empty($noKidsIds)) {
         $placeholders = implode(',', array_fill(0, count($noKidsIds), '?'));
         $wheres[] = "u.id NOT IN ($placeholders)";
@@ -1084,11 +1110,11 @@ class UserManagement {
     if ($rsvpStatus === 'not_rsvped' && $eventId) {
       $wheres[] = "NOT EXISTS (
         -- This adult created an RSVP
-        SELECT 1 FROM rsvps r 
+        SELECT 1 FROM rsvps r
         WHERE r.event_id = ? AND r.created_by_user_id = u.id
       ) AND NOT EXISTS (
         -- This adult is a member of any RSVP
-        SELECT 1 FROM rsvp_members rm 
+        SELECT 1 FROM rsvp_members rm
         WHERE rm.event_id = ? AND rm.participant_type = 'adult' AND rm.adult_id = u.id
       ) AND NOT EXISTS (
         -- Any of this adult's children are members of any RSVP
@@ -1106,7 +1132,7 @@ class UserManagement {
         SELECT 1 FROM rsvp_members rm
         JOIN parent_relationships pr1 ON pr1.adult_id = rm.adult_id
         JOIN parent_relationships pr2 ON pr2.youth_id = pr1.youth_id
-        WHERE rm.event_id = ? AND rm.participant_type = 'adult' 
+        WHERE rm.event_id = ? AND rm.participant_type = 'adult'
           AND pr2.adult_id = u.id AND rm.adult_id != u.id
       )";
       $params[] = $eventId;
@@ -1196,29 +1222,42 @@ class UserManagement {
       $wheres[] = "pr_reg.youth_id IN ($placeholders)";
       $params = array_merge($params, $qualifyingYouthIds);
     } elseif ($registrationStatus === 'registered_plus_leads') {
-      // Include parents of registered youth PLUS parents of active leads
+      // Include parents of registered youth PLUS parents of active leads (both limited
+      // to grades Pre-K..5), PLUS adults flagged include_in_most_emails
       $ctx = \UserContext::getLoggedInUserContext();
       if (!$ctx || !$ctx->admin) {
         throw new RuntimeException('Admin context required for registered_plus_leads filter');
       }
-      
-      // Get qualifying registered youth using the same logic as youth.php
+
+      // Pre-K..5 means class_of >= the current 5th grade class_of (grade 6+ have earlier class_of)
+      $minClassOf = \GradeCalculator::schoolYearEndYear();
+
+      // Get qualifying registered youth using the same logic as youth.php, capped at grade 5
       $qualifyingYouth = \YouthManagement::searchRoster($ctx, null, null, false);
-      $qualifyingYouthIds = array_column($qualifyingYouth, 'id');
-      
-      // Build the WHERE clause to include both registered youth and active leads
-      $joins[] = "JOIN parent_relationships pr_reg_leads ON pr_reg_leads.adult_id = u.id";
-      $joins[] = "JOIN youth y_reg_leads ON y_reg_leads.id = pr_reg_leads.youth_id";
-      
-      if (empty($qualifyingYouthIds)) {
-        // Only active leads (youth with include_in_most_emails = 1)
-        $wheres[] = "y_reg_leads.include_in_most_emails = 1 AND y_reg_leads.left_troop = 0";
-      } else {
-        // Registered youth OR active leads
-        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
-        $wheres[] = "(y_reg_leads.id IN ($placeholders) OR (y_reg_leads.include_in_most_emails = 1 AND y_reg_leads.left_troop = 0))";
-        $params = array_merge($params, $qualifyingYouthIds);
+      $qualifyingYouthIds = [];
+      foreach ($qualifyingYouth as $qy) {
+        if ((int)$qy['class_of'] >= $minClassOf) {
+          $qualifyingYouthIds[] = (int)$qy['id'];
+        }
       }
+
+      // Child qualifies if registered (Pre-K..5) OR an active lead (Pre-K..5)
+      $childCondition = "(y_rpl.include_in_most_emails = 1 AND y_rpl.left_troop = 0)";
+      $childParams = [];
+      if (!empty($qualifyingYouthIds)) {
+        $placeholders = implode(',', array_fill(0, count($qualifyingYouthIds), '?'));
+        $childCondition = "(y_rpl.id IN ($placeholders) OR $childCondition)";
+        $childParams = $qualifyingYouthIds;
+      }
+
+      $wheres[] = "(u.include_in_most_emails = 1 OR EXISTS (
+        SELECT 1 FROM parent_relationships pr_rpl
+        JOIN youth y_rpl ON y_rpl.id = pr_rpl.youth_id
+        WHERE pr_rpl.adult_id = u.id
+          AND y_rpl.class_of >= ?
+          AND $childCondition
+      ))";
+      $params = array_merge($params, [$minClassOf], $childParams);
     } elseif ($registrationStatus === 'unregistered') {
       // Get all adults who would be included in registered_plus_leads
       $registeredPlusLeads = self::listAdultsWithFilters([
