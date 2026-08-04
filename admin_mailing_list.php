@@ -9,7 +9,7 @@ require_admin();
 $q = trim($_GET['q'] ?? '');
 $gLabel = trim($_GET['g'] ?? ''); // Grade of child: K,0..5
 $g = ($gLabel !== '') ? GradeCalculator::parseGradeLabel($gLabel) : null;
-$registered = trim($_GET['registered'] ?? 'all'); // 'all' | 'yes' | 'no'
+$registered = trim($_GET['registered'] ?? 'registered_plus_leads'); // 'registered_plus_leads' | 'yes' | 'all' | 'all_inactive' | 'no'
 $export = isset($_GET['export']) && $_GET['export'] === 'csv';
 
 // Compute class_of for grade filter
