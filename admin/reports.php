@@ -113,15 +113,7 @@ header_html('Reports');
 <div class="card">
   <h3>Public Links</h3>
   <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px;">
-    
-    <div class="card" style="margin: 0;">
-      <h4>Public Calendar</h4>
-      <p>Publicly accessible calendar showing upcoming events. Share this link with prospective families or post on social media.</p>
-      <div class="actions">
-        <a class="button primary" href="/public_calendar.php" target="_blank">View Public Calendar</a>
-      </div>
-    </div>
-    
+
     <div class="card" style="margin: 0;">
       <h4>Pack Leadership</h4>
       <p>Publicly accessible page showing pack leadership structure, committee chairs, and den leaders.</p>
@@ -129,7 +121,7 @@ header_html('Reports');
         <a class="button primary" href="/leadership.php" target="_blank">View Pack Leadership</a>
       </div>
     </div>
-    
+
   </div>
 </div>
 

@@ -60,6 +60,7 @@ class ApplicationUI {
             
             $avatarMenu = '<a href="/my_profile.php" role="menuitem">My Profile</a>'
                         . '<a href="/leadership.php" role="menuitem">Pack Leadership</a>'
+                        . '<a href="/public_calendar.php" role="menuitem" target="_blank">Public Calendar</a>'
                         . '<a href="/reimbursements.php" role="menuitem">Reimbursements</a>'
                         . '<a href="/forms.php" role="menuitem">Forms and Links</a>';
             
