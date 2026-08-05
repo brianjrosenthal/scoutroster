@@ -43,7 +43,10 @@ try {
   // Fetch email data
   $emailData = UnsentEmailData::getById($emailId);
   if (!$emailData) {
-    throw new RuntimeException('Email not found');
+    // Rows are deleted on successful send, so a missing row means this email
+    // was already processed (e.g. page refresh mid-send). Treat as success.
+    echo json_encode(['success' => false, 'error' => 'ALREADY_PROCESSED', 'error_message' => 'Email already sent or processed']);
+    exit;
   }
   
   // Get recipient info
@@ -105,13 +108,24 @@ try {
       'recipient' => $recipientName . ' <' . $recipientEmail . '>'
     ]);
   } else {
-    // Pass through the detailed error message from the email send
+    // Return HTTP 200 with the detailed error so the client JS can inspect it
+    // (e.g. detect SMTP auth errors and retry) — a 500 would hide the message.
     $error = $result['error'] ?? 'Failed to send email';
-    throw new RuntimeException($error);
+
+    try {
+      UnsentEmailData::markAsFailed($ctx, $emailId, $error);
+    } catch (Throwable $e) {
+      error_log('Failed to mark email as failed: ' . $e->getMessage());
+    }
+
+    echo json_encode([
+      'success' => false,
+      'error' => $error,
+      'recipient' => $recipientName . ' <' . $recipientEmail . '>'
+    ]);
   }
-  
+
 } catch (Throwable $e) {
-  http_response_code(500);
   echo json_encode([
     'success' => false,
     'error' => $e->getMessage(),

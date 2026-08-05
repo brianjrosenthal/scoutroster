@@ -282,11 +282,14 @@ async function sendNextEmail() {
       body: formData
     });
     
-    if (!response.ok) {
+    // Parse the JSON body even on non-2xx responses so real error messages
+    // (and the auth-error retry path) aren't lost behind a bare HTTP status.
+    let result;
+    try {
+      result = await response.json();
+    } catch (parseError) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
-    
-    const result = await response.json();
     
     if (result.success) {
       updateProgressRow(currentIndex, 'success');

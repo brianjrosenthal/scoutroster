@@ -130,10 +130,10 @@ final class UnsentEmailData {
     if ($id <= 0) return null;
     
     $stmt = self::pdo()->prepare('
-      SELECT ued.*, u.email, u.first_name, u.last_name 
-      FROM unsent_email_data ued 
-      JOIN users u ON ued.user_id = u.id 
-      WHERE ued.id = ? AND ued.sent_status = ""
+      SELECT ued.*, u.email, u.first_name, u.last_name
+      FROM unsent_email_data ued
+      JOIN users u ON ued.user_id = u.id
+      WHERE ued.id = ? AND ued.sent_status IN ("", "failed")
     ');
     
     $stmt->execute([$id]);
