@@ -203,7 +203,7 @@ class MailingListManagement {
       $sql .= " AND EXISTS (
                   SELECT 1 FROM parent_relationships pr
                   JOIN youth y ON y.id = pr.youth_id
-                  WHERE pr.adult_id = u.id AND y.class_of = ?
+                  WHERE pr.adult_id = u.id AND y.class_of = ? AND y.left_troop = 0
                 )";
       $params[] = (int)$f['class_of'];
     }
@@ -289,7 +289,7 @@ class MailingListManagement {
       });
       return self::filterUnsubscribedAdults($filteredAdults);
     }
-    
+
     // For 'all' and 'all_inactive'
     $adults = self::getAllAdultsWithFilters($filters);
     return self::filterUnsubscribedAdults($adults);
@@ -503,7 +503,9 @@ class MailingListManagement {
 
     // Recommendations (apply 'q' filter and grade if provided)
     $recParams = [];
-    $recSql = "SELECT r.parent_name, r.child_name, r.email, r.grade FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> ''";
+    // Only 'new' and 'active' leads: 'joined' leads are already in the adults
+    // table if they belong on the list, and 'unsubscribed' leads opted out.
+    $recSql = "SELECT r.parent_name, r.child_name, r.email, r.grade FROM recommendations r WHERE r.email IS NOT NULL AND r.email <> '' AND r.status IN ('new','active')";
     if (!empty($f['q'])) {
       $tokens = \Search::tokenize($f['q']);
       $recSql .= \Search::buildAndLikeClause(['r.parent_name','r.child_name','r.email'], $tokens, $recParams);

@@ -1060,32 +1060,15 @@ class UserManagement {
       )";
     }
 
-    // Exclude adults who have any children that have left the troop
-    // (adults flagged include_in_most_emails are exempt in registered_plus_leads)
-    $leftParentsQuery = "SELECT DISTINCT pr.adult_id
-                         FROM parent_relationships pr
-                         JOIN youth y ON y.id = pr.youth_id
-                         WHERE y.left_troop = 1";
-    $leftParentsStmt = self::pdo()->query($leftParentsQuery);
-    $leftParentIds = array_column($leftParentsStmt->fetchAll(), 'adult_id');
-
-    if (!empty($leftParentIds)) {
-      $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
-      if ($registrationStatus === 'registered_plus_leads') {
-        $wheres[] = "(u.include_in_most_emails = 1 OR u.id NOT IN ($placeholders))";
-      } else {
-        $wheres[] = "u.id NOT IN ($placeholders)";
-      }
-      $params = array_merge($params, $leftParentIds);
-    }
-
-    // For unregistered filter: exclude adults with no children (adult volunteers)
+    // For unregistered filter: exclude adults with no active children (adult
+    // volunteers, or parents whose children have all left the troop)
     if ($registrationStatus === 'unregistered') {
       $noKidsQuery = "SELECT DISTINCT u.id
                       FROM users u
                       WHERE NOT EXISTS (
                         SELECT 1 FROM parent_relationships pr
-                        WHERE pr.adult_id = u.id
+                        JOIN youth y ON y.id = pr.youth_id
+                        WHERE pr.adult_id = u.id AND y.left_troop = 0
                       )";
       $noKidsStmt = self::pdo()->query($noKidsQuery);
       $noKidsIds = array_column($noKidsStmt->fetchAll(), 'id');
@@ -1097,12 +1080,13 @@ class UserManagement {
       }
     }
 
-    // Grade filtering
+    // Grade filtering (children who left the troop don't count)
     if (!empty($classOfValues)) {
       $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
       $joins[] = "JOIN youth y_grade ON y_grade.id = pr_grade.youth_id";
       $placeholders = implode(',', array_fill(0, count($classOfValues), '?'));
       $wheres[] = "y_grade.class_of IN ($placeholders)";
+      $wheres[] = "y_grade.left_troop = 0";
       $params = array_merge($params, $classOfValues);
     }
 
@@ -1290,31 +1274,19 @@ class UserManagement {
       )";
     }
 
-    // Exclude adults who have any children that have left the troop
-    $leftParentsQuery = "SELECT DISTINCT pr.adult_id 
-                         FROM parent_relationships pr 
-                         JOIN youth y ON y.id = pr.youth_id 
-                         WHERE y.left_troop = 1";
-    $leftParentsStmt = self::pdo()->query($leftParentsQuery);
-    $leftParentIds = array_column($leftParentsStmt->fetchAll(), 'adult_id');
-    
-    if (!empty($leftParentIds)) {
-      $placeholders = implode(',', array_fill(0, count($leftParentIds), '?'));
-      $wheres[] = "u.id NOT IN ($placeholders)";
-      $params = array_merge($params, $leftParentIds);
-    }
-
-    // For unregistered filter: exclude adults with no children (adult volunteers)
+    // For unregistered filter: exclude adults with no active children (adult
+    // volunteers, or parents whose children have all left the troop)
     if ($registrationStatus === 'unregistered') {
-      $noKidsQuery = "SELECT DISTINCT u.id 
-                      FROM users u 
+      $noKidsQuery = "SELECT DISTINCT u.id
+                      FROM users u
                       WHERE NOT EXISTS (
-                        SELECT 1 FROM parent_relationships pr 
-                        WHERE pr.adult_id = u.id
+                        SELECT 1 FROM parent_relationships pr
+                        JOIN youth y ON y.id = pr.youth_id
+                        WHERE pr.adult_id = u.id AND y.left_troop = 0
                       )";
       $noKidsStmt = self::pdo()->query($noKidsQuery);
       $noKidsIds = array_column($noKidsStmt->fetchAll(), 'id');
-      
+
       if (!empty($noKidsIds)) {
         $placeholders = implode(',', array_fill(0, count($noKidsIds), '?'));
         $wheres[] = "u.id NOT IN ($placeholders)";
@@ -1322,12 +1294,13 @@ class UserManagement {
       }
     }
 
-    // Grade filtering
+    // Grade filtering (children who left the troop don't count)
     if (!empty($classOfValues)) {
       $joins[] = "JOIN parent_relationships pr_grade ON pr_grade.adult_id = u.id";
       $joins[] = "JOIN youth y_grade ON y_grade.id = pr_grade.youth_id";
       $placeholders = implode(',', array_fill(0, count($classOfValues), '?'));
       $wheres[] = "y_grade.class_of IN ($placeholders)";
+      $wheres[] = "y_grade.left_troop = 0";
       $params = array_merge($params, $classOfValues);
     }
 
