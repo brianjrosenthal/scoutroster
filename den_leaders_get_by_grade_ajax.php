@@ -20,8 +20,8 @@ $response = ['ok' => false, 'error' => 'Unknown error'];
 try {
     $grade = (int)($_POST['grade'] ?? -1);
     
-    if ($grade < 0 || $grade > 5) {
-        throw new InvalidArgumentException('Grade must be between K (0) and 5');
+    if ($grade < 0 || $grade > 6) {
+        throw new InvalidArgumentException('Grade must be between K (0) and 6');
     }
     
     $ctx = UserContext::getLoggedInUserContext();

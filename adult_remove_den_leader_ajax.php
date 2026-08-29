@@ -23,10 +23,6 @@ try {
         throw new InvalidArgumentException('Invalid adult ID');
     }
     
-    if ($grade < 0 || $grade > 5) {
-        throw new InvalidArgumentException('Grade must be between K (0) and 5');
-    }
-    
     $ctx = UserContext::getLoggedInUserContext();
     
     // Remove the den leader position

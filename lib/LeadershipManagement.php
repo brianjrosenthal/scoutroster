@@ -257,8 +257,8 @@ class LeadershipManagement {
     public static function assignDenLeader(?UserContext $ctx, int $adultId, int $grade): void {
         self::assertCanManagePositions($ctx, $adultId);
 
-        if ($grade < 0 || $grade > 5) {
-            throw new InvalidArgumentException('Grade must be between K (0) and 5');
+        if ($grade < 0 || $grade > 6) {
+            throw new InvalidArgumentException('Grade must be between K (0) and 6');
         }
 
         // Convert grade to class_of
@@ -293,8 +293,8 @@ class LeadershipManagement {
     public static function removeDenLeader(?UserContext $ctx, int $adultId, int $grade): void {
         self::assertCanManagePositions($ctx, $adultId);
 
-        if ($grade < 0 || $grade > 5) {
-            throw new InvalidArgumentException('Grade must be between K (0) and 5');
+        if ($grade < 0 || $grade > 6) {
+            throw new InvalidArgumentException('Grade must be between K (0) and 6');
         }
 
         // Convert grade to class_of
