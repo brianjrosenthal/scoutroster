@@ -17,40 +17,14 @@ $eventId = (int)($_POST['event_id'] ?? 0);
 $roleId  = (int)($_POST['role_id'] ?? 0);
 $comment = isset($_POST['comment']) ? trim((string)$_POST['comment']) : null;
 $isAjax = !empty($_POST['ajax']);
+// Where to send the user after a non-AJAX action: the event page (default) or the volunteer page.
+$returnTo = (($_POST['return_to'] ?? '') === 'volunteer') ? 'volunteer' : 'event';
 
 // Determine acting user
 $actingUserId = 0;
 $redirectUrl = '/event.php?id=' . $eventId; // default
 
-// Invite HMAC helpers (copied from event_invite.php)
-if (!function_exists('b64url_encode')) {
-  function b64url_encode(string $bin): string {
-    return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
-  }
-}
-if (!function_exists('b64url_decode')) {
-  function b64url_decode(string $str): string {
-    $pad = strlen($str) % 4;
-    if ($pad > 0) $str .= str_repeat('=', 4 - $pad);
-    return base64_decode(strtr($str, '-_', '+/')) ?: '';
-  }
-}
-if (!function_exists('invite_signature')) {
-  function invite_signature(int $uid, int $eventId): string {
-    if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') return '';
-    $payload = $uid . ':' . $eventId;
-    return b64url_encode(hash_hmac('sha256', $payload, INVITE_HMAC_KEY, true));
-  }
-}
-if (!function_exists('validate_invite_sig')) {
-  function validate_invite_sig(int $uid, int $eventId, string $sig): ?string {
-    if (!defined('INVITE_HMAC_KEY') || INVITE_HMAC_KEY === '') return 'Invite system not configured.';
-    if ($uid <= 0 || $eventId <= 0 || $sig === '') return 'Invalid link';
-    $expected = invite_signature($uid, $eventId);
-    if (!hash_equals($expected, $sig)) return 'Invalid link';
-    return null;
-  }
-}
+require_once __DIR__ . '/lib/InviteAuth.php';
 
 // Check for invite flow params
 $inviteUid = isset($_POST['uid']) ? (int)$_POST['uid'] : 0;
@@ -62,10 +36,10 @@ if ($inviteUid > 0 && $inviteSig !== '') {
   if ($me && (int)$me['id'] !== (int)$inviteUid) {
     // Prioritize the logged-in user over the email token
     $actingUserId = (int)$me['id'];
-    $redirectUrl = '/event.php?id='.(int)$eventId;
+    $redirectUrl = $returnTo === 'volunteer' ? InviteAuth::volunteerPageUrl((int)$eventId) : '/event.php?id='.(int)$eventId;
   } else {
     // Validate HMAC
-    $err = validate_invite_sig($inviteUid, $eventId, $inviteSig);
+    $err = InviteAuth::validate($inviteUid, $eventId, $inviteSig);
     if ($err !== null) {
       // Fallback to logged-in flow on invalid signature
       if (!$me) {
@@ -95,32 +69,22 @@ if ($inviteUid > 0 && $inviteSig !== '') {
         header('Location: '.$redirectUrl);
         exit;
       }
-      try {
-        $tz = new DateTimeZone(Settings::timezoneId());
-        if (!empty($ev['ends_at'])) {
-          $endRef = new DateTime($ev['ends_at'], $tz);
-        } else {
-          $endRef = new DateTime($ev['starts_at'], $tz);
-          $endRef->modify('+1 hour');
-        }
-        $nowTz = new DateTime('now', $tz);
-        if ($nowTz >= $endRef) {
-          // For AJAX, return JSON error; otherwise redirect
-          if ($isAjax) {
-            header('Content-Type: application/json');
-            echo json_encode(['ok' => false, 'error' => 'This event has ended.']);
-            exit;
-          }
-          $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
-          header('Location: '.$redirectUrl);
+      if (InviteAuth::eventHasEnded($ev)) {
+        // For AJAX, return JSON error; otherwise redirect
+        if ($isAjax) {
+          header('Content-Type: application/json');
+          echo json_encode(['ok' => false, 'error' => 'This event has ended.']);
           exit;
         }
-      } catch (Throwable $e) {
-        // If parsing fails, proceed
+        $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig).'&volunteer_error='.rawurlencode('This event has ended.');
+        header('Location: '.$redirectUrl);
+        exit;
       }
 
       $actingUserId = (int)$inviteUid;
-      $redirectUrl = '/event_invite.php?uid='.(int)$inviteUid.'&event_id='.(int)$eventId.'&sig='.rawurlencode($inviteSig);
+      $redirectUrl = $returnTo === 'volunteer'
+        ? InviteAuth::volunteerPageUrl((int)$eventId, (int)$inviteUid, $inviteSig)
+        : InviteAuth::inviteUrl((int)$inviteUid, (int)$eventId, $inviteSig);
     }
   }
 } else {
@@ -128,7 +92,7 @@ if ($inviteUid > 0 && $inviteSig !== '') {
   require_login();
   $me = current_user();
   $actingUserId = (int)$me['id'];
-  $redirectUrl = '/event.php?id='.(int)$eventId;
+  $redirectUrl = $returnTo === 'volunteer' ? InviteAuth::volunteerPageUrl((int)$eventId) : '/event.php?id='.(int)$eventId;
 }
 
 if ($eventId <= 0 || $roleId <= 0 || $actingUserId <= 0) {

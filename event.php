@@ -22,6 +22,12 @@ if ($id <= 0) { http_response_code(400); exit('Missing id'); }
 /* Load event */
 $e = EventManagement::findById($id);
 if (!$e) { http_response_code(404); exit('Event not found'); }
+
+// Legacy: the post-RSVP volunteer prompt used to be a modal opened by vol=1; it is now its own page.
+if (!empty($_GET['vol'])) {
+  header('Location: /event_volunteer.php?event_id=' . (int)$id . (!empty($_GET['rsvp']) ? '&rsvp=1' : ''));
+  exit;
+}
 $allowPublic = ((int)($e['allow_non_user_rsvp'] ?? 1) === 1);
 $rsvpUrl = trim((string)($e['rsvp_url'] ?? ''));
 $rsvpLabel = trim((string)($e['rsvp_url_label'] ?? ''));
@@ -96,8 +102,6 @@ $maybeGuestsTotal = RSVPManagement::sumGuestsByAnswer((int)$id, 'maybe');
 // Volunteers
 $roles = Volunteers::rolesWithCounts((int)$id);
 $hasYes = ($myRsvp && strtolower((string)($myRsvp['answer'] ?? '')) === 'yes');
-$openVolunteerRoles = Volunteers::openRolesExist((int)$id);
-$showVolunteerModal = $hasYes && $openVolunteerRoles && !empty($_GET['vol']);
 
 // Build "Add to Google Calendar" link (same fields as the ICS export)
 $gcalTzId = Settings::timezoneId();
@@ -455,13 +459,6 @@ if ($rsvpUrl === '' && $hasYes) {
         const role = rolesData.find(r => r.id == roleId);
         if (!role) return false;
         
-        // Hide the volunteer modal if it's open
-        const volModal = document.getElementById('volunteerModal');
-        if (volModal && !volModal.classList.contains('hidden')) {
-          volModal.classList.add('hidden');
-          volModal.setAttribute('aria-hidden', 'true');
-        }
-        
         if (signupRoleId) signupRoleId.value = roleId;
         if (signupRoleTitle) signupRoleTitle.textContent = role.title;
         if (signupRoleDescription) {
@@ -486,9 +483,6 @@ if ($rsvpUrl === '' && $hasYes) {
         const form = btn.closest('form');
         if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
         if (!form.querySelector('input[name="action"][value="signup"]')) return;
-        
-        // Skip if this is in the volunteer modal (handled separately)
-        if (form.closest('#volunteerModal')) return;
         
         e.preventDefault();
         e.stopPropagation();
@@ -676,10 +670,6 @@ if ($rsvpUrl === '' && $hasYes) {
       if (editModal) editModal.addEventListener('click', function(e){ if (e.target === editModal) closeEditModal(); });
     })();
   </script>
-<?php endif; ?>
-
-<?php if ($hasYes && $openVolunteerRoles): ?>
-  <?= EventUIManager::renderVolunteerModal($roles, (int)$me['id'], (int)$e['id'], $showVolunteerModal) ?>
 <?php endif; ?>
 
 <?php if ($rsvpUrl === '' && $isAdmin): ?>

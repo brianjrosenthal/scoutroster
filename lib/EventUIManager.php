@@ -1541,26 +1541,31 @@ class EventUIManager {
     }
     
     /**
-     * Render the volunteer prompt modal for event pages
-     * 
-     * @param array $roles Array of volunteer roles with counts
-     * @param int $actingUserId The current user's ID
+     * Render the full volunteer role list for the post-RSVP volunteer page (event_volunteer.php).
+     *
+     * Plain form posts to /volunteer_actions.php with return_to=volunteer so the user
+     * lands back on the volunteer page with a flash message. No JS required.
+     *
+     * @param array $roles Array of volunteer roles with counts (Volunteers::rolesWithCounts)
+     * @param int $actingUserId The acting user's ID
      * @param int $eventId The event ID
-     * @param bool $showModal Whether to show the modal on page load
      * @param int|null $inviteUid Optional invite user ID for email token auth
      * @param string|null $inviteSig Optional invite signature for email token auth
-     * @return string HTML content for volunteer modal
+     * @return string HTML
      */
-    public static function renderVolunteerModal(array $roles, int $actingUserId, int $eventId, bool $showModal = false, ?int $inviteUid = null, ?string $inviteSig = null): string {
+    public static function renderVolunteerRoleList(array $roles, int $actingUserId, int $eventId, ?int $inviteUid = null, ?string $inviteSig = null): string {
         require_once __DIR__ . '/Text.php';
-        
-        $html = '<!-- Volunteer prompt modal -->';
-        $html .= '<div id="volunteerModal" class="modal hidden" aria-hidden="true" role="dialog" aria-modal="true">';
-        $html .= '<div class="modal-content">';
-        $html .= '<button class="close" type="button" id="volunteerModalClose" aria-label="Close">&times;</button>';
-        $html .= '<h3>Volunteer to help at this event?</h3>';
-        $html .= '<div id="volRoles" class="stack">';
-        
+
+        $hiddenCommon = '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">'
+            . '<input type="hidden" name="event_id" value="' . (int)$eventId . '">'
+            . '<input type="hidden" name="return_to" value="volunteer">';
+        if ($inviteUid !== null && $inviteSig !== null) {
+            $hiddenCommon .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
+            $hiddenCommon .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
+        }
+
+        $html = '<div class="volunteers" id="volunteerRoleList">';
+
         foreach ($roles as $r) {
             $amIn = false;
             foreach ($r['volunteers'] as $v) {
@@ -1569,14 +1574,14 @@ class EventUIManager {
                     break;
                 }
             }
-            
-            $html .= '<div class="role" style="margin-bottom:14px;">';
-            
+            $isOpen = !empty($r['is_unlimited']) || (int)$r['open_count'] > 0;
+
+            $html .= '<div class="role" style="margin-bottom:12px;">';
+
             // Title line with sign-up button on the right
-            $html .= '<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">';
+            $html .= '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">';
             $html .= '<div>';
             $html .= '<strong>' . h($r['title']) . '</strong> ';
-            
             if (!empty($r['is_unlimited'])) {
                 $html .= '<span class="remaining">(no limit)</span>';
             } elseif ((int)$r['open_count'] > 0) {
@@ -1584,252 +1589,52 @@ class EventUIManager {
             } else {
                 $html .= '<span class="filled">Filled</span>';
             }
-            
             $html .= '</div>';
-            
-            // Add sign-up button
-            if (!$amIn) {
-                $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">';
-                $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
-                $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
+
+            if (!$amIn && $isOpen) {
+                $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="margin:0;">';
+                $html .= $hiddenCommon;
                 $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
-                
-                // Add invite auth params if present
-                if ($inviteUid !== null && $inviteSig !== null) {
-                    $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
-                    $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
-                }
-                
-                if (!empty($r['is_unlimited']) || (int)$r['open_count'] > 0) {
-                    $html .= '<input type="hidden" name="action" value="signup">';
-                    $html .= '<button class="button primary" style="white-space: nowrap;">Sign up</button>';
-                } else {
-                    $html .= '<button class="button" disabled style="white-space: nowrap;">Filled</button>';
-                }
-                
+                $html .= '<input type="hidden" name="action" value="signup">';
+                $html .= '<button class="button primary" style="white-space:nowrap;">Sign up</button>';
                 $html .= '</form>';
             }
-            
             $html .= '</div>';
-            
-            // Render description with markdown
+
             if (trim((string)($r['description'] ?? '')) !== '') {
                 $html .= '<div style="margin-top:4px;">' . Text::renderMarkup((string)$r['description']) . '</div>';
             }
-            
-            // Render volunteers list
+
             if (!empty($r['volunteers'])) {
                 $html .= '<ul style="margin:6px 0 0 16px;">';
                 foreach ($r['volunteers'] as $v) {
                     $html .= '<li>';
                     $html .= h($v['name']);
-                    
                     if (!empty($v['comment'])) {
                         $html .= '<span class="small" style="font-style:italic;"> "' . h($v['comment']) . '"</span>';
                     }
-                    
                     if ((int)($v['user_id'] ?? 0) === (int)$actingUserId) {
-                        $html .= '<form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">';
-                        $html .= '<input type="hidden" name="csrf" value="' . h(csrf_token()) . '">';
-                        $html .= '<input type="hidden" name="event_id" value="' . (int)$eventId . '">';
+                        $html .= ' <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">';
+                        $html .= $hiddenCommon;
                         $html .= '<input type="hidden" name="role_id" value="' . (int)$r['id'] . '">';
                         $html .= '<input type="hidden" name="action" value="remove">';
-                        
-                        // Add invite auth params if present
-                        if ($inviteUid !== null && $inviteSig !== null) {
-                            $html .= '<input type="hidden" name="uid" value="' . (int)$inviteUid . '">';
-                            $html .= '<input type="hidden" name="sig" value="' . h($inviteSig) . '">';
-                        }
-                        
-                        $html .= '<a href="#" class="small" onclick="this.closest(\'form\').requestSubmit(); return false;">(remove)</a>';
+                        $html .= '<button type="submit" class="small" style="background:none;border:0;padding:0;color:#2563eb;text-decoration:underline;cursor:pointer;">(remove)</button>';
                         $html .= '</form>';
                     }
-                    
                     $html .= '</li>';
                 }
                 $html .= '</ul>';
             } else {
                 $html .= '<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>';
             }
-            
+
             $html .= '</div>';
         }
-        
-        $html .= '</div>'; // close volRoles
-        
-        $html .= '<div class="actions" style="margin-top:10px;">';
-        $html .= '<button class="button" id="volunteerMaybeLater">Return to Event</button>';
+
         $html .= '</div>';
-        
-        $html .= '</div>'; // close modal-content
-        $html .= '</div>'; // close modal
-        
-        // Add JavaScript for modal functionality
-        $html .= self::renderVolunteerModalScript($actingUserId, $eventId, $showModal, $inviteUid, $inviteSig);
-        
         return $html;
     }
-    
-    /**
-     * Render the JavaScript for the volunteer modal
-     * 
-     * @param int $actingUserId The current user's ID
-     * @param int $eventId The event ID
-     * @param bool $showModal Whether to show the modal on page load
-     * @param int|null $inviteUid Optional invite user ID for email token auth
-     * @param string|null $inviteSig Optional invite signature for email token auth
-     * @return string JavaScript code for volunteer modal
-     */
-    private static function renderVolunteerModalScript(int $actingUserId, int $eventId, bool $showModal, ?int $inviteUid, ?string $inviteSig): string {
-        $sigJs = $inviteSig !== null ? json_encode($inviteSig) : 'null';
-        
-        $script = '<script>' . "\n";
-        $script .= '(function(){' . "\n";
-        $script .= 'const modal = document.getElementById("volunteerModal");' . "\n";
-        $script .= 'const closeBtn = document.getElementById("volunteerModalClose");' . "\n";
-        $script .= 'const laterBtn = document.getElementById("volunteerMaybeLater");' . "\n";
-        $script .= 'const openModal = () => { if (modal) { modal.classList.remove("hidden"); modal.setAttribute("aria-hidden","false"); } };' . "\n";
-        $script .= 'const closeModal = () => { if (modal) { modal.classList.add("hidden"); modal.setAttribute("aria-hidden","true"); } };' . "\n";
-        $script .= 'if (closeBtn) closeBtn.addEventListener("click", closeModal);' . "\n";
-        $script .= 'if (laterBtn) laterBtn.addEventListener("click", function(e){ e.preventDefault(); closeModal(); ' . "\n";
-        
-        // For invite flow, redirect to clean URL
-        if ($inviteUid !== null && $inviteSig !== null) {
-            $script .= 'const cleanUrl = "/event_invite.php?uid=' . (int)$inviteUid . '&event_id=' . (int)$eventId . '&sig=" + encodeURIComponent(' . json_encode($inviteSig) . ');' . "\n";
-            $script .= 'window.location.href = cleanUrl;' . "\n";
-        }
-        
-        $script .= '});' . "\n";
-        $script .= 'document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeModal(); });' . "\n";
-        
-        if ($showModal) {
-            $script .= 'openModal();' . "\n";
-        }
-        
-        $script .= 'const rolesWrap = document.getElementById("volRoles");' . "\n";
-        $script .= 'function esc(s) {' . "\n";
-        $script .= 'return String(s).replace(/[&<>"\']/g, function(c){' . "\n";
-        $script .= 'return {"&":"&amp;","<":"&lt;",">":"&gt;","\\"":"&quot;","\'":"&#39;"}[c];' . "\n";
-        $script .= '});' . "\n";
-        $script .= '}' . "\n";
-        
-        $script .= 'function renderRoles(json) {' . "\n";
-        $script .= 'if (!rolesWrap) return;' . "\n";
-        $script .= 'var roles = json.roles || [];' . "\n";
-        $script .= 'var uid = parseInt(json.user_id, 10);' . "\n";
-        $script .= 'var html = "";' . "\n";
-        $script .= 'for (var i=0;i<roles.length;i++) {' . "\n";
-        $script .= 'var r = roles[i] || {};' . "\n";
-        $script .= 'var volunteers = r.volunteers || [];' . "\n";
-        $script .= 'var signed = false;' . "\n";
-        $script .= 'for (var j=0;j<volunteers.length;j++) {' . "\n";
-        $script .= 'var v = volunteers[j] || {};' . "\n";
-        $script .= 'if (parseInt(v.user_id, 10) === uid) { signed = true; break; }' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'var open = parseInt(r.open_count, 10) || 0;' . "\n";
-        $script .= 'var unlimited = !!r.is_unlimited;' . "\n";
-        $script .= 'html += \'<div class="role" style="margin-bottom:14px;">\';' . "\n";
-        $script .= 'html += \'<div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">\';' . "\n";
-        $script .= 'html += \'<div>\';' . "\n";
-        $script .= 'html += \'<strong>\'+esc(r.title||\'\')+\'</strong> \';' . "\n";
-        $script .= 'html += (unlimited ? \'<span class="remaining">(no limit)</span>\' : (open > 0 ? \'<span class="remaining">(\'+open+\' people still needed)</span>\' : \'<span class="filled">Filled</span>\'));' . "\n";
-        $script .= 'html += \'</div>\';' . "\n";
-        $script .= 'if (!signed) {' . "\n";
-        $script .= 'html += \'<form method="post" action="/volunteer_actions.php" class="inline" style="margin: 0;">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="csrf" value="\'+esc(json.csrf)+\'">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="event_id" value="\'+esc(json.event_id)+\'">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="role_id" value="\'+esc(r.id)+\'">\';' . "\n";
-        
-        if ($inviteUid !== null && $inviteSig !== null) {
-            $script .= 'html += \'<input type="hidden" name="uid" value="' . (int)$inviteUid . '">\';' . "\n";
-            $script .= 'html += \'<input type="hidden" name="sig" value="\'+esc(' . $sigJs . ')+\'">\';' . "\n";
-        }
-        
-        $script .= 'if (unlimited || open > 0) {' . "\n";
-        $script .= 'html += \'<input type="hidden" name="action" value="signup">\';' . "\n";
-        $script .= 'html += \'<button class="button primary" style="white-space: nowrap;">Sign up</button>\';' . "\n";
-        $script .= '} else {' . "\n";
-        $script .= 'html += \'<button class="button" disabled style="white-space: nowrap;">Filled</button>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'html += \'</form>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'html += \'</div>\';' . "\n";
-        $script .= 'if (r.description_html) {' . "\n";
-        $script .= 'html += \'<div style="margin-top:4px;">\'+r.description_html+\'</div>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'if (volunteers.length > 0) {' . "\n";
-        $script .= 'html += \'<ul style="margin:6px 0 0 16px;">\';' . "\n";
-        $script .= 'for (var k=0;k<volunteers.length;k++) {' . "\n";
-        $script .= 'var vn = volunteers[k] || {};' . "\n";
-        $script .= 'var isMe = parseInt(vn.user_id, 10) === uid;' . "\n";
-        $script .= 'html += \'<li>\'+esc(vn.name||\'\');' . "\n";
-        $script .= 'if (isMe) {' . "\n";
-        $script .= 'html += \' <form method="post" action="/volunteer_actions.php" class="inline" style="display:inline;">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="csrf" value="\'+esc(json.csrf)+\'">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="event_id" value="\'+esc(json.event_id)+\'">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="role_id" value="\'+esc(r.id)+\'">\';' . "\n";
-        $script .= 'html += \'<input type="hidden" name="action" value="remove">\';' . "\n";
-        
-        if ($inviteUid !== null && $inviteSig !== null) {
-            $script .= 'html += \'<input type="hidden" name="uid" value="' . (int)$inviteUid . '">\';' . "\n";
-            $script .= 'html += \'<input type="hidden" name="sig" value="\'+esc(' . $sigJs . ')+\'">\';' . "\n";
-        }
-        
-        $script .= 'html += \'<a href="#" class="small" onclick="this.closest(\\\'form\\\').requestSubmit(); return false;">(remove)</a>\';' . "\n";
-        $script .= 'html += \'</form>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'html += \'</li>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'html += \'</ul>\';' . "\n";
-        $script .= '} else {' . "\n";
-        $script .= 'html += \'<ul style="margin:6px 0 0 16px;"><li>No one yet.</li></ul>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'html += \'</div>\';' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'rolesWrap.innerHTML = html;' . "\n";
-        $script .= '}' . "\n";
-        
-        $script .= 'function showError(msg) {' . "\n";
-        $script .= 'if (!rolesWrap) return;' . "\n";
-        $script .= 'const p = document.createElement("p");' . "\n";
-        $script .= 'p.className = "error small";' . "\n";
-        $script .= 'p.textContent = msg || "Action failed.";' . "\n";
-        $script .= 'rolesWrap.insertBefore(p, rolesWrap.firstChild);' . "\n";
-        $script .= '}' . "\n";
-        
-        $script .= 'if (modal) {' . "\n";
-        $script .= 'modal.addEventListener("submit", function(e){' . "\n";
-        $script .= 'const form = e.target.closest("form");' . "\n";
-        $script .= 'if (!form || form.getAttribute("action") !== "/volunteer_actions.php") return;' . "\n";
-        $script .= 'const action = form.querySelector("input[name=\\"action\\"]");' . "\n";
-        $script .= 'if (action && action.value === "signup") {' . "\n";
-        $script .= 'e.preventDefault();' . "\n";
-        $script .= 'const roleId = form.querySelector("input[name=\\"role_id\\"]").value;' . "\n";
-        $script .= 'if (window.showVolunteerSignupConfirmation) {' . "\n";
-        $script .= 'window.showVolunteerSignupConfirmation(roleId);' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'return;' . "\n";
-        $script .= '}' . "\n";
-        $script .= 'e.preventDefault();' . "\n";
-        $script .= 'const fd = new FormData(form);' . "\n";
-        $script .= 'fd.set("ajax","1");' . "\n";
-        $script .= 'fetch("/volunteer_actions.php", { method:"POST", body: fd, credentials:"same-origin" })' . "\n";
-        $script .= '.then(function(res){ return res.json(); })' . "\n";
-        $script .= '.then(function(json){' . "\n";
-        $script .= 'if (json && json.ok) { renderRoles(json); }' . "\n";
-        $script .= 'else { showError((json && json.error) ? json.error : "Action failed."); }' . "\n";
-        $script .= '})' . "\n";
-        $script .= '.catch(function(){ showError("Network error."); });' . "\n";
-        $script .= '});' . "\n";
-        $script .= '}' . "\n";
-        
-        $script .= 'if (modal) modal.addEventListener("click", function(e){ if (e.target === modal) closeModal(); });' . "\n";
-        $script .= '})();' . "\n";
-        $script .= '</script>';
-        
-        return $script;
-    }
-    
+
     /**
      * Generate formatted event details text for email
      * 

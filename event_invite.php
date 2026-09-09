@@ -94,6 +94,12 @@ try {
   // If parsing fails, allow but it's unlikely
 }
 
+// Legacy links: the volunteer prompt used to be a modal opened by the "vol" param; it is now its own page.
+if (!empty($_GET['vol'])) {
+  header('Location: /event_volunteer.php?event_id=' . (int)$eventId . '&uid=' . (int)$uid . '&sig=' . rawurlencode($sig));
+  exit;
+}
+
  // Load target adult (invitee)
 $invitee = UserManagement::findFullById((int)$uid);
 if (!$invitee) {
@@ -191,9 +197,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     RSVPManagement::setFamilyRSVP(null, (int)$uid, (int)$eventId, (string)$answer, (array)$adults, (array)$youths, ($comments !== '' ? $comments : null), (int)$nGuests);
     $saved = true;
     
-    // Redirect with volunteer modal trigger if appropriate
+    // Prompt to volunteer on the dedicated page if appropriate (email-token auth carries over)
     if (strtolower((string)$answer) === 'yes' && Volunteers::openRolesExist((int)$eventId)) {
-      $redirectUrl = '/event_invite.php?uid=' . (int)$uid . '&event_id=' . (int)$eventId . '&sig=' . urlencode($sig) . '&vol=1';
+      $redirectUrl = '/event_volunteer.php?event_id=' . (int)$eventId . '&uid=' . (int)$uid . '&sig=' . rawurlencode($sig) . '&rsvp=1';
       header('Location: ' . $redirectUrl);
       exit;
     }
@@ -218,11 +224,9 @@ $publicMaybe = RsvpsLoggedOutManagement::listByAnswer((int)$eventId, 'maybe');
 
 /* Volunteer variables for invite flow */
 $roles = Volunteers::rolesWithCounts((int)$eventId);
-$openVolunteerRoles = Volunteers::openRolesExist((int)$eventId);
 $_invAns = RSVPManagement::getAnswerForCreator((int)$eventId, (int)$uid);
 $inviteeHasYes = ($_invAns === 'yes');
 $lastAnswerYes = isset($answer) ? (strtolower((string)$answer) === 'yes') : false;
-$showVolunteerModal = ($inviteeHasYes && $openVolunteerRoles && !empty($_GET['vol']));
 
 header_html('Event Invite');
 ?>
@@ -445,10 +449,6 @@ if (empty($roles)) {
 }
 ?>
 
-<?php if ($openVolunteerRoles && $inviteeHasYes): ?>
-  <?= EventUIManager::renderVolunteerModal($roles, (int)$uid, (int)$eventId, $showVolunteerModal, (int)$uid, $sig) ?>
-<?php endif; ?>
-
 <?php endif; ?>
 
 <?php if ($inviteeHasYes): ?>
@@ -528,13 +528,6 @@ if (empty($roles)) {
     const role = rolesData.find(r => r.id == roleId);
     if (!role) return false;
     
-    // Hide the volunteer modal if it's open
-    const volModal = document.getElementById('volunteerModal');
-    if (volModal && !volModal.classList.contains('hidden')) {
-      volModal.classList.add('hidden');
-      volModal.setAttribute('aria-hidden', 'true');
-    }
-    
     if (signupRoleId) signupRoleId.value = roleId;
     if (signupRoleTitle) signupRoleTitle.textContent = role.title;
     if (signupRoleDescription) {
@@ -609,9 +602,6 @@ if (empty($roles)) {
     if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
     if (!form.querySelector('input[name="action"][value="remove"]')) return;
     
-    // Skip if this is in the volunteer modal (handled separately)
-    if (form.closest('#volunteerModal')) return;
-    
     e.preventDefault();
     e.stopPropagation();
     
@@ -653,9 +643,6 @@ if (empty($roles)) {
     const form = btn.closest('form');
     if (!form || form.getAttribute('action') !== '/volunteer_actions.php') return;
     if (!form.querySelector('input[name="action"][value="signup"]')) return;
-    
-    // Skip if this is in the volunteer modal (handled separately)
-    if (form.closest('#volunteerModal')) return;
     
     e.preventDefault();
     e.stopPropagation();

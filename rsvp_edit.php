@@ -114,8 +114,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       }
       
       // For all other cases (editing existing Yes, or non-Yes answers), redirect to event page
-      $vol = (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) ? '&vol=1' : '';
-      header('Location: /event.php?id='.$eventId.'&rsvp=1'.$vol); exit;
+      if (strtolower($answer) === 'yes' && Volunteers::openRolesExist($eventId)) {
+        // Prompt to volunteer on a dedicated page (long role lists scroll normally there)
+        header('Location: /event_volunteer.php?event_id='.$eventId.'&rsvp=1'); exit;
+      }
+      header('Location: /event.php?id='.$eventId.'&rsvp=1'); exit;
     } catch (Throwable $e) {
       $error = 'Failed to save RSVP.';
     }
