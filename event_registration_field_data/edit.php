@@ -136,6 +136,9 @@ header_html($pageTitle);
   <form method="post" action="/event_registration_field_data/edit_eval.php" class="stack">
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+    <?php if (!$isAdminMode): ?>
+      <input type="hidden" name="from_rsvp" value="1">
+    <?php endif; ?>
     
     <?php foreach ($participants as $participant): ?>
       <?php

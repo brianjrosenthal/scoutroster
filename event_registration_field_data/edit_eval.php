@@ -4,6 +4,7 @@ require_once __DIR__ . '/../lib/EventManagement.php';
 require_once __DIR__ . '/../lib/EventRegistrationFieldDefinitionManagement.php';
 require_once __DIR__ . '/../lib/EventRegistrationFieldDataManagement.php';
 require_once __DIR__ . '/../lib/ParentRelationships.php';
+require_once __DIR__ . '/../lib/Volunteers.php';
 require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -160,7 +161,14 @@ try {
     );
   }
   
-  // Success - redirect back to event page
+  // Success - if this was the user's own post-RSVP flow and there are open volunteer roles,
+  // continue to the volunteer sign-up page; otherwise return to the event page.
+  if (!empty($_POST['from_rsvp'])
+      && Volunteers::userHasYesRsvp($eventId, (int)$me['id'])
+      && Volunteers::openRolesExist($eventId)) {
+    header('Location: /event_volunteer.php?event_id=' . $eventId . '&rsvp=1');
+    exit;
+  }
   header('Location: /event.php?id=' . $eventId . '&msg=' . urlencode('Registration data saved successfully.'));
   exit;
   
