@@ -129,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'grade_label' => (string)($c['grade_label'] ?? ''),
                 'school' => trim((string)($c['school'] ?? '')),
                 'sibling' => !empty($c['sibling']) ? 1 : 0,
+                'older_scout' => !empty($c['older_scout']) ? 1 : 0,
               ];
               if ($data['first_name'] !== '' && $data['last_name'] !== '' && $data['grade_label'] !== '') {
                 $newYid = \YouthManagement::create($ctx, $data);

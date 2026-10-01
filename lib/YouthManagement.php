@@ -312,22 +312,24 @@ class YouthManagement {
     $state   = self::nn($data['state'] ?? null);
     $zip     = self::nn($data['zip'] ?? null);
     $sibling = self::boolInt($data['sibling'] ?? 0);
+    $olderScout = self::boolInt($data['older_scout'] ?? 0);
     $suffix  = self::nn($data['suffix'] ?? null);
 
-    // Enforce: grades outside K–5 (i.e., Pre-K or 6–12) require sibling=true
-    if ($grade < 0 || $grade > 5) {
-      if ($sibling !== 1) {
-        throw new InvalidArgumentException('You can only add Pre-K or grades 6–12 if the youth is marked as a sibling.');
-      }
+    // Enforce: Pre-K requires sibling; grades 6–12 require sibling OR older scout
+    if ($grade < 0 && $sibling !== 1) {
+      throw new InvalidArgumentException('You can only add a Pre-K youth if they are marked as a sibling.');
+    }
+    if ($grade > 5 && $sibling !== 1 && $olderScout !== 1) {
+      throw new InvalidArgumentException('You can only add grades 6–12 if the youth is marked as a sibling or an older scout.');
     }
 
     $st = self::pdo()->prepare("INSERT INTO youth
       (first_name,last_name,suffix,preferred_name,gender,birthdate,school,shirt_size,bsa_registration_number,
-       street1,street2,city,state,zip,class_of,sibling)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+       street1,street2,city,state,zip,class_of,sibling,older_scout)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
     $ok = $st->execute([
       $first, $last, $suffix, $preferred_name, $gender, $birthdate, $school, $shirt_size, $bsa,
-      $street1, $street2, $city, $state, $zip, $class_of, $sibling
+      $street1, $street2, $city, $state, $zip, $class_of, $sibling, $olderScout
     ]);
     if (!$ok) throw new RuntimeException('Failed to create youth.');
     $newId = (int)self::pdo()->lastInsertId();
@@ -372,7 +374,7 @@ class YouthManagement {
       'dietary_nut_allergy','dietary_gluten_free','dietary_other'
     ];
     // Admin-only fields
-    $allowedAdmin = ['bsa_registration_number','grade','grade_label','include_in_most_emails'];
+    $allowedAdmin = ['bsa_registration_number','grade','grade_label','include_in_most_emails','older_scout'];
 
     $isAdmin = $ctx->admin;
 
@@ -422,6 +424,10 @@ class YouthManagement {
         $val = self::boolInt($data['include_in_most_emails'] ?? 0);
         $set[] = "include_in_most_emails = ?";
         $params[] = $val;
+      }
+      if (array_key_exists('older_scout', $data)) {
+        $set[] = "older_scout = ?";
+        $params[] = self::boolInt($data['older_scout'] ?? 0);
       }
       // Grade/class_of recomputation
       if (array_key_exists('grade', $data) || array_key_exists('grade_label', $data)) {
