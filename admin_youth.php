@@ -33,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $bsa = trim($_POST['bsa_registration_number'] ?? '');
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
+  $olderScout = !empty($_POST['older_scout']) ? 1 : 0;
 
   // Registration & Dues (admin/approver controlled)
   $regExpires = trim($_POST['bsa_registration_expires_date'] ?? '');
@@ -106,6 +107,7 @@ if (empty($errors)) {
         'state' => $state,
         'zip' => $zip,
         'sibling' => $sibling,
+        'older_scout' => $olderScout,
       ];
       if ($regExpires !== '') {
         $createData['bsa_registration_expires_date'] = $regExpires;
@@ -422,6 +424,7 @@ header_html('Add Youth');
         <input type="text" name="school" value="<?= h($school ?? '') ?>">
       </label>
       <label class="inline"><input type="checkbox" name="sibling" value="1" <?= !empty($sibling) ? 'checked' : '' ?>> Sibling</label>
+      <label class="inline"><input type="checkbox" name="older_scout" value="1" <?= !empty($olderScout) ? 'checked' : '' ?>> Older Scout <span class="small">(grade 6+, not a sibling)</span></label>
     </div>
 
 

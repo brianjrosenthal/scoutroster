@@ -5,7 +5,7 @@
 //   render_child_modal(['mode' => 'edit'|'add', 'adult_id' => int|null, 'id_prefix' => 'ac']);
 // In mode='edit': submits via AJAX to /adult_relationships.php and redirects to adult_edit.php?id={adult_id}&child_added=1.
 // In mode='add': dispatches CustomEvent('childModal:add', { detail: { item } }) where item is:
-//   - { type: 'new', child: { first_name, last_name, suffix?, preferred_name?, grade_label, school?, sibling: 0|1 }, label: "..."} or
+//   - { type: 'new', child: { first_name, last_name, suffix?, preferred_name?, grade_label, school?, sibling: 0|1, older_scout: 0|1 }, label: "..."} or
 //   - { type: 'link', youth_id: number, label: "Last, First" }
 // Host page should add a button with: data-open-child-modal="{id_prefix}" to open the modal.
 
@@ -69,15 +69,16 @@ if (!function_exists('render_child_modal')) {
               </label>
               <label>Grade
                 <select name="grade" required>
-                  <?php for($i=0;$i<=5;$i++): $lbl = \GradeCalculator::gradeLabel($i); ?>
-                    <option value="<?= h($lbl) ?>"><?= $i===0 ? 'K' : $i ?></option>
-                  <?php endfor; ?>
+                  <?php foreach ([-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12] as $i): $lbl = \GradeCalculator::gradeLabel($i); ?>
+                    <option value="<?= h($lbl) ?>" <?= $i===0 ? 'selected' : '' ?>><?= h($lbl) ?></option>
+                  <?php endforeach; ?>
                 </select>
               </label>
               <label>School
                 <input type="text" name="school">
               </label>
               <label class="inline"><input type="checkbox" name="sibling" value="1"> Sibling</label>
+              <label class="inline"><input type="checkbox" name="older_scout" value="1"> Older Scout <span class="small">(grade 6+, not a sibling)</span></label>
             </div>
             <div class="actions">
               <button class="button primary" type="<?= $mode === 'edit' ? 'submit' : 'button' ?>" 
@@ -143,9 +144,11 @@ if (!function_exists('render_child_modal')) {
           if (inp) inp.value = '';
         }
         var gradeSel = form.querySelector('select[name="grade"]');
-        if (gradeSel) gradeSel.selectedIndex = 0;
+        if (gradeSel) { var kOpt = gradeSel.querySelector('option[value="K"]'); gradeSel.value = kOpt ? 'K' : gradeSel.options[0].value; }
         var sib = form.querySelector('input[name="sibling"]');
         if (sib) sib.checked = false;
+        var older = form.querySelector('input[name="older_scout"]');
+        if (older) older.checked = false;
       }
       function resetLinkForm() {
         var form = FORM_LINK || (MODAL ? MODAL.querySelector('#' + IDP + '_formLink') : null);
@@ -267,6 +270,7 @@ if (!function_exists('render_child_modal')) {
           var grade = (form.querySelector('select[name="grade"]') || {}).value || '';
           var school = (form.querySelector('input[name="school"]') || {}).value || '';
           var sibling = (form.querySelector('input[name="sibling"]') || {}).checked ? 1 : 0;
+          var olderScout = (form.querySelector('input[name="older_scout"]') || {}).checked ? 1 : 0;
 
           if (!first.trim() || !last.trim() || !grade.trim()) {
             showErr('First name, Last name, and Grade are required.');
@@ -280,7 +284,8 @@ if (!function_exists('render_child_modal')) {
             preferred_name: preferred.trim(),
             grade_label: grade.trim(),
             school: school.trim(),
-            sibling: sibling
+            sibling: sibling,
+            older_scout: olderScout
           }, label: label };
           dispatchItem(item);
           try {

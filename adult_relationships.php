@@ -102,6 +102,7 @@ try {
     $gradeLabel = trim((string)($_POST['grade'] ?? ''));
     $school = trim((string)($_POST['school'] ?? ''));
     $sibling = !empty($_POST['sibling']) ? 1 : 0;
+    $olderScout = !empty($_POST['older_scout']) ? 1 : 0;
 
     $errors = [];
     if ($first === '') $errors[] = 'First name is required.';
@@ -126,6 +127,7 @@ try {
         'grade_label' => $gradeLabel,
         'school' => $school,
         'sibling' => $sibling,
+        'older_scout' => $olderScout,
       ];
       // Create youth
       $newYid = YouthManagement::create($ctx, $data);

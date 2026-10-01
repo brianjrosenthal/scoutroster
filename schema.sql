@@ -96,6 +96,7 @@ CREATE TABLE youth (
 
   class_of INT NOT NULL,     -- grade computed from class_of
   sibling TINYINT(1) NOT NULL DEFAULT 0,
+  older_scout TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Older scout (grade 6+) who is a member in their own right, not a sibling',
   left_troop TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Indicates if the youth has left the troop (decided not to continue with scouts)',
   include_in_most_emails TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Include this youth''s family in most email communications (active leads)',
 
