@@ -149,7 +149,8 @@ class EventUIManager {
             
             if ($showCompliance) {
                 $html .= '
-                <a href="/event_compliance.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'compliance' ? ' background-color: #f5f5f5;' : '') . '">Event Compliance</a>';
+                <a href="/event_compliance.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'compliance' ? ' background-color: #f5f5f5;' : '') . '">Event Compliance</a>
+                <a href="/event_grade_breakdown.php?id=' . $eventId . '" style="display: block; padding: 8px 12px; text-decoration: none; color: #333; border-bottom: 1px solid #eee;' . ($currentPage === 'grades' ? ' background-color: #f5f5f5;' : '') . '">Grade Breakdown</a>';
             }
         }
         
