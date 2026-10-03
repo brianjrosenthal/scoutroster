@@ -32,6 +32,13 @@ final class RSVPManagement {
    * 1) Prefer the group created by the user
    * 2) Else any group where the user is included as an adult member
    */
+  /** Flag an RSVP party as not staying overnight (left off the printed camping roster). */
+  public static function setNotStayingOvernight(int $eventId, int $rsvpId, bool $value): bool {
+    $st = self::pdo()->prepare("UPDATE rsvps SET not_staying_overnight = ? WHERE id = ? AND event_id = ?");
+    $st->execute([$value ? 1 : 0, (int)$rsvpId, (int)$eventId]);
+    return $st->rowCount() >= 0;
+  }
+
   public static function findMyRsvpForEvent(int $eventId, int $adultUserId): ?array {
     $eventId = (int)$eventId; $adultUserId = (int)$adultUserId;
     if ($eventId <= 0 || $adultUserId <= 0) return null;

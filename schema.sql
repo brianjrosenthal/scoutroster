@@ -251,6 +251,7 @@ CREATE TABLE rsvps (
   entered_by INT NULL,
   comments TEXT DEFAULT NULL,
   n_guests INT DEFAULT 0,
+  not_staying_overnight TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Party is not staying overnight; omitted from the printed camping roster',
   answer ENUM('yes','maybe','no') NOT NULL DEFAULT 'yes',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
