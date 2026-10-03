@@ -32,6 +32,7 @@ CREATE TABLE users (
   -- Scouting info
   bsa_membership_number VARCHAR(50) DEFAULT NULL,
   membership_info_note VARCHAR(255) DEFAULT NULL COMMENT 'Free-text note shown in roster Membership Info (e.g. Parent of ...)',
+  training_note VARCHAR(255) DEFAULT NULL COMMENT 'Free-text note shown in roster Training column (e.g. BALOO)',
   bsa_registration_expires_on DATE DEFAULT NULL,
   safeguarding_training_completed_on DATE DEFAULT NULL,
   safeguarding_training_expires_on DATE DEFAULT NULL,
@@ -84,6 +85,7 @@ CREATE TABLE youth (
 
   bsa_registration_number VARCHAR(50) DEFAULT NULL, -- presence indicates "registered"
   membership_info_note VARCHAR(255) DEFAULT NULL COMMENT 'Free-text note shown in roster Membership Info',
+  training_note VARCHAR(255) DEFAULT NULL COMMENT 'Free-text note shown in roster Training column',
   bsa_registration_expires_date DATE DEFAULT NULL,
   date_paid_until DATE DEFAULT NULL,
   medical_forms_expiration_date DATE DEFAULT NULL,

@@ -8,9 +8,10 @@ require_login();
 
 /**
  * Camping roster for the campsite ranger: everyone attending an event (RSVP "yes"),
- * one line per person. Youth show their grade; Membership Info holds pack positions (adults)
- * and the BSA ID where known. The Training column is left blank to be filled in by hand.
- * RSVP parties flagged not_staying_overnight are listed on screen only, below the table. Guests and public (logged-out)
+ * one line per person. Membership Info holds pack positions (adults)
+ * and the BSA ID where known, plus a free-text note. The Training column shows the person's training note.
+ * RSVP parties flagged not_staying_overnight are listed on screen only, below the table.
+ * Grade is shown on screen for reference but is not printed or exported. Guests and public (logged-out)
  * RSVPs are not listed: there are no names for them and they are usually entered by mistake.
  *
  *   /event_ranger_roster.php?event_id=N              display the roster (admins only)
@@ -33,7 +34,7 @@ $pdo = pdo();
 
 // Adults attending
 $st = $pdo->prepare("
-  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number, u.membership_info_note,
+  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number, u.membership_info_note, u.training_note,
          r.id AS rsvp_id, r.not_staying_overnight
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
@@ -45,7 +46,7 @@ $adults = $st->fetchAll();
 
 // Youth attending
 $st = $pdo->prepare("
-  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.membership_info_note,
+  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.membership_info_note, y.training_note,
          r.id AS rsvp_id, r.not_staying_overnight
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
@@ -64,12 +65,13 @@ foreach ($adults as $a) {
     'last'  => (string)$a['last_name'],
     'first' => (string)$a['first_name'],
     'type'  => 'Adult',
+    'grade' => '',
     'id'    => (int)$a['id'],
     'rsvp_id' => (int)$a['rsvp_id'],
     'hidden' => !empty($a['not_staying_overnight']),
     'bsa'   => trim((string)($a['bsa_membership_number'] ?? '')),
     'note'  => trim((string)($a['membership_info_note'] ?? '')),
-    'grade' => '',
+    'training' => trim((string)($a['training_note'] ?? '')),
     'position' => LeadershipManagement::getAdultPositionString((int)$a['id']),
     'phone' => $phone,
     'sort_type' => 0,
@@ -81,12 +83,13 @@ foreach ($youth as $y) {
     'last'  => (string)$y['last_name'],
     'first' => (string)$y['first_name'],
     'type'  => 'Youth',
+    'grade' => $grade < 0 ? 'Pre-K' : GradeCalculator::gradeLabel($grade),
     'id'    => (int)$y['id'],
     'rsvp_id' => (int)$y['rsvp_id'],
     'hidden' => !empty($y['not_staying_overnight']),
     'bsa'   => trim((string)($y['bsa_registration_number'] ?? '')),
     'note'  => trim((string)($y['membership_info_note'] ?? '')),
-    'grade' => $grade < 0 ? 'Pre-K' : GradeCalculator::gradeLabel($grade),
+    'training' => trim((string)($y['training_note'] ?? '')),
     'position' => '',
     'phone' => '',
     'sort_type' => 1,
@@ -119,8 +122,8 @@ $membershipOf = function (array $r): string {
   if ($r['note'] !== '') $parts[] = $r['note'];
   return implode('; ', $parts);
 };
-$columns = ['Last Name', 'First Name', 'Type', 'Grade', 'Membership Info', 'Phone', 'Training'];
-$cellsOf = fn(array $r) => [$r['last'], $r['first'], $r['type'], $r['grade'], $membershipOf($r), $r['phone'], ''];
+$columns = ['Last Name', 'First Name', 'Type', 'Membership Info', 'Phone', 'Training'];
+$cellsOf = fn(array $r) => [$r['last'], $r['first'], $r['type'], $membershipOf($r), $r['phone'], $r['training']];
 
 /* ---------- CSV download ---------- */
 if ($format === 'csv') {
@@ -154,6 +157,7 @@ header_html('Camping Roster');
   .mi-editor button{padding:4px 8px;font-size:12px}
   .mi-error{color:#7a0000;font-size:12px;margin-top:2px}
   .roster-table th.no-print,.roster-table td.no-print{border-left:1px dashed #cfd2da;background:#fafafa;text-align:center}
+  .roster-table th.screen-only,.roster-table td.screen-only{color:#666;background:#fafafa;white-space:nowrap}
   .linkbtn{background:none;border:0;padding:0;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;white-space:nowrap}
   .not-staying{margin-top:20px;padding-top:12px;border-top:1px dashed #cfd2da}
   .not-staying .roster-table td{color:#666}
@@ -161,7 +165,7 @@ header_html('Camping Roster');
   .roster-dateline{font-size:16px;margin:10px 0 14px}
   .roster-dateline .line{display:inline-block;min-width:260px;border-bottom:1px solid #333;margin-left:6px;vertical-align:bottom}
   @media print {
-    header, .admin-bar, .no-print { display:none !important }
+    header, .admin-bar, .no-print, .screen-only { display:none !important }
     body{background:#fff}
     main{max-width:none;margin:0;padding:0}
     .card{box-shadow:none;border-radius:0;padding:0;margin:0}
@@ -197,7 +201,13 @@ header_html('Camping Roster');
     <div style="overflow-x:auto;">
       <table class="roster-table">
         <thead>
-          <tr><?php foreach ($columns as $c): ?><th><?= h($c) ?></th><?php endforeach; ?><th class="no-print">Overnight?</th></tr>
+          <tr>
+            <?php foreach ($columns as $i => $c): ?>
+              <th><?= h($c) ?></th>
+              <?php if ($i === 2): ?><th class="screen-only" title="Shown on screen only; not printed">Grade</th><?php endif; ?>
+            <?php endforeach; ?>
+            <th class="no-print">Overnight?</th>
+          </tr>
         </thead>
         <tbody>
           <?php foreach ($rows as $r): $cells = $cellsOf($r); ?>
@@ -205,12 +215,15 @@ header_html('Camping Roster');
               <td><?= h($cells[0]) ?></td>
               <td><?= h($cells[1]) ?></td>
               <td class="nowrap"><?= h($cells[2]) ?></td>
-              <td class="nowrap"><?= h($cells[3]) ?></td>
-              <td class="mi-cell" data-type="<?= $r['sort_type'] === 0 ? 'adult' : 'youth' ?>" data-id="<?= (int)$r['id'] ?>" data-base="<?= h(implode('; ', array_filter([$r['position'], $r['bsa'] !== '' ? 'BSA #' . $r['bsa'] : '']))) ?>" data-note="<?= h($r['note']) ?>">
-                <span class="mi-text"><?= h($cells[4]) ?></span><a href="#" class="mi-edit no-print" title="<?= $r['note'] !== '' ? 'Edit membership note' : 'Add membership note' ?>"><?= $r['note'] !== '' ? '&#9998;' : '+' ?></a>
+              <td class="screen-only"><?= h($r['grade']) ?></td>
+              <?php $who = $r['sort_type'] === 0 ? 'adult' : 'youth'; $base = implode('; ', array_filter([$r['position'], $r['bsa'] !== '' ? 'BSA #' . $r['bsa'] : ''])); ?>
+              <td class="mi-cell" data-type="<?= $who ?>" data-id="<?= (int)$r['id'] ?>" data-field="membership_info_note" data-label="membership note" data-placeholder="e.g. Parent of Charlie Rosenthal" data-base="<?= h($base) ?>" data-note="<?= h($r['note']) ?>">
+                <span class="mi-text"><?= h($cells[3]) ?></span><a href="#" class="mi-edit no-print" title="<?= $r['note'] !== '' ? 'Edit membership note' : 'Add membership note' ?>"><?= $r['note'] !== '' ? '&#9998;' : '+' ?></a>
               </td>
-              <td class="nowrap"><?= h($cells[5]) ?></td>
-              <td class="blank"></td>
+              <td class="nowrap"><?= h($cells[4]) ?></td>
+              <td class="mi-cell blank" data-type="<?= $who ?>" data-id="<?= (int)$r['id'] ?>" data-field="training_note" data-label="training note" data-placeholder="e.g. BALOO, YPT" data-base="" data-note="<?= h($r['training']) ?>">
+                <span class="mi-text"><?= h($cells[5]) ?></span><a href="#" class="mi-edit no-print" title="<?= $r['training'] !== '' ? 'Edit training note' : 'Add training note' ?>"><?= $r['training'] !== '' ? '&#9998;' : '+' ?></a>
+              </td>
               <td class="no-print">
                 <form method="post" action="/rsvp_overnight_update.php" class="inline" style="margin:0;">
                   <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -234,7 +247,7 @@ header_html('Camping Roster');
       <div style="overflow-x:auto;">
         <table class="roster-table">
           <thead>
-            <tr><th>Last Name</th><th>First Name</th><th>Type</th><th>Grade</th><th>Membership Info</th><th class="no-print">Overnight?</th></tr>
+            <tr><th>Last Name</th><th>First Name</th><th>Type</th><th class="screen-only">Grade</th><th>Membership Info</th><th class="no-print">Overnight?</th></tr>
           </thead>
           <tbody>
             <?php foreach ($notStaying as $r): $cells = $cellsOf($r); ?>
@@ -242,8 +255,8 @@ header_html('Camping Roster');
                 <td><?= h($cells[0]) ?></td>
                 <td><?= h($cells[1]) ?></td>
                 <td class="nowrap"><?= h($cells[2]) ?></td>
-                <td class="nowrap"><?= h($cells[3]) ?></td>
-                <td><?= h($cells[4]) ?></td>
+                <td class="screen-only"><?= h($r['grade']) ?></td>
+                <td><?= h($cells[3]) ?></td>
                 <td class="no-print">
                   <form method="post" action="/rsvp_overnight_update.php" class="inline" style="margin:0;">
                     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
@@ -261,7 +274,7 @@ header_html('Camping Roster');
     </div>
   <?php endif; ?>
 
-  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + next to Membership Info to add a note such as "Parent of ..." or a BSA #; it is saved to the person's record. "Not staying overnight" moves a whole RSVP party below the table and off the print.</p>
+  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + in Membership Info to add a note such as "Parent of ..." or a BSA #, and the + in Training to record training such as BALOO; both are saved to the person's record. "Not staying overnight" moves a whole RSVP party below the table and off the print.</p>
 </div>
 
 <script>
@@ -272,15 +285,16 @@ header_html('Camping Roster');
     var base = cell.getAttribute('data-base') || '', note = cell.getAttribute('data-note') || '';
     var txt = cell.querySelector('.mi-text'), btn = cell.querySelector('.mi-edit');
     txt.textContent = [base, note].filter(Boolean).join('; ');
+    var label = cell.getAttribute('data-label') || 'note';
     btn.innerHTML = note ? '&#9998;' : '+';
-    btn.title = note ? 'Edit membership note' : 'Add membership note';
+    btn.title = (note ? 'Edit ' : 'Add ') + label;
   }
   function closeEditor(cell){ var ed = cell.querySelector('.mi-editor'); if (ed) ed.remove(); var er = cell.querySelector('.mi-error'); if (er) er.remove(); cell.querySelector('.mi-edit').style.display = ''; }
   function openEditor(cell){
     document.querySelectorAll('.mi-cell .mi-editor').forEach(function(ed){ closeEditor(ed.closest('.mi-cell')); });
     cell.querySelector('.mi-edit').style.display = 'none';
     var ed = document.createElement('div'); ed.className = 'mi-editor no-print';
-    var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 255; inp.placeholder = 'e.g. Parent of Charlie Rosenthal'; inp.value = cell.getAttribute('data-note') || '';
+    var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 255; inp.placeholder = cell.getAttribute('data-placeholder') || ''; inp.value = cell.getAttribute('data-note') || '';
     var save = document.createElement('button'); save.type = 'button'; save.className = 'button primary'; save.textContent = 'Save';
     var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'button'; cancel.textContent = 'Cancel';
     ed.appendChild(inp); ed.appendChild(save); ed.appendChild(cancel); cell.appendChild(ed); inp.focus();
@@ -288,7 +302,7 @@ header_html('Camping Roster');
     inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); save.click(); } if (e.key === 'Escape') { closeEditor(cell); } });
     save.addEventListener('click', function(){
       save.disabled = true;
-      var fd = new FormData(); fd.set('csrf', csrf); fd.set('type', cell.getAttribute('data-type')); fd.set('id', cell.getAttribute('data-id')); fd.set('note', inp.value);
+      var fd = new FormData(); fd.set('csrf', csrf); fd.set('type', cell.getAttribute('data-type')); fd.set('id', cell.getAttribute('data-id')); fd.set('field', cell.getAttribute('data-field') || 'membership_info_note'); fd.set('note', inp.value);
       fetch('/membership_note_update.php', { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function(r){ return r.json(); })
         .then(function(j){
