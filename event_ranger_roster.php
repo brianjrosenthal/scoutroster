@@ -9,7 +9,8 @@ require_login();
 /**
  * Camping roster for the campsite ranger: everyone attending an event (RSVP "yes"),
  * one line per person. Youth show their grade; Membership Info holds pack positions (adults)
- * and the BSA ID where known. The Training column is left blank to be filled in by hand. Guests and public (logged-out)
+ * and the BSA ID where known. The Training column is left blank to be filled in by hand.
+ * RSVP parties flagged not_staying_overnight are listed on screen only, below the table. Guests and public (logged-out)
  * RSVPs are not listed: there are no names for them and they are usually entered by mistake.
  *
  *   /event_ranger_roster.php?event_id=N              display the roster (admins only)
@@ -32,7 +33,8 @@ $pdo = pdo();
 
 // Adults attending
 $st = $pdo->prepare("
-  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number, u.membership_info_note
+  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number, u.membership_info_note,
+         r.id AS rsvp_id, r.not_staying_overnight
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN users u ON u.id = rm.adult_id
@@ -43,7 +45,8 @@ $adults = $st->fetchAll();
 
 // Youth attending
 $st = $pdo->prepare("
-  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.membership_info_note
+  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.membership_info_note,
+         r.id AS rsvp_id, r.not_staying_overnight
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN youth y ON y.id = rm.youth_id
@@ -62,6 +65,8 @@ foreach ($adults as $a) {
     'first' => (string)$a['first_name'],
     'type'  => 'Adult',
     'id'    => (int)$a['id'],
+    'rsvp_id' => (int)$a['rsvp_id'],
+    'hidden' => !empty($a['not_staying_overnight']),
     'bsa'   => trim((string)($a['bsa_membership_number'] ?? '')),
     'note'  => trim((string)($a['membership_info_note'] ?? '')),
     'grade' => '',
@@ -77,6 +82,8 @@ foreach ($youth as $y) {
     'first' => (string)$y['first_name'],
     'type'  => 'Youth',
     'id'    => (int)$y['id'],
+    'rsvp_id' => (int)$y['rsvp_id'],
+    'hidden' => !empty($y['not_staying_overnight']),
     'bsa'   => trim((string)($y['bsa_registration_number'] ?? '')),
     'note'  => trim((string)($y['membership_info_note'] ?? '')),
     'grade' => $grade < 0 ? 'Pre-K' : GradeCalculator::gradeLabel($grade),
@@ -94,8 +101,15 @@ usort($rows, function ($a, $b) {
   return strcasecmp($a['first'], $b['first']);
 });
 
+// Parties flagged "not staying overnight" are kept off the printed roster and CSV,
+// but listed on screen below the table so the flag can be undone.
+$notStaying = array_values(array_filter($rows, fn($r) => $r['hidden']));
+$rows = array_values(array_filter($rows, fn($r) => !$r['hidden']));
+
 // Guests and public RSVPs are intentionally left off: no names, and they are often entered by mistake.
-$summary = count($adults) . ' adult' . (count($adults) === 1 ? '' : 's') . ', ' . count($youth) . ' youth';
+$nAdults = count(array_filter($rows, fn($r) => $r['sort_type'] === 0));
+$nYouth  = count($rows) - $nAdults;
+$summary = $nAdults . ' adult' . ($nAdults === 1 ? '' : 's') . ', ' . $nYouth . ' youth';
 
 // Membership info: pack position(s) for adults, the BSA ID for anyone who has one, and any free-text note
 $membershipOf = function (array $r): string {
@@ -139,6 +153,10 @@ header_html('Camping Roster');
   .mi-editor input{flex:1;min-width:160px;padding:4px 6px}
   .mi-editor button{padding:4px 8px;font-size:12px}
   .mi-error{color:#7a0000;font-size:12px;margin-top:2px}
+  .roster-table th.no-print,.roster-table td.no-print{border-left:1px dashed #cfd2da;background:#fafafa;text-align:center}
+  .linkbtn{background:none;border:0;padding:0;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:12px;white-space:nowrap}
+  .not-staying{margin-top:20px;padding-top:12px;border-top:1px dashed #cfd2da}
+  .not-staying .roster-table td{color:#666}
   .roster-title{font-size:26px;font-weight:700;margin:0 0 6px}
   .roster-dateline{font-size:16px;margin:10px 0 14px}
   .roster-dateline .line{display:inline-block;min-width:260px;border-bottom:1px solid #333;margin-left:6px;vertical-align:bottom}
@@ -171,13 +189,15 @@ header_html('Camping Roster');
   <p style="margin:0 0 4px;"><strong>Event:</strong> <?= h($event['name']) ?></p>
   <p style="margin:0 0 14px;"><strong>Attending:</strong> <?= h($summary) ?></p>
 
-  <?php if (empty($rows)): ?>
+  <?php if (empty($rows) && empty($notStaying)): ?>
     <p>No one has RSVP'd yes for this event yet.</p>
+  <?php elseif (empty($rows)): ?>
+    <p>Everyone who RSVP'd is marked as not staying overnight.</p>
   <?php else: ?>
     <div style="overflow-x:auto;">
       <table class="roster-table">
         <thead>
-          <tr><?php foreach ($columns as $c): ?><th><?= h($c) ?></th><?php endforeach; ?></tr>
+          <tr><?php foreach ($columns as $c): ?><th><?= h($c) ?></th><?php endforeach; ?><th class="no-print">Overnight?</th></tr>
         </thead>
         <tbody>
           <?php foreach ($rows as $r): $cells = $cellsOf($r); ?>
@@ -191,6 +211,15 @@ header_html('Camping Roster');
               </td>
               <td class="nowrap"><?= h($cells[5]) ?></td>
               <td class="blank"></td>
+              <td class="no-print">
+                <form method="post" action="/rsvp_overnight_update.php" class="inline" style="margin:0;">
+                  <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                  <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+                  <input type="hidden" name="rsvp_id" value="<?= (int)$r['rsvp_id'] ?>">
+                  <input type="hidden" name="value" value="1">
+                  <button type="submit" class="linkbtn" title="Remove this RSVP party from the printed roster">Not staying overnight</button>
+                </form>
+              </td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -198,7 +227,41 @@ header_html('Camping Roster');
     </div>
   <?php endif; ?>
 
-  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + next to Membership Info to add a note such as "Parent of ..." or a BSA #; it is saved to the person's record.</p>
+  <?php if (!empty($notStaying)): ?>
+    <div class="not-staying no-print">
+      <h3 style="margin-bottom:4px;">Not staying overnight</h3>
+      <p class="small" style="margin-top:0;">These people are left off the printed roster and the CSV. Marking one person applies to their whole RSVP party. Use "Re-add" to put a party back.</p>
+      <div style="overflow-x:auto;">
+        <table class="roster-table">
+          <thead>
+            <tr><th>Last Name</th><th>First Name</th><th>Type</th><th>Grade</th><th>Membership Info</th><th class="no-print">Overnight?</th></tr>
+          </thead>
+          <tbody>
+            <?php foreach ($notStaying as $r): $cells = $cellsOf($r); ?>
+              <tr>
+                <td><?= h($cells[0]) ?></td>
+                <td><?= h($cells[1]) ?></td>
+                <td class="nowrap"><?= h($cells[2]) ?></td>
+                <td class="nowrap"><?= h($cells[3]) ?></td>
+                <td><?= h($cells[4]) ?></td>
+                <td class="no-print">
+                  <form method="post" action="/rsvp_overnight_update.php" class="inline" style="margin:0;">
+                    <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+                    <input type="hidden" name="event_id" value="<?= (int)$eventId ?>">
+                    <input type="hidden" name="rsvp_id" value="<?= (int)$r['rsvp_id'] ?>">
+                    <input type="hidden" name="value" value="0">
+                    <button type="submit" class="linkbtn" title="Put this RSVP party back on the printed roster">Re-add</button>
+                  </form>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <?php endif; ?>
+
+  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + next to Membership Info to add a note such as "Parent of ..." or a BSA #; it is saved to the person's record. "Not staying overnight" moves a whole RSVP party below the table and off the print.</p>
 </div>
 
 <script>
