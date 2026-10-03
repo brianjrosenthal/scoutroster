@@ -32,7 +32,7 @@ $pdo = pdo();
 
 // Adults attending
 $st = $pdo->prepare("
-  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number
+  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number, u.membership_info_note
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN users u ON u.id = rm.adult_id
@@ -43,7 +43,7 @@ $adults = $st->fetchAll();
 
 // Youth attending
 $st = $pdo->prepare("
-  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number
+  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number, y.membership_info_note
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN youth y ON y.id = rm.youth_id
@@ -61,7 +61,9 @@ foreach ($adults as $a) {
     'last'  => (string)$a['last_name'],
     'first' => (string)$a['first_name'],
     'type'  => 'Adult',
+    'id'    => (int)$a['id'],
     'bsa'   => trim((string)($a['bsa_membership_number'] ?? '')),
+    'note'  => trim((string)($a['membership_info_note'] ?? '')),
     'grade' => '',
     'position' => LeadershipManagement::getAdultPositionString((int)$a['id']),
     'phone' => $phone,
@@ -74,7 +76,9 @@ foreach ($youth as $y) {
     'last'  => (string)$y['last_name'],
     'first' => (string)$y['first_name'],
     'type'  => 'Youth',
+    'id'    => (int)$y['id'],
     'bsa'   => trim((string)($y['bsa_registration_number'] ?? '')),
+    'note'  => trim((string)($y['membership_info_note'] ?? '')),
     'grade' => $grade < 0 ? 'Pre-K' : GradeCalculator::gradeLabel($grade),
     'position' => '',
     'phone' => '',
@@ -93,11 +97,12 @@ usort($rows, function ($a, $b) {
 // Guests and public RSVPs are intentionally left off: no names, and they are often entered by mistake.
 $summary = count($adults) . ' adult' . (count($adults) === 1 ? '' : 's') . ', ' . count($youth) . ' youth';
 
-// Membership info: pack position(s) for adults, plus the BSA ID for anyone who has one
+// Membership info: pack position(s) for adults, the BSA ID for anyone who has one, and any free-text note
 $membershipOf = function (array $r): string {
   $parts = [];
   if ($r['position'] !== '') $parts[] = $r['position'];
   if ($r['bsa'] !== '') $parts[] = 'BSA #' . $r['bsa'];
+  if ($r['note'] !== '') $parts[] = $r['note'];
   return implode('; ', $parts);
 };
 $columns = ['Last Name', 'First Name', 'Type', 'Grade', 'Membership Info', 'Phone', 'Training'];
@@ -128,6 +133,12 @@ header_html('Camping Roster');
   .roster-table th{background:#f0f1f5;font-weight:600;white-space:nowrap}
   .roster-table td.blank{min-width:200px}
   .roster-table td.nowrap{white-space:nowrap}
+  .mi-edit{display:inline-block;margin-left:6px;width:18px;height:18px;line-height:17px;text-align:center;border-radius:50%;background:#e8e8ef;color:#333;font-weight:700;font-size:13px;text-decoration:none;vertical-align:middle}
+  .mi-edit:hover{background:#2563eb;color:#fff}
+  .mi-editor{display:flex;gap:6px;align-items:center;margin-top:4px}
+  .mi-editor input{flex:1;min-width:160px;padding:4px 6px}
+  .mi-editor button{padding:4px 8px;font-size:12px}
+  .mi-error{color:#7a0000;font-size:12px;margin-top:2px}
   .roster-title{font-size:26px;font-weight:700;margin:0 0 6px}
   .roster-dateline{font-size:16px;margin:10px 0 14px}
   .roster-dateline .line{display:inline-block;min-width:260px;border-bottom:1px solid #333;margin-left:6px;vertical-align:bottom}
@@ -175,7 +186,9 @@ header_html('Camping Roster');
               <td><?= h($cells[1]) ?></td>
               <td class="nowrap"><?= h($cells[2]) ?></td>
               <td class="nowrap"><?= h($cells[3]) ?></td>
-              <td><?= h($cells[4]) ?></td>
+              <td class="mi-cell" data-type="<?= $r['sort_type'] === 0 ? 'adult' : 'youth' ?>" data-id="<?= (int)$r['id'] ?>" data-base="<?= h(implode('; ', array_filter([$r['position'], $r['bsa'] !== '' ? 'BSA #' . $r['bsa'] : '']))) ?>" data-note="<?= h($r['note']) ?>">
+                <span class="mi-text"><?= h($cells[4]) ?></span><a href="#" class="mi-edit no-print" title="<?= $r['note'] !== '' ? 'Edit membership note' : 'Add membership note' ?>"><?= $r['note'] !== '' ? '&#9998;' : '+' ?></a>
+              </td>
               <td class="nowrap"><?= h($cells[5]) ?></td>
               <td class="blank"></td>
             </tr>
@@ -185,8 +198,49 @@ header_html('Camping Roster');
     </div>
   <?php endif; ?>
 
-  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand.</p>
+  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + next to Membership Info to add a note such as "Parent of ..." or a BSA #; it is saved to the person's record.</p>
 </div>
+
+<script>
+(function(){
+  var csrf = <?= json_encode(csrf_token()) ?>;
+  function esc(s){ return String(s); }
+  function render(cell){
+    var base = cell.getAttribute('data-base') || '', note = cell.getAttribute('data-note') || '';
+    var txt = cell.querySelector('.mi-text'), btn = cell.querySelector('.mi-edit');
+    txt.textContent = [base, note].filter(Boolean).join('; ');
+    btn.innerHTML = note ? '&#9998;' : '+';
+    btn.title = note ? 'Edit membership note' : 'Add membership note';
+  }
+  function closeEditor(cell){ var ed = cell.querySelector('.mi-editor'); if (ed) ed.remove(); var er = cell.querySelector('.mi-error'); if (er) er.remove(); cell.querySelector('.mi-edit').style.display = ''; }
+  function openEditor(cell){
+    document.querySelectorAll('.mi-cell .mi-editor').forEach(function(ed){ closeEditor(ed.closest('.mi-cell')); });
+    cell.querySelector('.mi-edit').style.display = 'none';
+    var ed = document.createElement('div'); ed.className = 'mi-editor no-print';
+    var inp = document.createElement('input'); inp.type = 'text'; inp.maxLength = 255; inp.placeholder = 'e.g. Parent of Charlie Rosenthal'; inp.value = cell.getAttribute('data-note') || '';
+    var save = document.createElement('button'); save.type = 'button'; save.className = 'button primary'; save.textContent = 'Save';
+    var cancel = document.createElement('button'); cancel.type = 'button'; cancel.className = 'button'; cancel.textContent = 'Cancel';
+    ed.appendChild(inp); ed.appendChild(save); ed.appendChild(cancel); cell.appendChild(ed); inp.focus();
+    cancel.addEventListener('click', function(){ closeEditor(cell); });
+    inp.addEventListener('keydown', function(e){ if (e.key === 'Enter') { e.preventDefault(); save.click(); } if (e.key === 'Escape') { closeEditor(cell); } });
+    save.addEventListener('click', function(){
+      save.disabled = true;
+      var fd = new FormData(); fd.set('csrf', csrf); fd.set('type', cell.getAttribute('data-type')); fd.set('id', cell.getAttribute('data-id')); fd.set('note', inp.value);
+      fetch('/membership_note_update.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function(r){ return r.json(); })
+        .then(function(j){
+          if (!j || !j.ok) throw new Error((j && j.error) || 'Save failed');
+          cell.setAttribute('data-note', j.note || ''); closeEditor(cell); render(cell);
+        })
+        .catch(function(err){ save.disabled = false; var er = cell.querySelector('.mi-error') || document.createElement('div'); er.className = 'mi-error no-print'; er.textContent = err.message || 'Save failed'; cell.appendChild(er); });
+    });
+  }
+  document.addEventListener('click', function(e){
+    var btn = e.target.closest('.mi-edit'); if (!btn) return;
+    e.preventDefault(); openEditor(btn.closest('.mi-cell'));
+  });
+})();
+</script>
 
 <?= EventUIManager::renderAdminModals((int)$eventId) ?>
 <?= EventUIManager::renderAdminMenuScript((int)$eventId) ?>
