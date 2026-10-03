@@ -408,7 +408,7 @@ class UserManagement {
       'preferred_name','street1','street2','city','state','zip',
       'email2','phone_home','phone_cell','shirt_size',
       'suppress_email_directory','suppress_phone_directory','include_in_most_emails',
-      'bsa_membership_number','bsa_registration_expires_on','safeguarding_training_completed_on',
+      'bsa_membership_number','membership_info_note','bsa_registration_expires_on','safeguarding_training_completed_on',
       'medical_forms_expiration_date','medical_form_in_person_opt_in',
       'emergency_contact1_name','emergency_contact1_phone','emergency_contact2_name','emergency_contact2_phone',
       'dietary_vegetarian','dietary_vegan','dietary_lactose_free','dietary_no_pork_shellfish','dietary_nut_allergy','dietary_gluten_free','dietary_other'

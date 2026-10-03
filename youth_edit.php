@@ -172,6 +172,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $school = trim($_POST['school'] ?? '');
   $shirt = trim($_POST['shirt_size'] ?? '');
   $bsa = trim($_POST['bsa_registration_number'] ?? '');
+  $membershipNote = trim($_POST['membership_info_note'] ?? '');
   $street2 = trim($_POST['street2'] ?? '');
   $sibling = !empty($_POST['sibling']) ? 1 : 0;
   $leftTroop = !empty($_POST['left_troop']) ? 1 : 0;
@@ -247,6 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       ];
       if ($isAdmin) {
         $data['bsa_registration_number'] = ($bsa !== '' ? $bsa : null);
+        $data['membership_info_note'] = ($membershipNote !== '' ? $membershipNote : null);
         $data['include_in_most_emails'] = $includeInMostEmails;
         $data['older_scout'] = $olderScout;
       }
@@ -286,6 +288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     'school' => ($school !== '' ? $school : null),
     'shirt_size' => ($shirt !== '' ? $shirt : null),
     'bsa_registration_number' => ($bsa !== '' ? $bsa : null),
+    'membership_info_note' => $isAdmin ? ($membershipNote !== '' ? $membershipNote : null) : ($y['membership_info_note'] ?? null),
     'street1' => $street1,
     'street2' => ($street2 !== '' ? $street2 : null),
     'city' => $city,
@@ -446,6 +449,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <?php if ($isAdmin): ?>
         <label>BSA Registration #
           <input type="text" name="bsa_registration_number" value="<?=h($y['bsa_registration_number'])?>">
+        </label>
+        <label>Membership Info Note <span class="small">(printed on camping roster)</span>
+          <input type="text" name="membership_info_note" value="<?=h($y['membership_info_note'] ?? '')?>" maxlength="255">
         </label>
       <?php else: ?>
         <div>

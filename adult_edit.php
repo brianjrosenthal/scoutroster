@@ -191,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
 
   // Scouting info (admin-editable)
   $bsa_membership_number = $nn($_POST['bsa_membership_number'] ?? '');
+  $membership_info_note = $nn($_POST['membership_info_note'] ?? '');
   $bsa_registration_expires_on = $nn($_POST['bsa_registration_expires_on'] ?? '');
   $safeguarding_training_completed_on = $nn($_POST['safeguarding_training_completed_on'] ?? '');
 
@@ -247,6 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
         'suppress_email_directory' => $suppress_email_directory,
         'suppress_phone_directory' => $suppress_phone_directory,
         'bsa_membership_number' => $bsa_membership_number,
+        'membership_info_note' => $membership_info_note,
         'bsa_registration_expires_on' => $bsa_registration_expires_on,
         'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
         'emergency_contact1_name' => $em1_name,
@@ -290,6 +292,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (!isset($_POST['action']) || $_POST
     'suppress_email_directory' => $suppress_email_directory,
     'suppress_phone_directory' => $suppress_phone_directory,
     'bsa_membership_number' => $bsa_membership_number,
+    'membership_info_note' => $membership_info_note,
     'bsa_registration_expires_on' => $bsa_registration_expires_on,
     'safeguarding_training_completed_on' => $safeguarding_training_completed_on,
     'emergency_contact1_name' => $em1_name,
@@ -485,6 +488,9 @@ header_html('Edit Adult');
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;">
       <label>BSA Membership #
         <input type="text" name="bsa_membership_number" value="<?=h($u['bsa_membership_number'])?>">
+      </label>
+      <label>Membership Info Note <span class="small">(printed on camping roster, e.g. "Parent of ...")</span>
+        <input type="text" name="membership_info_note" value="<?=h($u['membership_info_note'] ?? '')?>" maxlength="255">
       </label>
       <label>BSA Registration Expires On
         <input type="date" name="bsa_registration_expires_on" value="<?=h($u['bsa_registration_expires_on'])?>" placeholder="YYYY-MM-DD">
