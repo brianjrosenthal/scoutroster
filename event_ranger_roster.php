@@ -3,14 +3,14 @@ require_once __DIR__.'/partials.php';
 require_once __DIR__ . '/lib/EventManagement.php';
 require_once __DIR__ . '/lib/EventUIManager.php';
 require_once __DIR__ . '/lib/LeadershipManagement.php';
-require_once __DIR__ . '/lib/RsvpsLoggedOutManagement.php';
 require_once __DIR__ . '/lib/GradeCalculator.php';
 require_login();
 
 /**
  * Camping roster for the campsite ranger: everyone attending an event (RSVP "yes"),
- * one line per person. Adults show their pack position; youth show their grade.
- * Training columns are left blank to be filled in by hand.
+ * one line per person. Youth show their grade; Membership Info holds pack positions (adults)
+ * and the BSA ID where known. The Training column is left blank to be filled in by hand. Guests and public (logged-out)
+ * RSVPs are not listed: there are no names for them and they are usually entered by mistake.
  *
  *   /event_ranger_roster.php?event_id=N              display the roster (admins only)
  *   /event_ranger_roster.php?event_id=N&format=csv   download as CSV
@@ -32,7 +32,7 @@ $pdo = pdo();
 
 // Adults attending
 $st = $pdo->prepare("
-  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home
+  SELECT DISTINCT u.id, u.first_name, u.last_name, u.phone_cell, u.phone_home, u.bsa_membership_number
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN users u ON u.id = rm.adult_id
@@ -43,7 +43,7 @@ $adults = $st->fetchAll();
 
 // Youth attending
 $st = $pdo->prepare("
-  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of
+  SELECT DISTINCT y.id, y.first_name, y.last_name, y.class_of, y.bsa_registration_number
   FROM rsvps r
   JOIN rsvp_members rm ON rm.rsvp_id = r.id AND rm.event_id = r.event_id
   JOIN youth y ON y.id = rm.youth_id
@@ -51,14 +51,6 @@ $st = $pdo->prepare("
 ");
 $st->execute([$eventId]);
 $youth = $st->fetchAll();
-
-// Extra guests entered on member RSVPs (count only, no names)
-$st = $pdo->prepare("SELECT COALESCE(SUM(n_guests),0) FROM rsvps WHERE event_id = ? AND answer = 'yes'");
-$st->execute([$eventId]);
-$memberGuests = (int)$st->fetchColumn();
-
-// Logged-out (public) RSVPs: a contact name plus adult/kid counts
-$publicRsvps = RsvpsLoggedOutManagement::listByAnswer($eventId, 'yes');
 
 $now = new DateTime('now', new DateTimeZone(Settings::timezoneId()));
 
@@ -69,6 +61,7 @@ foreach ($adults as $a) {
     'last'  => (string)$a['last_name'],
     'first' => (string)$a['first_name'],
     'type'  => 'Adult',
+    'bsa'   => trim((string)($a['bsa_membership_number'] ?? '')),
     'grade' => '',
     'position' => LeadershipManagement::getAdultPositionString((int)$a['id']),
     'phone' => $phone,
@@ -81,6 +74,7 @@ foreach ($youth as $y) {
     'last'  => (string)$y['last_name'],
     'first' => (string)$y['first_name'],
     'type'  => 'Youth',
+    'bsa'   => trim((string)($y['bsa_registration_number'] ?? '')),
     'grade' => $grade < 0 ? 'Pre-K' : GradeCalculator::gradeLabel($grade),
     'position' => '',
     'phone' => '',
@@ -96,32 +90,18 @@ usort($rows, function ($a, $b) {
   return strcasecmp($a['first'], $b['first']);
 });
 
-// Unnamed people: public RSVP parties and guests on member RSVPs
-$extraRows = [];
-foreach ($publicRsvps as $p) {
-  $nA = (int)($p['total_adults'] ?? 0);
-  $nK = (int)($p['total_kids'] ?? 0);
-  $extraRows[] = [
-    'last' => (string)($p['last_name'] ?? ''), 'first' => (string)($p['first_name'] ?? ''),
-    'type' => 'Guest (public RSVP)', 'grade' => '',
-    'position' => $nA . ' adult' . ($nA === 1 ? '' : 's') . ', ' . $nK . ' kid' . ($nK === 1 ? '' : 's'),
-    'phone' => (string)($p['phone'] ?? ''),
-  ];
-}
-if ($memberGuests > 0) {
-  $extraRows[] = [
-    'last' => '', 'first' => '', 'type' => 'Guests', 'grade' => '',
-    'position' => $memberGuests . ' additional guest' . ($memberGuests === 1 ? '' : 's') . ' listed on member RSVPs',
-    'phone' => '',
-  ];
-}
+// Guests and public RSVPs are intentionally left off: no names, and they are often entered by mistake.
+$summary = count($adults) . ' adult' . (count($adults) === 1 ? '' : 's') . ', ' . count($youth) . ' youth';
 
-$summary = count($adults) . ' adult' . (count($adults) === 1 ? '' : 's') . ', ' . count($youth) . ' youth'
-  . ($memberGuests > 0 ? ', ' . $memberGuests . ' guest' . ($memberGuests === 1 ? '' : 's') : '')
-  . (count($publicRsvps) > 0 ? ', ' . count($publicRsvps) . ' public RSVP ' . (count($publicRsvps) === 1 ? 'party' : 'parties') : '');
-
-$columns = ['Last Name', 'First Name', 'Type', 'Grade', 'Pack Position', 'Phone', 'BALOO Trained', 'Other Training'];
-$cellsOf = fn(array $r) => [$r['last'], $r['first'], $r['type'], $r['grade'], $r['position'], $r['phone'], '', ''];
+// Membership info: pack position(s) for adults, plus the BSA ID for anyone who has one
+$membershipOf = function (array $r): string {
+  $parts = [];
+  if ($r['position'] !== '') $parts[] = $r['position'];
+  if ($r['bsa'] !== '') $parts[] = 'BSA #' . $r['bsa'];
+  return implode('; ', $parts);
+};
+$columns = ['Last Name', 'First Name', 'Type', 'Grade', 'Membership Info', 'Phone', 'Training'];
+$cellsOf = fn(array $r) => [$r['last'], $r['first'], $r['type'], $r['grade'], $membershipOf($r), $r['phone'], ''];
 
 /* ---------- CSV download ---------- */
 if ($format === 'csv') {
@@ -135,7 +115,6 @@ if ($format === 'csv') {
   $put = fn(array $r) => fputcsv($out, $r, ',', '"', '');
   $put($columns);
   foreach ($rows as $r) { $put($cellsOf($r)); }
-  foreach ($extraRows as $r) { $put($cellsOf($r)); }
   fclose($out);
   exit;
 }
@@ -147,7 +126,7 @@ header_html('Camping Roster');
   .roster-table{width:100%;border-collapse:collapse;font-size:14px}
   .roster-table th,.roster-table td{border:1px solid #cfd2da;padding:6px 8px;text-align:left;vertical-align:top}
   .roster-table th{background:#f0f1f5;font-weight:600;white-space:nowrap}
-  .roster-table td.blank{min-width:110px}
+  .roster-table td.blank{min-width:200px}
   .roster-table td.nowrap{white-space:nowrap}
   .roster-title{font-size:26px;font-weight:700;margin:0 0 6px}
   .roster-dateline{font-size:16px;margin:10px 0 14px}
@@ -181,7 +160,7 @@ header_html('Camping Roster');
   <p style="margin:0 0 4px;"><strong>Event:</strong> <?= h($event['name']) ?></p>
   <p style="margin:0 0 14px;"><strong>Attending:</strong> <?= h($summary) ?></p>
 
-  <?php if (empty($rows) && empty($extraRows)): ?>
+  <?php if (empty($rows)): ?>
     <p>No one has RSVP'd yes for this event yet.</p>
   <?php else: ?>
     <div style="overflow-x:auto;">
@@ -190,7 +169,7 @@ header_html('Camping Roster');
           <tr><?php foreach ($columns as $c): ?><th><?= h($c) ?></th><?php endforeach; ?></tr>
         </thead>
         <tbody>
-          <?php foreach (array_merge($rows, $extraRows) as $r): $cells = $cellsOf($r); ?>
+          <?php foreach ($rows as $r): $cells = $cellsOf($r); ?>
             <tr>
               <td><?= h($cells[0]) ?></td>
               <td><?= h($cells[1]) ?></td>
@@ -199,7 +178,6 @@ header_html('Camping Roster');
               <td><?= h($cells[4]) ?></td>
               <td class="nowrap"><?= h($cells[5]) ?></td>
               <td class="blank"></td>
-              <td class="blank"></td>
             </tr>
           <?php endforeach; ?>
         </tbody>
@@ -207,7 +185,7 @@ header_html('Camping Roster');
     </div>
   <?php endif; ?>
 
-  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The BALOO and Other Training columns are left blank to fill in by hand.</p>
+  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand.</p>
 </div>
 
 <?= EventUIManager::renderAdminModals((int)$eventId) ?>
