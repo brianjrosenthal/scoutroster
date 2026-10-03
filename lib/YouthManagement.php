@@ -374,7 +374,7 @@ class YouthManagement {
       'dietary_nut_allergy','dietary_gluten_free','dietary_other'
     ];
     // Admin-only fields
-    $allowedAdmin = ['bsa_registration_number','membership_info_note','grade','grade_label','include_in_most_emails','older_scout'];
+    $allowedAdmin = ['bsa_registration_number','membership_info_note','training_note','grade','grade_label','include_in_most_emails','older_scout'];
 
     $isAdmin = $ctx->admin;
 
@@ -432,6 +432,10 @@ class YouthManagement {
       if (array_key_exists('membership_info_note', $data)) {
         $set[] = "membership_info_note = ?";
         $params[] = self::nn($data['membership_info_note']);
+      }
+      if (array_key_exists('training_note', $data)) {
+        $set[] = "training_note = ?";
+        $params[] = self::nn($data['training_note']);
       }
       // Grade/class_of recomputation
       if (array_key_exists('grade', $data) || array_key_exists('grade_label', $data)) {
