@@ -4,7 +4,6 @@
 // new one straight to R2) and timing override. Everything except the music
 // upload is a plain form POST.
 require_once __DIR__.'/partials.php';
-require_once __DIR__.'/lib/EventManagement.php';
 require_once __DIR__.'/lib/PhotoStorage.php';
 require_once __DIR__.'/lib/EventPhotos.php';
 require_once __DIR__.'/lib/Slideshows.php';
@@ -25,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   try {
     switch ($action) {
       case 'save_meta':
-        Slideshows::update($ctx, $id, ['title' => $_POST['title'] ?? '', 'description' => $_POST['description'] ?? '', 'is_published' => !empty($_POST['is_published'])]);
+        Slideshows::update($ctx, $id, ['title' => $_POST['title'] ?? '', 'description' => $_POST['description'] ?? '', 'transition' => (string)($_POST['transition'] ?? Slideshows::DEFAULT_TRANSITION), 'is_published' => !empty($_POST['is_published'])]);
         $msg = 'Saved.';
         break;
       case 'add_section':
@@ -71,8 +70,9 @@ $total = Slideshows::totalSeconds($sections);
 $tracks = SlideshowTracks::listAll();
 $configured = PhotoStorage::isConfigured();
 $inShow = array_map('intval', array_column($sections, 'event_id'));
-$pastEvents = EventManagement::listPast(500);
-$counts = EventPhotos::countsByEvent(array_column($pastEvents, 'id'));
+// Only events that have photos can be added; newest first.
+$eventsWithPhotos = EventPhotos::listEventsWithPhotos();
+$counts = EventPhotos::countsByEvent(array_column($eventsWithPhotos, 'id'));
 $acceptAudio = implode(',', PhotoStorage::allowedContentTypes('audio')) . ',.' . implode(',.', PhotoStorage::extensionsFor('audio'));
 
 function ss_form(int $slideshowId, string $action, int $sectionId, string $label, string $class = '', string $confirm = ''): string {
@@ -101,6 +101,13 @@ header_html('Edit Slideshow');
     <input type="hidden" name="action" value="save_meta">
     <label>Title <input type="text" name="title" value="<?= h($show['title']) ?>" required maxlength="255"></label>
     <label>Description (optional) <textarea name="description" rows="2"><?= h($show['description'] ?? '') ?></textarea></label>
+    <label>Photo transitions
+      <select name="transition">
+        <?php $curT = Slideshows::transitionOf($show); foreach (Slideshows::TRANSITIONS as $val => $label): ?>
+          <option value="<?= h($val) ?>" <?= $val === $curT ? 'selected' : '' ?>><?= h($label) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </label>
     <label><input type="checkbox" name="is_published" value="1" <?= !empty($show['is_published']) ? 'checked' : '' ?>> Published (visible to all logged-in members; drafts are visible only to admins)</label>
     <div class="actions">
       <button class="button primary" type="submit">Save</button>
@@ -186,13 +193,15 @@ header_html('Edit Slideshow');
     <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="action" value="add_section">
     <label>Add an event
-      <select name="event_id" required>
-        <option value="">Choose a past event&hellip;</option>
-        <?php foreach ($pastEvents as $ev): if (in_array((int)$ev['id'], $inShow, true)) continue; $c = $counts[(int)$ev['id']] ?? ['total' => 0, 'included' => 0]; ?>
-          <option value="<?= (int)$ev['id'] ?>"><?= h(date('M j, Y', strtotime((string)$ev['starts_at']))) ?> &mdash; <?= h($ev['name']) ?> (<?= (int)$c['included'] ?> photo<?= (int)$c['included'] === 1 ? '' : 's' ?>)</option>
+      <?php $addable = array_filter($eventsWithPhotos, fn($ev) => !in_array((int)$ev['id'], $inShow, true)); ?>
+      <select name="event_id" required <?= empty($addable) ? 'disabled' : '' ?>>
+        <option value=""><?= empty($addable) ? 'No other events have photos yet' : 'Choose an event with photos…' ?></option>
+        <?php foreach ($addable as $ev): $c = $counts[(int)$ev['id']] ?? ['total' => 0, 'included' => 0]; ?>
+          <option value="<?= (int)$ev['id'] ?>"><?= h(date('M j, Y', strtotime((string)$ev['starts_at']))) ?> &mdash; <?= h($ev['name']) ?> (<?= (int)$c['included'] ?> photo<?= (int)$c['included'] === 1 ? '' : 's' ?><?= (int)$c['included'] !== (int)$c['total'] ? ' of ' . (int)$c['total'] : '' ?>)</option>
         <?php endforeach; ?>
       </select>
     </label>
+    <p class="small">Only events that already have photos are listed. Upload photos from an event page first.</p>
     <div class="actions"><button class="button primary" type="submit">Add event</button></div>
   </form>
 </div>

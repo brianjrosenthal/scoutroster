@@ -50,7 +50,7 @@ test.describe('Slideshows', () => {
     helpers = new TestHelpers(page);
   });
 
-  test('admin creates a slideshow and adds an event', async ({ page }) => {
+  test('admin creates a slideshow and adds an event that has photos', async ({ page }) => {
     await helpers.loginAsAdmin();
     await page.goto('/slideshows.php');
     await page.fill('form input[name="title"]', TITLE);
@@ -58,10 +58,20 @@ test.describe('Slideshows', () => {
     await expect(page).toHaveURL(/admin_slideshow_edit\.php\?id=\d+/);
     slideshowId = Number(new URL(page.url()).searchParams.get('id'));
 
+    // An event without photos is not offered.
+    await expect(page.locator(`select[name="event_id"] option[value="${eventId}"]`)).toHaveCount(0);
+    if (!R2) return;
+
+    await page.goto(`/event_photos.php?event_id=${eventId}`);
+    await page.setInputFiles('#photoUploader input[type="file"]', [FIX('campout-1.jpg'), FIX('campout-2.jpg')]);
+    await expect(page.locator('.photo-tile')).toHaveCount(2, { timeout: 30000 });
+
+    await page.goto(`/admin_slideshow_edit.php?id=${slideshowId}`);
     await page.selectOption('select[name="event_id"]', { value: String(eventId) });
     await page.locator('form:has(input[value="add_section"]) button[type="submit"]').click();
     await expect(page.locator('#sectionsTable tr[data-section-id]')).toHaveCount(1);
-    await expect(page.locator('#sectionsTable')).toContainText('skipped'); // no photos yet
+    await expect(page.locator('#sectionsTable')).toContainText('2');
+    await expect(page.locator('#sectionsTable')).toContainText('no music');
   });
 
   test('a draft is hidden from regular members', async ({ page }) => {
@@ -77,12 +87,6 @@ test.describe('Slideshows', () => {
   test('photos, music, publish, and the player starts', async ({ page }) => {
     test.skip(!R2, 'photo storage not configured');
     await helpers.loginAsAdmin();
-
-    // Give the event photos.
-    await page.goto(`/event_photos.php?event_id=${eventId}`);
-    await page.setInputFiles('#photoUploader input[type="file"]', [FIX('campout-1.jpg'), FIX('campout-2.jpg')]);
-    await expect(page.locator('.photo-tile')).toHaveCount(2, { timeout: 30000 });
-
     await page.goto(`/admin_slideshow_edit.php?id=${slideshowId}`);
     await expect(page.locator('#sectionsTable')).toContainText('no music');
 
@@ -92,7 +96,8 @@ test.describe('Slideshows', () => {
     await expect(page.locator('#sectionsTable select[name="track_id"] option:checked')).toContainText('track', { timeout: 20000 });
     await expect(page.locator('#sectionsTable')).not.toContainText('no music');
 
-    // Publish.
+    // Publish, with random transitions.
+    await page.selectOption('select[name="transition"]', 'random');
     await page.check('input[name="is_published"]');
     await page.locator('form:has(input[value="save_meta"]) button[type="submit"]').click();
     await expect(page.locator('.flash')).toContainText('Saved');
@@ -106,6 +111,7 @@ test.describe('Slideshows', () => {
     expect(m.sections[0].photos).toHaveLength(2);
     expect(m.sections[0].track).not.toBeNull();
     expect(m.sections[0].seconds_per_photo).toBeGreaterThanOrEqual(1);
+    expect(m.transition).toBe('random');
 
     // Player: begin, title card, then a photo appears.
     await page.goto(`/slideshow_play.php?id=${slideshowId}`);

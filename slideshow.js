@@ -110,7 +110,7 @@
     state = 'PLAYING';
 
     // Photos off, title card on.
-    layers.forEach(function (l) { l.classList.remove('active'); });
+    layers.forEach(function (l) { l.classList.remove('active', 'hold'); l.classList.add('fade-out'); });
     captionEl.classList.add('hidden');
     card.querySelector('h1').textContent = section.title;
     card.querySelector('p').textContent = section.date || '';
@@ -160,6 +160,48 @@
     }
   }
 
+  // Transitions. The slideshow's setting (manifest.transition) is one of:
+  //   'mix'    mostly crossfades with occasional variety, chosen per photo by
+  //            its id so a replay (and stepping back and forth) is consistent;
+  //   'random' a different transition for every photo, truly random;
+  //   a name   that transition every time, alternating direction where it
+  //            has one (slide, push, wipe).
+  // The first photo after a title card always fades in. Ken Burns motions are
+  // chosen per photo independently of the transition.
+  var CATALOG = {
+    fade:  ['fade'],
+    slide: ['slide-left', 'slide-right'],
+    push:  ['push-left', 'push-right'],
+    wipe:  ['wipe', 'wipe-down', 'wipe-diag'],
+    iris:  ['iris'],
+    zoom:  ['zoom'],
+    blur:  ['blur'],
+    flip:  ['flip'],
+    spin:  ['spin']
+  };
+  var MIX = ['fade', 'fade', 'slide-left', 'fade', 'wipe', 'fade', 'zoom', 'fade', 'fade', 'push-right', 'fade', 'blur', 'fade', 'iris', 'fade', 'flip', 'fade', 'wipe-diag', 'fade', 'spin'];
+  var ALL = Object.keys(CATALOG).reduce(function (a, k) { return a.concat(CATALOG[k]); }, []);
+  var MOTIONS = ['kb-in', 'kb-pan-left', 'kb-out', 'kb-pan-up', 'kb-in-tl', 'kb-pan-right', 'kb-out-tr', 'kb-pan-down', 'kb-in-br'];
+  var LAYER_ANIM_CLASSES = ALL.map(function (e) { return 'enter-' + e; }).concat(['leave-push-left', 'leave-push-right', 'hold', 'fade-out']);
+
+  function variant(list, seed, salt) {
+    var h = (seed * 2654435761 + salt * 40503) >>> 0;
+    return list[h % list.length];
+  }
+
+  function pickEntrance(photo, idx) {
+    if (idx === 0) return 'fade';
+    var mode = manifest.transition || 'mix';
+    var seed = photo.id || (idx + 1);
+    if (mode === 'random') return ALL[Math.floor(Math.random() * ALL.length)];
+    if (CATALOG[mode]) return CATALOG[mode][idx % CATALOG[mode].length];
+    return variant(MIX, seed, sectionIndex + 1);
+  }
+
+  function clearLayerAnims(layer) {
+    LAYER_ANIM_CLASSES.forEach(function (c) { layer.classList.remove(c); });
+  }
+
   function showPhoto(idx) {
     var photo = section.photos[idx];
     var incoming = layers[1 - activeLayer];
@@ -169,19 +211,35 @@
     activeLayer = 1 - activeLayer;
     shownIdx = idx;
 
-    img.style.transitionDuration = '0s';
+    var seed = photo.id || (idx + 1);
+    var entrance = pickEntrance(photo, idx);
+    var motion = variant(MOTIONS, seed, 7);
+    var xf = C.photo_crossfade_seconds;
+
     incoming.classList.remove('active');
+    clearLayerAnims(incoming);
+    img.className = '';
     img.onload = null;
     img.onerror = function () {
       // Keep the previous photo up; the slot still consumes its time so the
       // timeline stays locked to the music.
       incoming.classList.remove('active');
+      clearLayerAnims(outgoing);
       outgoing.classList.add('active');
     };
     img.onload = function () {
-      img.style.transitionDuration = (section.seconds_per_photo + C.photo_crossfade_seconds) + 's';
-      incoming.classList.add('active');
+      incoming.style.setProperty('--xf', xf + 's');
+      incoming.style.setProperty('--kb', (section.seconds_per_photo + xf) + 's');
+      void incoming.offsetWidth; // restart animations when a layer is reused
+      img.className = motion;
+      incoming.classList.add('active', 'enter-' + entrance);
       outgoing.classList.remove('active');
+      clearLayerAnims(outgoing);
+      // How the previous photo leaves: fade under a crossfade, get pushed by a
+      // push, otherwise stay put until the new photo has covered it.
+      var leave = entrance === 'fade' ? 'fade-out' : (entrance.indexOf('push-') === 0 ? 'leave-' + entrance : 'hold');
+      outgoing.classList.add(leave);
+      setTimeout(function () { outgoing.classList.remove(leave); }, xf * 1000 + 150);
     };
     img.src = photo.url;
     bg.style.backgroundImage = 'url("' + photo.url.replace(/"/g, '%22') + '")';
@@ -204,7 +262,7 @@
     state = 'END_CARD';
     section = null;
     endCardStart = performance.now();
-    layers.forEach(function (l) { l.classList.remove('active'); });
+    layers.forEach(function (l) { l.classList.remove('active', 'hold'); l.classList.add('fade-out'); });
     captionEl.classList.add('hidden');
     card.querySelector('h1').textContent = manifest.end_card.title;
     card.querySelector('p').textContent = manifest.end_card.subtitle || '';

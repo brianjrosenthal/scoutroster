@@ -705,6 +705,7 @@ CREATE TABLE slideshows (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255) NOT NULL,
   description TEXT DEFAULT NULL,
+  transition VARCHAR(20) NOT NULL DEFAULT 'mix' COMMENT 'Photo transition style: mix, random, or a named transition',
   is_published TINYINT(1) NOT NULL DEFAULT 0,
   created_by_user_id INT NOT NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

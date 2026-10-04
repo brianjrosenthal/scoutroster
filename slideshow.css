@@ -3,13 +3,70 @@
 html,body{margin:0;padding:0;background:#000;color:#fff;height:100%;overflow:hidden;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
 #stage{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;background:#000;overflow:hidden;cursor:default}
 #stage.idle{cursor:none}
-.layer{position:absolute;inset:0;opacity:0;transition:opacity 1s ease;pointer-events:none}
-.layer.active{opacity:1}
+/* Photo layers. The incoming layer plays an "enter-*" animation (duration
+   --xf, the crossfade length); the outgoing layer either fades out under a
+   fade entrance (.fade-out) or is held fully visible until a slide/wipe has
+   covered it (.hold). The <img> plays a "kb-*" Ken Burns motion for the whole
+   time the photo is up (duration --kb). Variants are chosen per photo in
+   slideshow.js. */
+.layer{position:absolute;inset:0;opacity:0;z-index:0;pointer-events:none;--xf:1s;--kb:6s}
+.layer.active{opacity:1;z-index:2}
+.layer.fade-out{opacity:0;z-index:1;transition:opacity var(--xf) ease}
+.layer.hold{opacity:1;z-index:1}
 .layer .bg{position:absolute;inset:-6%;background-size:cover;background-position:center;filter:blur(32px) brightness(.55);transform:scale(1.1)}
-.layer img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scale(1);transition-property:transform;transition-timing-function:linear;transition-duration:0s}
-.layer.active img{transform:scale(1.08)}
+.layer img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scale(1);animation-timing-function:linear;animation-fill-mode:both;animation-duration:var(--kb)}
+
+/* Entrances */
+.layer.enter-fade{animation:enter-fade var(--xf) ease both}
+.layer.enter-slide-left{animation:enter-slide-left var(--xf) cubic-bezier(.2,.7,.2,1) both}
+.layer.enter-slide-right{animation:enter-slide-right var(--xf) cubic-bezier(.2,.7,.2,1) both}
+.layer.enter-wipe{animation:enter-wipe var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.enter-wipe-down{animation:enter-wipe-down var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.enter-zoom{animation:enter-zoom var(--xf) ease-out both}
+.layer.enter-blur{animation:enter-blur var(--xf) ease both}
+.layer.enter-push-left{animation:enter-slide-left var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.enter-push-right{animation:enter-slide-right var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.leave-push-left{opacity:1;z-index:1;animation:leave-push-left var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.leave-push-right{opacity:1;z-index:1;animation:leave-push-right var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.enter-wipe-diag{animation:enter-wipe-diag var(--xf) cubic-bezier(.4,0,.2,1) both}
+.layer.enter-iris{animation:enter-iris var(--xf) ease-in-out both}
+.layer.enter-flip{animation:enter-flip var(--xf) cubic-bezier(.2,.7,.2,1) both;backface-visibility:hidden}
+.layer.enter-spin{animation:enter-spin var(--xf) cubic-bezier(.2,.7,.2,1) both}
+@keyframes enter-fade{from{opacity:0}to{opacity:1}}
+@keyframes leave-push-left{from{transform:translateX(0)}to{transform:translateX(-100%)}}
+@keyframes leave-push-right{from{transform:translateX(0)}to{transform:translateX(100%)}}
+@keyframes enter-wipe-diag{from{clip-path:polygon(0 0,0 0,0 0)}to{clip-path:polygon(0 0,200% 0,0 200%)}}
+@keyframes enter-iris{from{clip-path:circle(0% at 50% 50%)}to{clip-path:circle(75% at 50% 50%)}}
+@keyframes enter-flip{from{transform:perspective(1400px) rotateY(-90deg);opacity:.2}to{transform:perspective(1400px) rotateY(0);opacity:1}}
+@keyframes enter-spin{from{transform:rotate(-6deg) scale(1.3);opacity:0}to{transform:none;opacity:1}}
+@keyframes enter-slide-left{from{transform:translateX(100%)}to{transform:translateX(0)}}
+@keyframes enter-slide-right{from{transform:translateX(-100%)}to{transform:translateX(0)}}
+@keyframes enter-wipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes enter-wipe-down{from{clip-path:inset(0 0 100% 0)}to{clip-path:inset(0 0 0 0)}}
+@keyframes enter-zoom{from{transform:scale(1.25);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes enter-blur{from{filter:blur(24px);opacity:0}to{filter:blur(0);opacity:1}}
+
+/* Ken Burns motions (slow, linear, for the whole display time) */
+.layer img.kb-in{animation-name:kb-in;transform-origin:50% 50%}
+.layer img.kb-out{animation-name:kb-out;transform-origin:50% 50%}
+.layer img.kb-in-tl{animation-name:kb-in;transform-origin:30% 30%}
+.layer img.kb-in-br{animation-name:kb-in;transform-origin:70% 70%}
+.layer img.kb-out-tr{animation-name:kb-out;transform-origin:70% 30%}
+.layer img.kb-pan-left{animation-name:kb-pan-left}
+.layer img.kb-pan-right{animation-name:kb-pan-right}
+.layer img.kb-pan-up{animation-name:kb-pan-up}
+.layer img.kb-pan-down{animation-name:kb-pan-down}
+@keyframes kb-in{from{transform:scale(1)}to{transform:scale(1.12)}}
+@keyframes kb-out{from{transform:scale(1.12)}to{transform:scale(1)}}
+@keyframes kb-pan-left{from{transform:scale(1.14) translateX(3%)}to{transform:scale(1.14) translateX(-3%)}}
+@keyframes kb-pan-right{from{transform:scale(1.14) translateX(-3%)}to{transform:scale(1.14) translateX(3%)}}
+@keyframes kb-pan-up{from{transform:scale(1.14) translateY(3%)}to{transform:scale(1.14) translateY(-3%)}}
+@keyframes kb-pan-down{from{transform:scale(1.14) translateY(-3%)}to{transform:scale(1.14) translateY(3%)}}
 .card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;background:rgba(0,0,0,.65);opacity:0;transition:opacity .8s ease;pointer-events:none}
 .card.show{opacity:1}
+.card.show h1,.card.show p{animation:card-in .9s cubic-bezier(.2,.7,.2,1) both}
+.card.show p{animation-delay:.15s}
+@keyframes card-in{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
 .card h1{font-size:clamp(28px,6vw,72px);margin:0 0 12px;text-shadow:0 2px 12px rgba(0,0,0,.6)}
 .card p{font-size:clamp(16px,2.6vw,30px);margin:0;color:#ddd}
 #caption{position:absolute;left:0;right:0;bottom:54px;text-align:center;font-size:clamp(14px,2vw,22px);padding:8px 24px;text-shadow:0 1px 8px rgba(0,0,0,.9);pointer-events:none;transition:opacity .4s}

@@ -31,6 +31,27 @@ final class Slideshows {
   public const SECTION_XFADE_SECONDS = 1.5;
   public const END_CARD_SECONDS = 6.0;
 
+  /** Photo transition styles the player knows (value => label for the editor). */
+  public const TRANSITIONS = [
+    'mix'    => 'Mix: mostly crossfades with occasional variety',
+    'random' => 'Random: a different transition for every photo',
+    'fade'   => 'Crossfade',
+    'slide'  => 'Slide',
+    'push'   => 'Push',
+    'wipe'   => 'Wipe',
+    'iris'   => 'Iris (circle reveal)',
+    'zoom'   => 'Zoom through',
+    'blur'   => 'Blur dissolve',
+    'flip'   => 'Flip',
+    'spin'   => 'Spin zoom',
+  ];
+  public const DEFAULT_TRANSITION = 'mix';
+
+  public static function transitionOf(array $slideshow): string {
+    $t = (string)($slideshow['transition'] ?? '');
+    return isset(self::TRANSITIONS[$t]) ? $t : self::DEFAULT_TRANSITION;
+  }
+
   private static function pdo(): PDO {
     return pdo();
   }
@@ -204,6 +225,11 @@ final class Slideshows {
       $sets[] = 'title = ?'; $params[] = $t;
     }
     if (array_key_exists('description', $data)) { $sets[] = 'description = ?'; $params[] = self::nn($data['description']); }
+    if (array_key_exists('transition', $data)) {
+      $t = (string)$data['transition'];
+      if (!isset(self::TRANSITIONS[$t])) throw new InvalidArgumentException('Unknown transition.');
+      $sets[] = 'transition = ?'; $params[] = $t;
+    }
     if (array_key_exists('is_published', $data)) { $sets[] = 'is_published = ?'; $params[] = !empty($data['is_published']) ? 1 : 0; }
     if ($sets === []) return false;
     $sets[] = 'updated_at = NOW()';
@@ -383,6 +409,7 @@ final class Slideshows {
       'id' => (int)$show['id'],
       'title' => (string)$show['title'],
       'description' => $show['description'],
+      'transition' => self::transitionOf($show),
       'constants' => [
         'title_card_seconds' => self::TITLE_CARD_SECONDS,
         'photo_crossfade_seconds' => self::PHOTO_CROSSFADE_SECONDS,
