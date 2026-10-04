@@ -65,7 +65,7 @@ final class EventPhotosUI {
       $html .= '<span class="tile-badge" title="This photo will not appear in slideshows">Not in slideshow</span>';
     }
     if ($canModify && self::isEstimated($photo)) {
-      $html .= '<span class="tile-date-est" title="No date in this photo (sent through WhatsApp or similar); the date is estimated. Open it to set the real date.">date?</span>';
+      $html .= '<span class="tile-date-est" title="Estimated date (no date in the photo, e.g. sent through WhatsApp). Open the photo to set the real date.">?</span>';
     }
     if ($canModify) {
       $html .= '<div class="tile-controls">'
