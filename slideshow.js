@@ -24,7 +24,10 @@
   var captionEl = document.getElementById('caption');
   var hud = document.getElementById('hud');
   var hudText = document.getElementById('hudText');
-  var progressBar = document.querySelector('#progress i');
+  var progressEl = document.getElementById('progress');
+  var progressBar = document.querySelector('#progress .track i');
+  var progressThumb = document.querySelector('#progress .thumb');
+  var progressTip = document.querySelector('#progress .tip');
   var overlay = document.getElementById('overlay');
   var beginBtn = document.getElementById('begin');
   var errorEl = document.getElementById('error');
@@ -95,9 +98,16 @@
   // Sections
   // ---------------------------------------------------------------------------
 
+  // Seconds of slideshow before section i begins.
+  function cumulativeFor(i) {
+    var t = 0;
+    for (var k = 0; k < i && k < manifest.sections.length; k++) t += manifest.sections[k].section_seconds;
+    return t;
+  }
+
   function startSection(i) {
     if (i >= manifest.sections.length) { showEndCard(); return; }
-    if (section) cumulativeBefore += section.section_seconds;
+    cumulativeBefore = cumulativeFor(i);
     sectionIndex = i;
     section = manifest.sections[i];
     shownIdx = -1;
@@ -258,7 +268,7 @@
   }
 
   function showEndCard() {
-    if (section) cumulativeBefore += section.section_seconds;
+    cumulativeBefore = cumulativeFor(manifest.sections.length);
     state = 'END_CARD';
     section = null;
     endCardStart = performance.now();
@@ -300,6 +310,7 @@
     if (state === 'END_CARD') {
       var e = (now - endCardStart) / 1000;
       progressBar.style.width = '100%';
+      progressThumb.style.left = '100%';
       if (e >= C.end_card_seconds) finish();
       return;
     }
@@ -358,7 +369,12 @@
     }
 
     // HUD.
-    progressBar.style.width = Math.min(100, ((cumulativeBefore + t) / manifest.total_seconds) * 100) + '%';
+    if (!progressEl.isDragging || !progressEl.isDragging()) {
+      var pct = Math.min(100, ((cumulativeBefore + t) / manifest.total_seconds) * 100);
+      progressBar.style.width = pct + '%';
+      progressThumb.style.left = pct + '%';
+      progressEl.setAttribute('aria-valuenow', String(Math.round(pct)));
+    }
     hudText.textContent = section.title + (shownIdx >= 0 ? ' · ' + (shownIdx + 1) + ' / ' + n : '') + ' · ' + fmt(cumulativeBefore + t) + ' / ' + fmt(manifest.total_seconds);
   }
 
@@ -400,16 +416,135 @@
   function nextSection() { if (state === 'PLAYING') startSection(sectionIndex + 1); }
   function prevSection() {
     if (state !== 'PLAYING') return;
-    if (elapsed() > C.title_card_seconds + 2 || sectionIndex === 0) {
-      cumulativeBefore -= section.section_seconds; section = null; // restart this one
-      startSection(sectionIndex);
-    } else {
-      cumulativeBefore -= section.section_seconds;
-      var prev = manifest.sections[sectionIndex - 1];
-      cumulativeBefore -= prev.section_seconds;
-      section = null;
-      startSection(sectionIndex - 1);
+    // Early in a section, go back one; otherwise restart this one.
+    startSection(elapsed() > C.title_card_seconds + 2 || sectionIndex === 0 ? sectionIndex : sectionIndex - 1);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Seeking (scrubber)
+  // ---------------------------------------------------------------------------
+
+  // Describe a point in the whole slideshow: which section and how far into it.
+  function locate(globalSeconds) {
+    var t = Math.max(0, Math.min(manifest.total_seconds, globalSeconds));
+    var acc = 0;
+    for (var i = 0; i < manifest.sections.length; i++) {
+      var len = manifest.sections[i].section_seconds;
+      if (t < acc + len) return { section: i, within: t - acc };
+      acc += len;
     }
+    return { section: manifest.sections.length, within: t - acc }; // end card
+  }
+
+  function describe(globalSeconds) {
+    var loc = locate(globalSeconds);
+    if (loc.section >= manifest.sections.length) return manifest.end_card.title + ' \u00b7 ' + fmt(globalSeconds);
+    var sec = manifest.sections[loc.section];
+    var idx = Math.floor((loc.within - C.title_card_seconds) / sec.seconds_per_photo);
+    var where = idx < 0 ? 'title' : (idx + 1) + ' / ' + sec.photos.length;
+    return sec.title + ' \u00b7 ' + where + ' \u00b7 ' + fmt(globalSeconds);
+  }
+
+  // Jump to an absolute point. Starts the right section, moves the music to
+  // the matching point (respecting loops) and shows the right photo.
+  function seekTo(globalSeconds) {
+    if (state === 'IDLE' || state === 'READY' || state === 'DONE') return;
+    var loc = locate(globalSeconds);
+    if (loc.section >= manifest.sections.length) { showEndCard(); return; }
+    var wasPaused = paused;
+    if (state !== 'PLAYING' || loc.section !== sectionIndex) startSection(loc.section);
+    var ts = Math.max(0, Math.min(section.section_seconds - 0.05, loc.within));
+
+    if (section.track && section.music_mode !== 'none') {
+      var a = audios[activeAudio];
+      var loopAt = section.loop_at || (a.duration && isFinite(a.duration) ? a.duration : 0);
+      var target = ts;
+      loopCount = 0;
+      if (section.music_mode === 'loop' && loopAt > 0) {
+        loopCount = Math.floor(ts / loopAt);
+        target = ts - loopCount * loopAt;
+      }
+      looping = false;
+      var apply = function () {
+        try { a.currentTime = target; } catch (e) {}
+        offset = ts - (loopCount * (section.loop_at || loopAt) + (a.currentTime || 0));
+      };
+      if (a.readyState >= 1) apply(); else a.addEventListener('loadedmetadata', apply, { once: true });
+      // Until metadata arrives, the offset carries the seek so photos are right immediately.
+      offset = ts - (a.currentTime || 0);
+      setVolume(a, 1);
+      try { audios[1 - activeAudio].pause(); } catch (e) {} // a loop crossfade in progress must not keep playing
+      if (!wasPaused) a.play().catch(function () {});
+    } else {
+      wallStart = performance.now();
+      pausedTotal = 0;
+      if (paused) pausedAt = wallStart;
+      offset = ts;
+    }
+
+    // Show the right thing right now rather than waiting a frame.
+    var idx = Math.floor((ts - C.title_card_seconds) / section.seconds_per_photo);
+    if (idx < 0) {
+      shownIdx = -1;
+      layers.forEach(function (l) { l.classList.remove('active'); clearLayerAnims(l); });
+      captionEl.classList.add('hidden');
+      card.classList.remove('hidden');
+      card.classList.add('show');
+    } else if (idx !== shownIdx) {
+      showPhoto(Math.min(idx, section.photos.length - 1));
+    }
+    if (wasPaused && !paused) pause(); // startSection() resumes; stay paused if we were
+  }
+
+  function wireScrubber() {
+    var dragging = false;
+
+    function fractionFrom(clientX) {
+      var r = progressEl.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+    }
+    function preview(frac) {
+      var pct = frac * 100;
+      progressThumb.style.left = pct + '%';
+      progressBar.style.width = pct + '%';
+      progressTip.style.left = pct + '%';
+      progressTip.textContent = describe(frac * manifest.total_seconds);
+      progressTip.classList.remove('hidden');
+    }
+
+    progressEl.addEventListener('pointerdown', function (e) {
+      if (state === 'IDLE' || state === 'READY' || state === 'DONE') return;
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      progressEl.classList.add('dragging');
+      progressEl.setPointerCapture(e.pointerId);
+      preview(fractionFrom(e.clientX));
+    });
+    progressEl.addEventListener('pointermove', function (e) {
+      if (dragging) { preview(fractionFrom(e.clientX)); activity(); return; }
+      if (manifest && state !== 'IDLE' && state !== 'READY') {
+        var f = fractionFrom(e.clientX);
+        progressTip.style.left = (f * 100) + '%';
+        progressTip.textContent = describe(f * manifest.total_seconds);
+        progressTip.classList.remove('hidden');
+      }
+    });
+    progressEl.addEventListener('pointerleave', function () { if (!dragging) progressTip.classList.add('hidden'); });
+    function finish(e) {
+      if (!dragging) return;
+      dragging = false;
+      progressEl.classList.remove('dragging');
+      progressTip.classList.add('hidden');
+      try { progressEl.releasePointerCapture(e.pointerId); } catch (x) {}
+      seekTo(fractionFrom(e.clientX) * manifest.total_seconds);
+    }
+    progressEl.addEventListener('pointerup', finish);
+    progressEl.addEventListener('pointercancel', function () { dragging = false; progressEl.classList.remove('dragging'); progressTip.classList.add('hidden'); });
+    // Keep a click on the bar from toggling pause on the stage.
+    progressEl.addEventListener('click', function (e) { e.stopPropagation(); });
+    // While dragging, the frame loop must not move the thumb under the pointer.
+    progressEl.isDragging = function () { return dragging; };
   }
 
   function toggleFullscreen() {
@@ -469,6 +604,7 @@
     if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function () {});
     overlay.classList.add('hidden');
     activity();
+    wireScrubber();
     startSection(0);
     rafId = requestAnimationFrame(frame);
   }
@@ -491,6 +627,13 @@
   }
 
   if (beginBtn) { beginBtn.disabled = true; beginBtn.textContent = 'Loading…'; }
+  // Read-only snapshot of the clock, for debugging from the console.
+  window.SLIDESHOW_STATE = function () {
+    var a = audios[activeAudio];
+    return { state: state, section: sectionIndex, elapsed: section ? elapsed() : null, offset: offset, loopCount: loopCount,
+             looping: looping, activeAudio: activeAudio, currentTime: a.currentTime, audioPaused: a.paused, paused: paused, shownIdx: shownIdx };
+  };
+
   load();
   if (beginBtn) {
     var restoreLabel = setInterval(function () {
