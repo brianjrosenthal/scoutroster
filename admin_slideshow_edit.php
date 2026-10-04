@@ -16,7 +16,8 @@ $id = (int)($_GET['id'] ?? 0);
 $show = $id > 0 ? Slideshows::findById($id) : null;
 if (!$show) { http_response_code(404); exit('Slideshow not found'); }
 
-$msg = null; $err = null;
+$msg = isset($_GET['msg']) ? (string)$_GET['msg'] : null;
+$err = isset($_GET['err']) ? (string)$_GET['err'] : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
   $action = (string)($_POST['action'] ?? '');
@@ -59,7 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   } catch (Throwable $e) {
     $err = $e->getMessage();
   }
-  $show = Slideshows::findById($id);
+  // Redirect after every POST so a reload (e.g. after a music upload) never re-submits it.
+  $q = $err !== null ? ['id' => $id, 'err' => $err] : ($msg !== null ? ['id' => $id, 'msg' => $msg] : ['id' => $id]);
+  header('Location: /admin_slideshow_edit.php?' . http_build_query($q));
+  exit;
 }
 
 $sections = Slideshows::listSections($id);

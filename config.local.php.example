@@ -41,8 +41,11 @@ define('EMAIL_DEBUG_MODE', false);
 // and paste it as R2_ENDPOINT exactly as shown. It looks like
 //   https://<account-id>.r2.cloudflarestorage.com/pack440-photos
 // and the trailing bucket name is fine (the app strips it). Then
-// "Manage R2 API Tokens" -> create a token with "Object Read & Write" scoped
-// to the bucket, and paste its Access Key ID / Secret Access Key below.
+// "Manage R2 API Tokens" -> create a token scoped to the bucket and paste its
+// Access Key ID / Secret Access Key below. "Admin Read & Write" lets
+// Admin -> Photo Storage apply the bucket CORS rule for you; "Object Read &
+// Write" also works, but then set the CORS policy in the Cloudflare dashboard
+// (that page shows the exact JSON to paste).
 // Leave the keys empty to disable photo uploads (pages still render).
 define('R2_ENDPOINT', '');        // paste the S3 API URL from the bucket's Settings tab
 define('R2_ACCESS_KEY', '');
