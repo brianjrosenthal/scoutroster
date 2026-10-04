@@ -21,8 +21,19 @@ final class EventPhotosUI {
     if ($t === '') return '';
     $ts = strtotime($t);
     $txt = $ts ? date('M j, Y g:i A', $ts) : $t;
-    if (($photo['taken_at_source'] ?? 'upload') !== 'exif') $txt .= ' (estimated)';
+    if (self::isEstimated($photo)) $txt .= ' (estimated)';
     return $txt;
+  }
+
+  /** True when the date did not come from the camera (EXIF) or a person. */
+  public static function isEstimated(array $photo): bool {
+    return !in_array((string)($photo['taken_at_source'] ?? 'upload'), ['exif', 'manual'], true);
+  }
+
+  /** "2026-10-03T14:05" for a datetime-local input. */
+  public static function takenAtInputValue(array $photo): string {
+    $ts = strtotime((string)($photo['taken_at'] ?? ''));
+    return $ts ? date('Y-m-d\TH:i', $ts) : '';
   }
 
   /** One grid tile. $index is the 0-based position in gallery order. */
@@ -44,12 +55,17 @@ final class EventPhotosUI {
       . ' data-excluded="' . ($excluded ? '1' : '0') . '"'
       . ' data-uploader="' . self::h($uploader) . '"'
       . ' data-taken-text="' . self::h(self::takenAtText($photo)) . '"'
+      . ' data-taken-input="' . self::h(self::takenAtInputValue($photo)) . '"'
+      . ' data-estimated="' . (self::isEstimated($photo) ? '1' : '0') . '"'
       . ' data-can-modify="' . ($canModify ? '1' : '0') . '">';
     $html .= '<a href="' . self::h($urls['display']) . '" class="photo-open" aria-label="' . self::h($alt) . '">'
       . '<img src="' . self::h($urls['thumb']) . '" alt="' . self::h($alt) . '" loading="lazy" width="' . (int)($photo['width'] ?? 0) . '" height="' . (int)($photo['height'] ?? 0) . '">'
       . '</a>';
     if ($excluded) {
       $html .= '<span class="tile-badge" title="This photo will not appear in slideshows">Not in slideshow</span>';
+    }
+    if (self::isEstimated($photo)) {
+      $html .= '<span class="tile-date-est" title="No date in this photo (sent through WhatsApp or similar); the date is estimated. Open it to set the real date.">date?</span>';
     }
     if ($canModify) {
       $html .= '<div class="tile-controls">'
@@ -58,10 +74,7 @@ final class EventPhotosUI {
         . '</div>';
     }
     if ($isAdmin) {
-      $html .= '<div class="reorder-handles" aria-hidden="true">'
-        . '<button type="button" class="tile-btn move-left" title="Move earlier">&#9664;</button>'
-        . '<button type="button" class="tile-btn move-right" title="Move later">&#9654;</button>'
-        . '</div>';
+      $html .= '<span class="tile-check" aria-hidden="true"></span>';
     }
     $html .= '</figure>';
     return $html;

@@ -43,6 +43,17 @@ header_html('Photos: ' . $e['name']);
     <?php endif; ?>
   </div>
 </div>
+<?php if ($isAdmin && $count > 1): ?>
+<div class="card reorder-bar hidden" id="reorderBar">
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+    <span class="small"><strong>Reordering.</strong> Click photos to select them (shift-click for a range), then drag any selected photo to where the group should go. They keep their order.</span>
+    <span class="small" id="selectionCount" style="margin-left:auto">0 selected</span>
+    <button type="button" class="button" id="moveStartBtn" disabled>Move to start</button>
+    <button type="button" class="button" id="moveEndBtn" disabled>Move to end</button>
+    <button type="button" class="button" id="clearSelBtn" disabled>Clear selection</button>
+  </div>
+</div>
+<?php endif; ?>
 
 <div class="card" id="upload">
   <?php if (!$configured): ?>
@@ -98,6 +109,12 @@ header_html('Photos: ' . $e['name']);
       <form class="caption-form hidden" id="lightboxCaptionForm" onsubmit="return false;">
         <input type="text" id="lightboxCaptionInput" maxlength="<?= (int)EventPhotos::CAPTION_MAX ?>" placeholder="Add a caption">
         <button type="submit" class="button primary">Save</button>
+      </form>
+      <form class="date-form hidden" id="lightboxDateForm" onsubmit="return false;" title="Photos sort by this date. Photos sent through WhatsApp arrive without one.">
+        <label class="small" style="color:#ccc;display:flex;gap:6px;align-items:center;margin:0">Taken
+          <input type="datetime-local" id="lightboxDateInput" step="60" style="background:#222;color:#fff;border-color:#444;width:auto">
+        </label>
+        <button type="submit" class="button">Set date</button>
       </form>
       <div style="display:flex;gap:6px;flex-wrap:wrap;">
         <button type="button" class="button hidden" id="lightboxToggle"></button>

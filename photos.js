@@ -173,6 +173,18 @@
 
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
 
+  // Many apps put the capture or send time in the filename when they strip
+  // EXIF: "WhatsApp Image 2026-10-04 at 16.56.00.jpeg", "IMG_20261004_165600.jpg",
+  // "PXL_20261004_165600123.jpg", "Screenshot 2026-10-04 at 16.56.00.png",
+  // "2026-10-04 16.56.00.jpg", "20261004_165600.jpg".
+  function filenameDate(name) {
+    var m = /(?:^|[^\d])(20\d{2})[-_.]?(\d{2})[-_.]?(\d{2})(?:[ _T-]+(?:at[ _])?(\d{2})[-_.:]?(\d{2})(?:[-_.:]?(\d{2}))?)?/.exec(name || '');
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3], h = m[4] !== undefined ? +m[4] : 12, mi = m[5] !== undefined ? +m[5] : 0, sec = m[6] !== undefined ? +m[6] : 0;
+    if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59 || sec > 59) return null;
+    return y + '-' + pad2(mo) + '-' + pad2(d) + ' ' + pad2(h) + ':' + pad2(mi) + ':' + pad2(sec);
+  }
+
   function localDateTime(ms) {
     var d = new Date(ms);
     if (isNaN(d.getTime()) || ms <= 0) return null;
@@ -302,7 +314,7 @@
         if (type === 'image/jpeg') info.takenAt = exifDate(buf);
         if (info.takenAt) info.source = 'exif';
         else {
-          info.takenAt = localDateTime(file.lastModified);
+          info.takenAt = filenameDate(file.name) || localDateTime(file.lastModified);
           info.source = info.takenAt ? 'file' : 'upload';
         }
         return sha256Hex(buf);
@@ -441,6 +453,8 @@
     var lbCaptionView = document.getElementById('lightboxCaptionView');
     var lbCaptionForm = document.getElementById('lightboxCaptionForm');
     var lbCaptionInput = document.getElementById('lightboxCaptionInput');
+    var lbDateForm = document.getElementById('lightboxDateForm');
+    var lbDateInput = document.getElementById('lightboxDateInput');
     var lbToggle = document.getElementById('lightboxToggle');
     var lbDelete = document.getElementById('lightboxDelete');
     var lbOriginal = document.getElementById('lightboxOriginal');
@@ -466,6 +480,8 @@
         show(lbCaptionView, false);
         show(lbCaptionForm, true);
         lbCaptionInput.value = caption;
+        show(lbDateForm, true);
+        lbDateInput.value = tile.getAttribute('data-taken-input') || '';
         var excluded = tile.getAttribute('data-excluded') === '1';
         lbToggle.textContent = excluded ? 'Include in slideshow' : 'Exclude from slideshow';
         show(lbToggle, true);
@@ -474,6 +490,7 @@
         lbCaptionView.textContent = caption;
         show(lbCaptionView, caption !== '');
         show(lbCaptionForm, false);
+        show(lbDateForm, false);
         show(lbToggle, false);
         show(lbDelete, false);
       }
@@ -529,6 +546,24 @@
         .catch(function (e) { alert(e.message); });
     });
 
+    // Setting the date re-sorts the photo: the server returns its new index.
+    lbDateForm.addEventListener('submit', function () {
+      if (!current) return;
+      var tile = current;
+      postForm(updateUrl, { csrf: csrf, photo_id: tile.getAttribute('data-photo-id'), action: 'taken_at', taken_at: lbDateInput.value })
+        .then(function (res) {
+          var fresh = replaceTile(grid, tile, res.tile_html);
+          if (!res.manual_order && typeof res.index === 'number' && res.index >= 0) {
+            var all = tiles(grid).filter(function (t) { return t !== fresh; });
+            if (res.index < all.length) grid.insertBefore(fresh, all[res.index]); else grid.appendChild(fresh);
+            renumber(grid);
+          }
+          current = fresh;
+          openLightbox(fresh);
+        })
+        .catch(function (e) { alert(e.message); });
+    });
+
     lbToggle.addEventListener('click', function () { if (current) toggleExclude(current, function (fresh) { current = fresh; openLightbox(fresh); }); });
     lbDelete.addEventListener('click', function () {
       if (!current) return;
@@ -565,8 +600,8 @@
       if (!tile || !grid.contains(tile)) return;
       if (reordering) {
         e.preventDefault();
-        if (e.target.closest('.move-left')) moveTile(tile, -1);
-        else if (e.target.closest('.move-right')) moveTile(tile, 1);
+        if (suppressClick) { suppressClick = false; return; } // a drag just ended on this tile
+        toggleSelect(tile, e.shiftKey);
         return;
       }
       if (e.target.closest('.toggle-slideshow')) { e.preventDefault(); toggleExclude(tile); return; }
@@ -582,11 +617,58 @@
     }
 
     // --- Admin reorder mode -----------------------------------------------
+    // Select photos (click; shift-click for a range), then drag any selected
+    // photo to where the whole selection should go; they keep their relative
+    // order. Pointer events, so it works with a mouse and with touch.
     var reorderBtn = document.getElementById('reorderBtn');
     var saveBtn = document.getElementById('saveOrderBtn');
     var cancelBtn = document.getElementById('cancelOrderBtn');
     var resetBtn = document.getElementById('resetOrderBtn');
+    var reorderBar = document.getElementById('reorderBar');
+    var selCount = document.getElementById('selectionCount');
+    var moveStartBtn = document.getElementById('moveStartBtn');
+    var moveEndBtn = document.getElementById('moveEndBtn');
+    var clearSelBtn = document.getElementById('clearSelBtn');
     var originalOrder = null;
+    var lastClicked = null;
+    var suppressClick = false;
+
+    function selected() { return tiles(grid).filter(function (t) { return t.classList.contains('selected'); }); }
+
+    function updateSelection() {
+      var n = selected().length;
+      if (selCount) selCount.textContent = n + ' selected';
+      [moveStartBtn, moveEndBtn, clearSelBtn].forEach(function (b) { if (b) b.disabled = n === 0; });
+    }
+
+    function clearSelection() {
+      selected().forEach(function (t) { t.classList.remove('selected'); });
+      lastClicked = null;
+      updateSelection();
+    }
+
+    function toggleSelect(tile, range) {
+      var all = tiles(grid);
+      if (range && lastClicked && lastClicked !== tile) {
+        var a = all.indexOf(lastClicked), b = all.indexOf(tile);
+        var lo = Math.min(a, b), hi = Math.max(a, b);
+        for (var i = lo; i <= hi; i++) all[i].classList.add('selected');
+      } else {
+        tile.classList.toggle('selected');
+      }
+      lastClicked = tile;
+      updateSelection();
+    }
+
+    // Move the selected tiles (in their current order) so they sit before
+    // $before (a tile) or at the end when $before is null.
+    function moveSelectionBefore(before) {
+      var group = selected();
+      if (!group.length) return;
+      if (before && group.indexOf(before) !== -1) return; // dropping onto itself
+      group.forEach(function (t) { grid.insertBefore(t, before); });
+      renumber(grid);
+    }
 
     function setReordering(on) {
       reordering = on;
@@ -594,17 +676,9 @@
       show(reorderBtn, !on);
       show(saveBtn, on);
       show(cancelBtn, on);
+      show(reorderBar, on);
       if (resetBtn) show(resetBtn, !on);
-      tiles(grid).forEach(function (t) { t.draggable = on; });
-    }
-
-    function moveTile(tile, dir) {
-      var all = tiles(grid);
-      var i = all.indexOf(tile);
-      var j = i + dir;
-      if (j < 0 || j >= all.length) return;
-      if (dir < 0) grid.insertBefore(tile, all[j]); else grid.insertBefore(all[j], tile);
-      renumber(grid);
+      if (!on) clearSelection();
     }
 
     if (reorderBtn) {
@@ -624,31 +698,110 @@
           .then(function () { location.reload(); })
           .catch(function (e) { saveBtn.disabled = false; alert(e.message); });
       });
+      moveStartBtn.addEventListener('click', function () { moveSelectionBefore(tiles(grid)[0] || null); });
+      moveEndBtn.addEventListener('click', function () { moveSelectionBefore(null); });
+      clearSelBtn.addEventListener('click', clearSelection);
 
-      var dragging = null;
-      grid.addEventListener('dragstart', function (e) {
+      // Pointer drag with a floating ghost and a drop indicator.
+      var drag = null; // {tile, startX, startY, ghost, active, over, after}
+      var DRAG_THRESHOLD = 6;
+
+      function clearIndicator() {
+        if (drag && drag.over) drag.over.classList.remove('drop-before', 'drop-after');
+        if (drag) { drag.over = null; }
+      }
+
+      function tileAt(x, y) {
+        var el = document.elementFromPoint(x, y);
+        var t = el && el.closest ? el.closest('.photo-tile') : null;
+        return t && grid.contains(t) ? t : null;
+      }
+
+      function startDrag(e) {
+        if (!drag.tile.classList.contains('selected')) {
+          clearSelection();
+          drag.tile.classList.add('selected');
+          lastClicked = drag.tile;
+          updateSelection();
+        }
+        var group = selected();
+        var ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.innerHTML = '<img alt=""><span class="count"></span>';
+        ghost.querySelector('img').src = drag.tile.getAttribute('data-thumb-url');
+        ghost.querySelector('.count').textContent = String(group.length);
+        document.body.appendChild(ghost);
+        drag.ghost = ghost;
+        drag.active = true;
+        group.forEach(function (t) { t.classList.add('drag-source'); });
+        document.body.style.cursor = 'grabbing';
+      }
+
+      function updateDrag(e) {
+        drag.ghost.style.left = e.clientX + 'px';
+        drag.ghost.style.top = e.clientY + 'px';
+        // Auto-scroll near the viewport edges.
+        var edge = 60, vh = window.innerHeight;
+        if (e.clientY < edge) window.scrollBy(0, -Math.ceil((edge - e.clientY) / 4));
+        else if (e.clientY > vh - edge) window.scrollBy(0, Math.ceil((e.clientY - (vh - edge)) / 4));
+        var over = tileAt(e.clientX, e.clientY);
+        if (over && over.classList.contains('selected')) over = null; // cannot drop inside the selection
+        if (over !== drag.over) { clearIndicator(); drag.over = over; }
+        if (over) {
+          var r = over.getBoundingClientRect();
+          drag.after = e.clientX > r.left + r.width / 2;
+          over.classList.toggle('drop-before', !drag.after);
+          over.classList.toggle('drop-after', drag.after);
+        }
+      }
+
+      function endDrag(e, cancelled) {
+        if (!drag) return;
+        if (drag.active) {
+          if (!cancelled && drag.over) {
+            var before = drag.after ? drag.over.nextElementSibling : drag.over;
+            while (before && !before.classList.contains('photo-tile')) before = before.nextElementSibling;
+            moveSelectionBefore(before || null);
+          }
+          clearIndicator();
+          selected().forEach(function (t) { t.classList.remove('drag-source'); });
+          if (drag.ghost) drag.ghost.remove();
+          document.body.style.cursor = '';
+          suppressClick = true;
+          setTimeout(function () { suppressClick = false; }, 0);
+        }
+        try { grid.releasePointerCapture(drag.pointerId); } catch (x) {}
+        drag = null;
+      }
+
+      grid.addEventListener('pointerdown', function (e) {
+        if (!reordering || e.button !== 0) return;
         var tile = e.target.closest('.photo-tile');
-        if (!reordering || !tile) return;
-        dragging = tile;
-        tile.classList.add('dragging');
-        e.dataTransfer.effectAllowed = 'move';
-        try { e.dataTransfer.setData('text/plain', tile.getAttribute('data-photo-id')); } catch (x) {}
+        if (!tile || !grid.contains(tile)) return;
+        e.preventDefault(); // no native image drag / text selection
+        drag = { tile: tile, startX: e.clientX, startY: e.clientY, active: false, over: null, after: false, pointerId: e.pointerId };
+        try { grid.setPointerCapture(e.pointerId); } catch (x) {}
       });
-      grid.addEventListener('dragover', function (e) {
-        if (!reordering || !dragging) return;
-        e.preventDefault();
-        var over = e.target.closest('.photo-tile');
-        if (!over || over === dragging) return;
-        var rect = over.getBoundingClientRect();
-        var before = (e.clientX - rect.left) < rect.width / 2;
-        if (before) grid.insertBefore(dragging, over); else grid.insertBefore(dragging, over.nextSibling);
+      grid.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        if (!drag.active) {
+          if (Math.abs(e.clientX - drag.startX) < DRAG_THRESHOLD && Math.abs(e.clientY - drag.startY) < DRAG_THRESHOLD) return;
+          startDrag(e);
+        }
+        updateDrag(e);
       });
-      grid.addEventListener('drop', function (e) { if (reordering) e.preventDefault(); });
-      grid.addEventListener('dragend', function () {
-        if (dragging) dragging.classList.remove('dragging');
-        dragging = null;
-        renumber(grid);
+      grid.addEventListener('pointerup', function (e) { endDrag(e, false); });
+      grid.addEventListener('pointercancel', function (e) { endDrag(e, true); });
+      document.addEventListener('keydown', function (e) {
+        if (!reordering) return;
+        if (e.key === 'Escape' && drag && drag.active) endDrag(e, true);
+        if ((e.key === 'a' || e.key === 'A') && (e.metaKey || e.ctrlKey) && lb.classList.contains('hidden')) {
+          e.preventDefault();
+          tiles(grid).forEach(function (t) { t.classList.add('selected'); });
+          updateSelection();
+        }
       });
+      grid.addEventListener('dragstart', function (e) { if (reordering) e.preventDefault(); });
     }
     if (resetBtn) {
       resetBtn.addEventListener('click', function () {
