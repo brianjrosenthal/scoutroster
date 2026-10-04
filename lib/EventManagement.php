@@ -193,6 +193,10 @@ final class EventManagement {
 
   public static function delete(\UserContext $ctx, int $id): int {
     self::assertAdmin($ctx);
+    // Remove the event's photos from R2 first: the FK cascade would drop the
+    // rows but leave the objects behind. If storage refuses, the event stays.
+    require_once __DIR__ . '/EventPhotos.php';
+    \EventPhotos::deleteAllForEvent($ctx, $id);
     $st = self::pdo()->prepare('DELETE FROM events WHERE id=?');
     $st->execute([$id]);
     $count = (int)$st->rowCount();

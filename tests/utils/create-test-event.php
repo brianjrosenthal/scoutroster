@@ -31,12 +31,14 @@ try {
         false // isImpersonating (not used here)
     );
     
-    // Generate unique test event data
+    // Generate unique test event data. Pass --past to create an event that
+    // already happened (needed for slideshows, which only list past events).
     $timestamp = time();
+    $past = in_array('--past', $argv ?? [], true);
     $eventData = [
         'name' => 'TEST_EVENT_' . $timestamp,
-        'starts_at' => date('Y-m-d H:i:s', strtotime('+3 days')), // 3 days from now
-        'ends_at' => date('Y-m-d H:i:s', strtotime('+3 days +2 hours')), // 2 hours later
+        'starts_at' => date('Y-m-d H:i:s', strtotime($past ? '-3 days' : '+3 days')),
+        'ends_at' => date('Y-m-d H:i:s', strtotime($past ? '-3 days +2 hours' : '+3 days +2 hours')),
         'location' => 'Test Location for Automated Testing',
         'location_address' => '123 Test Street, Test City, NY 12345',
         'description' => 'This is a test event created by automated testing. It should be cleaned up automatically.',

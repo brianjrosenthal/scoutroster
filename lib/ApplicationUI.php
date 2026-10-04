@@ -39,6 +39,7 @@ class ApplicationUI {
             $navLeft[] = $link('/youth.php','Youth');
             $navLeft[] = $link('/adults.php','Adults');
             $navLeft[] = $link('/events.php','Events');
+            $navLeft[] = $link('/photos.php','Photos');
             if (!empty($u['is_admin'])) {
                 $navLeft[] = '<a href="#" id="adminToggle">Admin</a>';
             }
@@ -120,6 +121,7 @@ class ApplicationUI {
             }
             
             echo $link('/admin_recommendations.php','Recommendations');
+            echo $link('/admin_photo_storage.php','Photo Storage');
             echo $link('/admin_settings.php','Settings');
             echo '</div>';
             echo '<script>document.addEventListener("DOMContentLoaded",function(){var t=document.getElementById("adminToggle");var b=document.getElementById("adminBar");if(t&&b){t.addEventListener("click",function(e){e.preventDefault();b.classList.toggle("hidden");});}});</script>';

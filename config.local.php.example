@@ -35,3 +35,22 @@ define('REMEMBER_TOKEN_KEY', '');
 // Set to true to enable debug mode (useful for testing real-time progress display)
 // IMPORTANT: Set to false or remove this line in production!
 define('EMAIL_DEBUG_MODE', false);
+
+// Cloudflare R2 object storage for event photos and slideshow music.
+// R2 dashboard -> bucket "pack440-photos" -> Settings -> "S3 API": copy that URL
+// and paste it as R2_ENDPOINT exactly as shown. It looks like
+//   https://<account-id>.r2.cloudflarestorage.com/pack440-photos
+// and the trailing bucket name is fine (the app strips it). Then
+// "Manage R2 API Tokens" -> create a token with "Object Read & Write" scoped
+// to the bucket, and paste its Access Key ID / Secret Access Key below.
+// Leave the keys empty to disable photo uploads (pages still render).
+define('R2_ENDPOINT', '');        // paste the S3 API URL from the bucket's Settings tab
+define('R2_ACCESS_KEY', '');
+define('R2_SECRET_KEY', '');
+define('R2_PHOTO_BUCKET', 'pack440-photos'); // keep the bucket private
+// define('R2_REGION', 'auto');
+// define('PHOTO_MAX_BYTES', 26214400);          // 25 MB per original photo
+// define('AUDIO_MAX_BYTES', 31457280);          // 30 MB per music track
+// define('PHOTO_URL_WINDOW_SECONDS', 21600);    // presigned GET URLs are identical within this window (browser-cacheable)
+// define('PHOTO_URL_TTL_SECONDS', 86400);       // ...and stay valid this long
+// define('PHOTO_CORS_EXTRA_ORIGINS', '');       // comma-separated extra browser origins allowed to upload (e.g. a staging host)

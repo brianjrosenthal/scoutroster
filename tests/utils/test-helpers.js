@@ -173,13 +173,14 @@ class TestHelpers {
    * Create a test event using PHP script
    * Returns the event ID for cleanup
    */
-  async createTestEventViaPhp() {
+  async createTestEventViaPhp(options = {}) {
     const { execSync } = require('child_process');
     const path = require('path');
     
     try {
       const scriptPath = path.join(__dirname, 'create-test-event.php');
-      const result = execSync(`php "${scriptPath}"`, { 
+      const flags = options.past ? ' --past' : '';
+      const result = execSync(`php "${scriptPath}"${flags}`, { 
         encoding: 'utf8',
         cwd: process.cwd()
       });
