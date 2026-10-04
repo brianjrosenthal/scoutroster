@@ -35,7 +35,14 @@ $jsVer = @filemtime(__DIR__ . '/slideshow.js') ?: date('Ymd');
   <div class="layer" id="layerB"><div class="bg"></div><img alt=""></div>
   <div id="card" class="card hidden"><h1></h1><p></p></div>
   <div id="caption" class="hidden"></div>
-  <div id="hud"><div id="progress"><i></i></div><span id="hudText"></span></div>
+  <div id="hud">
+    <div id="progress" role="slider" aria-label="Position in slideshow" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+      <div class="track"><i></i></div>
+      <span class="thumb"></span>
+      <span class="tip hidden"></span>
+    </div>
+    <span id="hudText"></span>
+  </div>
   <div id="overlay">
     <h1><?= h($show['title']) ?></h1>
     <p><?= count($played) ?> event<?= count($played) === 1 ? '' : 's' ?> &middot; about <?= h($runtime) ?></p>
