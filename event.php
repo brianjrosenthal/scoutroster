@@ -250,6 +250,19 @@ if ($rsvpUrl === '' && $hasYes) {
   <?php if (!empty($e['max_cub_scouts'])): ?><p class="small"><strong>Max Cub Scouts:</strong> <?= (int)$e['max_cub_scouts'] ?></p><?php endif; ?>
 </div>
 
+<?php
+require_once __DIR__ . '/lib/PhotoStorage.php';
+require_once __DIR__ . '/lib/EventPhotos.php';
+require_once __DIR__ . '/lib/EventPhotosUI.php';
+$photoCount = EventPhotos::countForEvent((int)$id);
+echo EventPhotosUI::renderEventCard(
+  $e,
+  $photoCount > 0 ? EventPhotos::withUrls(array_slice(EventPhotos::listForEvent((int)$id), 0, 8)) : [],
+  $photoCount,
+  PhotoStorage::isConfigured()
+);
+?>
+
 <?php if ($rsvpUrl === ''): ?>
 <div class="card">
   <h3>RSVPs</h3>
