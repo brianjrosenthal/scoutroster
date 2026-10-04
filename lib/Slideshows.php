@@ -120,20 +120,113 @@ final class Slideshows {
     $st->execute([$slideshowId]);
     $rows = $st->fetchAll() ?: [];
     $counts = EventPhotos::countsByEvent(array_column($rows, 'event_id'));
+    $trackCache = [];
     foreach ($rows as &$r) {
       $c = $counts[(int)$r['event_id']] ?? ['total' => 0, 'included' => 0];
       $r['photo_count'] = $c['included'];
       $r['photo_total'] = $c['total'];
       $r['title'] = trim((string)($r['title_override'] ?? '')) !== '' ? (string)$r['title_override'] : (string)$r['event_name'];
-      $r['timing'] = self::computeTiming(
+      $r['cues'] = self::resolveCues($r, $trackCache);
+      $r['timing'] = self::computeSectionTiming(
         (int)$r['photo_count'],
-        $r['track_duration_seconds'] !== null ? (float)$r['track_duration_seconds'] : null,
-        $r['seconds_per_photo'] !== null ? (float)$r['seconds_per_photo'] : null,
-        $r['track_id'] !== null
+        array_map(fn($cue) => ['start_index' => $cue['start_index'], 'duration' => $cue['duration_seconds'], 'has_track' => $cue['track_id'] !== null], $r['cues']),
+        $r['seconds_per_photo'] !== null ? (float)$r['seconds_per_photo'] : null
       );
     }
     unset($r);
     return $rows;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Music cues (several tracks in one section)
+  // ---------------------------------------------------------------------------
+
+  public const MAX_CUES = 12;
+
+  /**
+   * Parse a section's music_cues JSON into a clean, sorted list of
+   * ['track_id' => int, 'start_index' => int]. The first cue always starts at
+   * photo 0. Invalid input yields [].
+   */
+  public static function parseCues($json): array {
+    if ($json === null || $json === '') return [];
+    $data = is_array($json) ? $json : json_decode((string)$json, true);
+    if (!is_array($data)) return [];
+    $cues = [];
+    foreach ($data as $c) {
+      if (!is_array($c)) continue;
+      $tid = (int)($c['track_id'] ?? 0);
+      $si = max(0, (int)($c['start_index'] ?? 0));
+      if ($tid <= 0) continue;
+      $cues[$si] = ['track_id' => $tid, 'start_index' => $si]; // later entries at the same index win
+    }
+    ksort($cues);
+    $cues = array_values($cues);
+    if ($cues !== []) $cues[0]['start_index'] = 0;
+    return array_slice($cues, 0, self::MAX_CUES);
+  }
+
+  /**
+   * The cues a section plays, with track title/duration attached. A section
+   * with music_cues uses them; otherwise its single track_id (or nothing)
+   * becomes one cue starting at photo 0.
+   * @return array<int,array{track_id:?int,start_index:int,title:?string,duration_seconds:?float}>
+   */
+  public static function resolveCues(array $section, array &$trackCache = []): array {
+    $raw = self::parseCues($section['music_cues'] ?? null);
+    if ($raw === []) {
+      if ($section['track_id'] === null) return [['track_id' => null, 'start_index' => 0, 'title' => null, 'duration_seconds' => null]];
+      $raw = [['track_id' => (int)$section['track_id'], 'start_index' => 0]];
+    }
+    $out = [];
+    foreach ($raw as $c) {
+      $tid = (int)$c['track_id'];
+      if (!array_key_exists($tid, $trackCache)) $trackCache[$tid] = SlideshowTracks::findById($tid);
+      $t = $trackCache[$tid];
+      if (!$t) continue; // track deleted since
+      $out[] = ['track_id' => $tid, 'start_index' => (int)$c['start_index'], 'title' => (string)$t['title'],
+                'duration_seconds' => $t['duration_seconds'] !== null ? (float)$t['duration_seconds'] : null];
+    }
+    if ($out === []) return [['track_id' => null, 'start_index' => 0, 'title' => null, 'duration_seconds' => null]];
+    $out[0]['start_index'] = 0;
+    return $out;
+  }
+
+  /** Whether a section row is in multi-track mode. */
+  public static function hasCues(array $section): bool {
+    return count(self::parseCues($section['music_cues'] ?? null)) > 0;
+  }
+
+  /**
+   * Admin: set several tracks for a section. $cues = [['track_id'=>, 'start_index'=>], ...].
+   * track_id is mirrored to the first cue.
+   */
+  public static function setSectionCues(UserContext $ctx, int $sectionId, array $cues): bool {
+    self::assertAdmin($ctx);
+    $s = self::findSection($sectionId);
+    if (!$s) throw new RuntimeException('Section not found.');
+    $clean = self::parseCues($cues);
+    if ($clean === []) throw new InvalidArgumentException('Choose at least one track.');
+    foreach ($clean as $c) {
+      if (!SlideshowTracks::findById((int)$c['track_id'])) throw new InvalidArgumentException('Track not found.');
+    }
+    $st = self::pdo()->prepare('UPDATE slideshow_sections SET music_cues = ?, track_id = ? WHERE id = ?');
+    $st->execute([json_encode($clean), (int)$clean[0]['track_id'], $sectionId]);
+    self::touch((int)$s['slideshow_id']);
+    self::log($ctx, 'slideshow.section.set_cues', ['section_id' => $sectionId, 'cues' => $clean]);
+    return true;
+  }
+
+  /** Admin: back to a single track (the first cue's track is kept). */
+  public static function clearSectionCues(UserContext $ctx, int $sectionId): bool {
+    self::assertAdmin($ctx);
+    $s = self::findSection($sectionId);
+    if (!$s) throw new RuntimeException('Section not found.');
+    $st = self::pdo()->prepare('UPDATE slideshow_sections SET music_cues = NULL WHERE id = ?');
+    $st->execute([$sectionId]);
+    self::touch((int)$s['slideshow_id']);
+    self::log($ctx, 'slideshow.section.clear_cues', ['section_id' => $sectionId]);
+    return true;
   }
 
   /** Total runtime in seconds for a list from listSections(), including the end card. */
@@ -163,17 +256,80 @@ final class Slideshows {
    *    null meaning "when it ends").
    * @return array{seconds_per_photo:float,section_seconds:float,music_mode:string,fade_out_at:?float,loop_at:?float}
    */
-  public static function computeTiming(int $photoCount, ?float $trackDuration, ?float $override, bool $hasTrack = true): array {
+  /**
+   * Timing for a whole section whose photos may be covered by several tracks
+   * in turn. $segments = [['start_index'=>int,'duration'=>?float,'has_track'=>bool], ...]
+   * sorted by start_index with the first at 0 (a section with no music is one
+   * segment with has_track=false). Each segment spreads its track over its
+   * own photos using the same rules as computeTiming(); the title card belongs
+   * to the first segment; an override applies to every photo.
+   *
+   * @return array{
+   *   section_seconds:float, seconds_per_photo:float, photo_starts:float[],
+   *   cues:array<int,array{start_index:int,start_at:float,segment_seconds:float,photo_count:int,
+   *                        seconds_per_photo:float,music_mode:string,fade_out_at:?float,loop_at:?float}>
+   * }
+   */
+  public static function computeSectionTiming(int $photoCount, array $segments, ?float $override): array {
     $n = max(0, $photoCount);
+    if ($segments === []) $segments = [['start_index' => 0, 'duration' => null, 'has_track' => false]];
+    usort($segments, fn($a, $b) => $a['start_index'] <=> $b['start_index']);
+    $segments[0]['start_index'] = 0;
+    // Drop segments that start beyond the photos or duplicate a start.
+    $clean = [];
+    foreach ($segments as $seg) {
+      $si = max(0, (int)$seg['start_index']);
+      if ($si >= $n && $n > 0) continue;
+      if ($clean !== [] && $si <= end($clean)['start_index']) continue;
+      $clean[] = ['start_index' => $si, 'duration' => $seg['duration'] ?? null, 'has_track' => !empty($seg['has_track'])];
+    }
+    if ($clean === []) $clean = [['start_index' => 0, 'duration' => null, 'has_track' => false]];
+
+    $cues = [];
+    $photoStarts = [];
+    $at = 0.0;
+    $spp0 = null;
+    foreach ($clean as $k => $seg) {
+      $end = isset($clean[$k + 1]) ? (int)$clean[$k + 1]['start_index'] : $n;
+      $count = max(0, $end - $seg['start_index']);
+      $t = self::computeTiming($count, $seg['duration'], $override, $seg['has_track'], $k === 0);
+      if ($spp0 === null) $spp0 = $t['seconds_per_photo'];
+      $title = $k === 0 ? self::TITLE_CARD_SECONDS : 0.0;
+      for ($i = 0; $i < $count; $i++) {
+        $photoStarts[] = round($at + $title + $i * $t['seconds_per_photo'], 2);
+      }
+      $cues[] = [
+        'start_index'       => $seg['start_index'],
+        'start_at'          => round($at, 2),
+        'segment_seconds'   => $t['section_seconds'],
+        'photo_count'       => $count,
+        'seconds_per_photo' => $t['seconds_per_photo'],
+        'music_mode'        => $t['music_mode'],
+        'fade_out_at'       => $t['fade_out_at'] !== null ? round($at + $t['fade_out_at'], 2) : null,
+        'loop_at'           => $t['loop_at'],
+      ];
+      $at += $t['section_seconds'];
+    }
+    return [
+      'section_seconds'   => round($at, 2),
+      'seconds_per_photo' => $spp0 ?? self::DEFAULT_SPP,
+      'photo_starts'      => $photoStarts,
+      'cues'              => $cues,
+    ];
+  }
+
+  public static function computeTiming(int $photoCount, ?float $trackDuration, ?float $override, bool $hasTrack = true, bool $withTitleCard = true): array {
+    $n = max(0, $photoCount);
+    $titleCard = $withTitleCard ? self::TITLE_CARD_SECONDS : 0.0;
     if ($override !== null) {
       $spp = max(self::OVERRIDE_MIN, min(self::OVERRIDE_MAX, $override));
     } elseif ($trackDuration !== null && $trackDuration > 0 && $n > 0) {
-      $spp = max(self::MIN_SPP, min(self::MAX_SPP, ($trackDuration - self::TITLE_CARD_SECONDS) / $n));
+      $spp = max(self::MIN_SPP, min(self::MAX_SPP, ($trackDuration - $titleCard) / $n));
     } else {
       $spp = self::DEFAULT_SPP;
     }
     $spp = round($spp, 2);
-    $sectionSeconds = $n > 0 ? self::TITLE_CARD_SECONDS + $n * $spp : 0.0;
+    $sectionSeconds = $n > 0 ? $titleCard + $n * $spp : 0.0;
 
     if (!$hasTrack) {
       $mode = 'none'; $fadeOutAt = null; $loopAt = null;
@@ -324,8 +480,16 @@ final class Slideshows {
     if ($trackId !== null && $trackId > 0 && !SlideshowTracks::findById($trackId)) {
       throw new InvalidArgumentException('Track not found.');
     }
-    $st = self::pdo()->prepare('UPDATE slideshow_sections SET track_id = ? WHERE id = ?');
-    $st->execute([$trackId !== null && $trackId > 0 ? $trackId : null, $sectionId]);
+    $tid = $trackId !== null && $trackId > 0 ? $trackId : null;
+    $cues = self::parseCues($s['music_cues'] ?? null);
+    if ($cues !== [] && $tid !== null) {
+      $cues[0]['track_id'] = $tid; // keep the first cue in step with the dropdown
+      $st = self::pdo()->prepare('UPDATE slideshow_sections SET track_id = ?, music_cues = ? WHERE id = ?');
+      $st->execute([$tid, json_encode($cues), $sectionId]);
+    } else {
+      $st = self::pdo()->prepare('UPDATE slideshow_sections SET track_id = ?, music_cues = NULL WHERE id = ?');
+      $st->execute([$tid, $sectionId]);
+    }
     self::touch((int)$s['slideshow_id']);
     self::log($ctx, 'slideshow.section.set_track', ['section_id' => $sectionId, 'track_id' => $trackId]);
     return true;
@@ -368,18 +532,23 @@ final class Slideshows {
     foreach (self::listSections($slideshowId) as $s) {
       $photos = EventPhotos::listForSlideshow((int)$s['event_id']);
       if ($photos === []) continue;
-      $track = null;
-      if ($s['track_id'] !== null) {
-        $t = SlideshowTracks::findById((int)$s['track_id']);
-        if ($t) {
-          $track = [
-            'id' => (int)$t['id'], 'title' => (string)$t['title'],
-            'url' => SlideshowTracks::urlFor($t, $now), 'content_type' => (string)$t['content_type'],
-            'duration_seconds' => $t['duration_seconds'] !== null ? (float)$t['duration_seconds'] : null,
-          ];
-        }
-      }
       $timing = $s['timing'];
+      $trackInfo = function (?int $tid) use ($now) {
+        if ($tid === null) return null;
+        $t = SlideshowTracks::findById($tid);
+        if (!$t) return null;
+        return [
+          'id' => (int)$t['id'], 'title' => (string)$t['title'],
+          'url' => SlideshowTracks::urlFor($t, $now), 'content_type' => (string)$t['content_type'],
+          'duration_seconds' => $t['duration_seconds'] !== null ? (float)$t['duration_seconds'] : null,
+        ];
+      };
+      $cues = [];
+      foreach ($timing['cues'] as $k => $cue) {
+        $src = $s['cues'][$k] ?? null;
+        $cues[] = $cue + ['track' => $trackInfo($src['track_id'] ?? null)];
+      }
+      $track = $cues[0]['track'] ?? null;
       $list = [];
       foreach ($photos as $p) {
         $list[] = [
@@ -397,9 +566,8 @@ final class Slideshows {
         'track' => $track,
         'seconds_per_photo' => $timing['seconds_per_photo'],
         'section_seconds' => $timing['section_seconds'],
-        'music_mode' => $timing['music_mode'],
-        'fade_out_at' => $timing['fade_out_at'],
-        'loop_at' => $timing['loop_at'],
+        'photo_starts' => $timing['photo_starts'],
+        'cues' => $cues,
         'photos' => $list,
       ];
       $total += (float)$timing['section_seconds'];

@@ -719,6 +719,7 @@ CREATE TABLE slideshow_sections (
   event_id INT NOT NULL,
   sort_order INT NOT NULL DEFAULT 0,
   track_id INT DEFAULT NULL,
+  music_cues TEXT DEFAULT NULL COMMENT 'JSON [{track_id,start_index}] when the section uses several tracks',
   title_override VARCHAR(255) DEFAULT NULL,
   seconds_per_photo DECIMAL(5,2) DEFAULT NULL COMMENT 'NULL = auto: clamp(track_duration / photo_count, 3, 8)',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

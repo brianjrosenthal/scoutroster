@@ -44,6 +44,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Slideshows::setSectionTrack($ctx, $sectionId, $t === '' ? null : (int)$t);
         $msg = 'Music updated.';
         break;
+      case 'set_cues':
+        $cues = [];
+        $tids = (array)($_POST['cue_track_id'] ?? []);
+        $starts = (array)($_POST['cue_start'] ?? []);
+        foreach ($tids as $i => $tid) {
+          if ((string)$tid === '') continue;
+          // Admins type 1-based photo numbers; store 0-based indexes.
+          $cues[] = ['track_id' => (int)$tid, 'start_index' => max(0, (int)($starts[$i] ?? 1) - 1)];
+        }
+        Slideshows::setSectionCues($ctx, $sectionId, $cues);
+        $msg = 'Music updated.';
+        break;
+      case 'clear_cues':
+        Slideshows::clearSectionCues($ctx, $sectionId);
+        $msg = 'Back to a single track.';
+        break;
       case 'set_options':
         $spp = trim((string)($_POST['seconds_per_photo'] ?? ''));
         Slideshows::setSectionOptions($ctx, $sectionId, $spp === '' ? null : (float)$spp, (string)($_POST['title_override'] ?? ''));
@@ -148,6 +164,8 @@ header_html('Edit Slideshow');
             <?php else: ?><?= $n ?><?php if ((int)$s['photo_total'] !== $n): ?> <span class="small">of <?= (int)$s['photo_total'] ?></span><?php endif; ?><?php endif; ?>
           </td>
           <td>
+            <?php $multi = Slideshows::hasCues($s); $cueRows = $multi ? $s['cues'] : []; ?>
+            <?php if (!$multi): ?>
             <form method="post" class="inline">
               <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
               <input type="hidden" name="action" value="set_track">
@@ -158,6 +176,51 @@ header_html('Edit Slideshow');
                   <option value="<?= (int)$t['id'] ?>" <?= (int)$s['track_id'] === (int)$t['id'] ? 'selected' : '' ?>><?= h($t['title']) ?><?= $t['duration_seconds'] !== null ? ' (' . h(SlideshowTracks::formatDuration($t['duration_seconds'])) . ')' : '' ?></option>
                 <?php endforeach; ?>
               </select>
+            </form>
+            <?php if (!empty($tracks) && $n > 1): ?>
+              <div class="small" style="margin-top:4px"><a href="#" class="cues-open" data-section-id="<?= (int)$s['id'] ?>">Use multiple tracks&hellip;</a></div>
+            <?php endif; ?>
+            <?php endif; ?>
+            <form method="post" class="stack cues-form <?= $multi ? '' : 'hidden' ?>" id="cues-<?= (int)$s['id'] ?>" style="margin:0">
+              <input type="hidden" name="csrf" value="<?= h(csrf_token()) ?>">
+              <input type="hidden" name="action" value="set_cues">
+              <input type="hidden" name="section_id" value="<?= (int)$s['id'] ?>">
+              <div class="cue-rows">
+                <?php $rows = $cueRows ?: [['track_id' => $s['track_id'], 'start_index' => 0]]; foreach ($rows as $ci => $cue): ?>
+                  <div class="cue-row" style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+                    <select name="cue_track_id[]" style="min-width:140px;padding:4px 6px;font-size:12px">
+                      <?php foreach ($tracks as $t): ?>
+                        <option value="<?= (int)$t['id'] ?>" <?= (int)($cue['track_id'] ?? 0) === (int)$t['id'] ? 'selected' : '' ?>><?= h($t['title']) ?><?= $t['duration_seconds'] !== null ? ' (' . h(SlideshowTracks::formatDuration($t['duration_seconds'])) . ')' : '' ?></option>
+                      <?php endforeach; ?>
+                    </select>
+                    <span class="small">from photo</span>
+                    <input type="number" name="cue_start[]" min="1" max="<?= max(1, $n) ?>" value="<?= (int)$cue['start_index'] + 1 ?>" <?= $ci === 0 ? 'readonly title="The first track starts with the first photo"' : '' ?> style="width:64px;padding:4px 6px;font-size:12px">
+                    <button type="button" class="button cue-remove" style="padding:2px 7px;font-size:12px" <?= $ci === 0 ? 'disabled' : '' ?>>&#10005;</button>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+              <template class="cue-template">
+                <div class="cue-row" style="display:flex;gap:4px;align-items:center;margin-bottom:4px">
+                  <select name="cue_track_id[]" style="min-width:140px;padding:4px 6px;font-size:12px">
+                    <?php foreach ($tracks as $t): ?>
+                      <option value="<?= (int)$t['id'] ?>"><?= h($t['title']) ?><?= $t['duration_seconds'] !== null ? ' (' . h(SlideshowTracks::formatDuration($t['duration_seconds'])) . ')' : '' ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                  <span class="small">from photo</span>
+                  <input type="number" name="cue_start[]" min="2" max="<?= max(1, $n) ?>" value="" placeholder="#" style="width:64px;padding:4px 6px;font-size:12px">
+                  <button type="button" class="button cue-remove" style="padding:2px 7px;font-size:12px">&#10005;</button>
+                </div>
+              </template>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                <button type="button" class="button cue-add" style="padding:4px 8px;font-size:12px">+ Add track</button>
+                <button type="submit" class="button primary" style="padding:4px 8px;font-size:12px">Save music</button>
+                <?php if ($multi): ?>
+                  <button type="submit" class="button" name="action" value="clear_cues" style="padding:4px 8px;font-size:12px" title="Keep only the first track">Back to a single track</button>
+                <?php else: ?>
+                  <button type="button" class="button cues-cancel" style="padding:4px 8px;font-size:12px">Cancel</button>
+                <?php endif; ?>
+              </div>
+              <p class="small" style="margin:4px 0 0">Each track plays from its photo until the next track starts; the photo timing is worked out per track. <?= $n ?> photo<?= $n === 1 ? '' : 's' ?> in this section.</p>
             </form>
             <?php if ($configured): ?>
               <div class="track-upload" data-section-id="<?= (int)$s['id'] ?>" style="margin-top:6px">
@@ -170,12 +233,15 @@ header_html('Edit Slideshow');
           </td>
           <td class="small">
             <?php if ($n > 0): ?>
-              <?= h((string)$tm['seconds_per_photo']) ?> s/photo<?= $s['seconds_per_photo'] !== null ? ' (override)' : '' ?><br>
-              <?= h(Slideshows::formatSeconds((float)$tm['section_seconds'])) ?> total<br>
-              <?php if ($tm['music_mode'] === 'none'): ?>no music
-              <?php elseif ($tm['music_mode'] === 'loop'): ?>music loops
-              <?php elseif ($s['track_duration_seconds'] !== null && (float)$s['track_duration_seconds'] - (float)$tm['section_seconds'] > 5): ?>music fades early
-              <?php else: ?>fits the music<?php endif; ?>
+              <strong><?= h(Slideshows::formatSeconds((float)$tm['section_seconds'])) ?> total</strong><?= $s['seconds_per_photo'] !== null ? ' (override ' . h((string)(float)$s['seconds_per_photo']) . ' s/photo)' : '' ?>
+              <?php foreach ($tm['cues'] as $ci => $cue): $srcCue = $s['cues'][$ci] ?? null; $dur = $srcCue['duration_seconds'] ?? null; ?>
+                <br><?php if (count($tm['cues']) > 1): ?>Photos <?= (int)$cue['start_index'] + 1 ?>&ndash;<?= (int)$cue['start_index'] + (int)$cue['photo_count'] ?>: <?php endif; ?>
+                <?= h((string)$cue['seconds_per_photo']) ?> s/photo,
+                <?php if ($cue['music_mode'] === 'none'): ?>no music
+                <?php elseif ($cue['music_mode'] === 'loop'): ?>music loops
+                <?php elseif ($dur !== null && $dur - (float)$cue['segment_seconds'] > 5): ?>music fades early
+                <?php else: ?>fits the music<?php endif; ?>
+              <?php endforeach; ?>
             <?php endif; ?>
           </td>
           <td style="white-space:nowrap">
@@ -217,6 +283,39 @@ header_html('Edit Slideshow');
 <?php $jsVer = @filemtime(__DIR__ . '/photos.js') ?: date('Ymd'); ?>
 <script src="/photos.js?v=<?= h((string)$jsVer) ?>"></script>
 <script>
+// Multiple-tracks editor: show/hide the cue form, add/remove rows.
+(function () {
+  document.querySelectorAll('.cues-open').forEach(function (a) {
+    a.addEventListener('click', function (e) {
+      e.preventDefault();
+      var form = document.getElementById('cues-' + a.getAttribute('data-section-id'));
+      if (!form) return;
+      form.classList.remove('hidden');
+      a.closest('td').querySelectorAll('form.inline, .cues-open').forEach(function (el) { el.classList.add('hidden'); });
+      if (form.querySelectorAll('.cue-row').length < 2) addRow(form);
+    });
+  });
+  function addRow(form) {
+    var tpl = form.querySelector('.cue-template');
+    var rows = form.querySelector('.cue-rows');
+    var node = tpl.content.firstElementChild.cloneNode(true);
+    var last = rows.querySelector('.cue-row:last-child input[name="cue_start[]"]');
+    var next = last ? (parseInt(last.value, 10) || 1) + 1 : 2;
+    node.querySelector('input[name="cue_start[]"]').value = String(next);
+    rows.appendChild(node);
+    node.querySelector('select').focus();
+  }
+  document.querySelectorAll('.cues-form').forEach(function (form) {
+    form.querySelector('.cue-add').addEventListener('click', function () { addRow(form); });
+    form.addEventListener('click', function (e) {
+      var btn = e.target.closest('.cue-remove');
+      if (btn && !btn.disabled) { var row = btn.closest('.cue-row'); if (row) row.remove(); }
+    });
+    var cancel = form.querySelector('.cues-cancel');
+    if (cancel) cancel.addEventListener('click', function () { location.reload(); });
+  });
+})();
+
 // Music upload: read the duration locally, presign, PUT straight to R2 with
 // progress, attach (assigning the track to this section), then reload so the
 // timing is recomputed server-side.
