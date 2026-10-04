@@ -135,6 +135,11 @@ test.describe('Event photos', () => {
     await expect(page.locator('.photo-tile').first()).toHaveAttribute('data-estimated', '0');
     await expect(page.locator('#lightboxMeta')).toContainText('Sep 12, 2026 8:00 AM');
     await expect(page.locator('#lightboxMeta')).not.toContainText('estimated');
+    // Clearing the date makes it estimated again (upload time), so it goes back to the end.
+    await page.fill('#lightboxDateInput', '');
+    await page.locator('#lightboxDateForm button[type="submit"]').click();
+    await expect(page.locator('.photo-tile').last()).toHaveAttribute('data-photo-id', pngId);
+    await expect(page.locator('.photo-tile').last()).toHaveAttribute('data-estimated', '1');
     await page.locator('#lightboxClose').click();
   });
 
@@ -145,6 +150,10 @@ test.describe('Event photos', () => {
     await expect(page.locator('.photo-tile')).toHaveCount(3);
     await expect(page.locator('.photo-tile .tile-controls')).toHaveCount(0);
     await expect(page.locator('#reorderBtn')).toHaveCount(0);
+    await expect(page.locator('#refreshDatesBtn')).toHaveCount(0);
+    // The estimated-date marker is only for people who can edit the photo.
+    await expect(page.locator('.photo-tile .tile-date-est')).toHaveCount(0);
+    await expect(page.locator('.photo-tile').last()).not.toHaveAttribute('data-taken-text', /estimated/);
     // Direct API call is refused too.
     const csrf = await page.locator('#photoGrid').getAttribute('data-csrf');
     const photoId = await page.locator('.photo-tile').first().getAttribute('data-photo-id');
@@ -201,6 +210,36 @@ test.describe('Event photos', () => {
     await expect(page.locator('#resetOrderBtn')).toHaveCount(0, { timeout: 10000 });
     const reset = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
     expect(reset).toEqual(ids);
+  });
+
+  test('refreshing estimated dates keeps moved photos in place after a chronological reset', async ({ page }) => {
+    test.skip(!R2, 'photo storage not configured');
+    await helpers.loginAsAdmin();
+    await page.goto(`/event_photos.php?event_id=${eventId}`);
+    const ids = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    const pngId = ids[2]; // the estimated one sits last in chronological order
+    await expect(page.locator('.photo-tile').last()).toHaveAttribute('data-estimated', '1');
+    await expect(page.locator('#refreshDatesBtn')).toContainText('(1)');
+
+    // Move the estimated photo to the front by hand and save.
+    const t = (i) => page.locator('.photo-tile').nth(i);
+    await page.locator('#reorderBtn').click();
+    await t(2).click();
+    await page.locator('#moveStartBtn').click();
+    await page.locator('#saveOrderBtn').click();
+    await expect(page.locator('#resetOrderBtn')).toBeVisible({ timeout: 10000 });
+
+    // Refresh estimated dates, then reset to chronological: it must stay first.
+    page.once('dialog', (d) => d.accept());
+    await page.locator('#refreshDatesBtn').click();
+    await page.waitForLoadState('networkidle');
+    await expect(page.locator('#refreshDatesBtn')).toBeVisible({ timeout: 10000 }); // still estimated
+    page.once('dialog', (d) => d.accept());
+    await page.locator('#resetOrderBtn').click();
+    await expect(page.locator('#resetOrderBtn')).toHaveCount(0, { timeout: 10000 });
+    const after = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(after).toEqual([pngId, ids[0], ids[1]]);
+    await expect(page.locator('.photo-tile').first()).toHaveAttribute('data-taken-text', /Sep 12, 2026 10:04 AM \(estimated\)/);
   });
 
   test('deleting a photo removes it and updates the count', async ({ page }) => {

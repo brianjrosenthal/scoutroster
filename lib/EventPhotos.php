@@ -350,6 +350,72 @@ final class EventPhotos {
     self::log($ctx, 'event_photo.reorder', ['event_id' => $eventId, 'count' => count($ids)]);
   }
 
+  /**
+   * Admin: give every photo whose date is estimated (not from EXIF or a
+   * person) a date that matches its current position in the gallery, so a
+   * later "reset to chronological" keeps it where it was put. Each run of
+   * estimated photos is spread evenly between the dated photos around it;
+   * runs before the first dated photo step back a minute each, runs after
+   * the last step forward. Returns how many photos were updated.
+   */
+  public static function refreshEstimatedDates(UserContext $ctx, int $eventId): int {
+    self::assertAdmin($ctx);
+    $photos = self::listForEvent($eventId);
+    $isAnchor = fn($p) => in_array((string)$p['taken_at_source'], ['exif', 'manual'], true) && !empty($p['taken_at']);
+    $anchorIdx = [];
+    foreach ($photos as $i => $p) if ($isAnchor($p)) $anchorIdx[] = $i;
+    if ($anchorIdx === []) return 0;
+
+    $updates = []; // id => 'Y-m-d H:i:s'
+    $n = count($photos);
+    $assign = function (int $from, int $to, callable $timeFor) use ($photos, &$updates) {
+      $k = $to - $from + 1;
+      for ($j = 0; $j < $k; $j++) {
+        $p = $photos[$from + $j];
+        $updates[(int)$p['id']] = date('Y-m-d H:i:s', (int)round($timeFor($j, $k)));
+      }
+    };
+    // Before the first anchor.
+    $first = $anchorIdx[0];
+    if ($first > 0) {
+      $ta = strtotime((string)$photos[$first]['taken_at']);
+      $assign(0, $first - 1, fn($j, $k) => $ta - ($k - $j) * 60);
+    }
+    // Between anchors.
+    for ($a = 0; $a + 1 < count($anchorIdx); $a++) {
+      $i1 = $anchorIdx[$a]; $i2 = $anchorIdx[$a + 1];
+      if ($i2 - $i1 < 2) continue;
+      $ta = strtotime((string)$photos[$i1]['taken_at']);
+      $tb = strtotime((string)$photos[$i2]['taken_at']);
+      $k = $i2 - $i1 - 1;
+      if ($tb - $ta >= $k + 1) {
+        $assign($i1 + 1, $i2 - 1, fn($j) => $ta + ($tb - $ta) * ($j + 1) / ($k + 1));
+      } else {
+        // Anchors out of order or too close (a dated photo was moved by hand): step by seconds.
+        $assign($i1 + 1, $i2 - 1, fn($j) => $ta + $j + 1);
+      }
+    }
+    // After the last anchor.
+    $last = end($anchorIdx);
+    if ($last < $n - 1) {
+      $tb = strtotime((string)$photos[$last]['taken_at']);
+      $assign($last + 1, $n - 1, fn($j) => $tb + ($j + 1) * 60);
+    }
+    if ($updates === []) return 0;
+    $pdo = self::pdo();
+    $pdo->beginTransaction();
+    try {
+      $up = $pdo->prepare("UPDATE event_photos SET taken_at = ?, taken_at_source = 'file' WHERE id = ? AND event_id = ?");
+      foreach ($updates as $id => $t) $up->execute([$t, $id, $eventId]);
+      $pdo->commit();
+    } catch (\Throwable $e) {
+      $pdo->rollBack();
+      throw $e;
+    }
+    self::log($ctx, 'event_photo.refresh_estimated_dates', ['event_id' => $eventId, 'count' => count($updates)]);
+    return count($updates);
+  }
+
   /** Admin: back to chronological order. */
   public static function resetOrder(UserContext $ctx, int $eventId): void {
     self::assertAdmin($ctx);

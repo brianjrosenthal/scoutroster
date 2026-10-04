@@ -16,12 +16,12 @@ final class EventPhotosUI {
   }
 
   /** Formatted capture date, with a marker when it is estimated rather than from EXIF. */
-  public static function takenAtText(array $photo): string {
+  public static function takenAtText(array $photo, bool $showEstimated = true): string {
     $t = (string)($photo['taken_at'] ?? '');
     if ($t === '') return '';
     $ts = strtotime($t);
     $txt = $ts ? date('M j, Y g:i A', $ts) : $t;
-    if (self::isEstimated($photo)) $txt .= ' (estimated)';
+    if ($showEstimated && self::isEstimated($photo)) $txt .= ' (estimated)';
     return $txt;
   }
 
@@ -54,7 +54,7 @@ final class EventPhotosUI {
       . ' data-caption="' . self::h($caption) . '"'
       . ' data-excluded="' . ($excluded ? '1' : '0') . '"'
       . ' data-uploader="' . self::h($uploader) . '"'
-      . ' data-taken-text="' . self::h(self::takenAtText($photo)) . '"'
+      . ' data-taken-text="' . self::h(self::takenAtText($photo, $canModify)) . '"'
       . ' data-taken-input="' . self::h(self::takenAtInputValue($photo)) . '"'
       . ' data-estimated="' . (self::isEstimated($photo) ? '1' : '0') . '"'
       . ' data-can-modify="' . ($canModify ? '1' : '0') . '">';
@@ -64,7 +64,7 @@ final class EventPhotosUI {
     if ($excluded) {
       $html .= '<span class="tile-badge" title="This photo will not appear in slideshows">Not in slideshow</span>';
     }
-    if (self::isEstimated($photo)) {
+    if ($canModify && self::isEstimated($photo)) {
       $html .= '<span class="tile-date-est" title="No date in this photo (sent through WhatsApp or similar); the date is estimated. Open it to set the real date.">date?</span>';
     }
     if ($canModify) {
