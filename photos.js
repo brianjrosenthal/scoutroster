@@ -678,6 +678,7 @@
       show(cancelBtn, on);
       show(reorderBar, on);
       if (resetBtn) show(resetBtn, !on);
+      if (refreshDatesBtn) show(refreshDatesBtn, !on);
       if (!on) clearSelection();
     }
 
@@ -803,6 +804,16 @@
         }
       });
       grid.addEventListener('dragstart', function (e) { if (reordering) e.preventDefault(); });
+    }
+    var refreshDatesBtn = document.getElementById('refreshDatesBtn');
+    if (refreshDatesBtn) {
+      refreshDatesBtn.addEventListener('click', function () {
+        if (!confirm('Give every photo with an estimated date a date that fits its current position? Photos with a real (camera or hand-set) date are not changed.')) return;
+        refreshDatesBtn.disabled = true;
+        postForm(reorderUrl, { csrf: csrf, event_id: eventId, action: 'refresh_dates' })
+          .then(function () { location.reload(); })
+          .catch(function (e) { refreshDatesBtn.disabled = false; alert(e.message); });
+      });
     }
     if (resetBtn) {
       resetBtn.addEventListener('click', function () {

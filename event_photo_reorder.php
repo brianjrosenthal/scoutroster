@@ -24,6 +24,9 @@ try {
   } elseif ($action === 'reset') {
     EventPhotos::resetOrder($ctx, $eventId);
     echo json_encode(['ok' => true, 'manual' => false]);
+  } elseif ($action === 'refresh_dates') {
+    $n = EventPhotos::refreshEstimatedDates($ctx, $eventId);
+    echo json_encode(['ok' => true, 'updated' => $n]);
   } else {
     throw new InvalidArgumentException('Unknown action.');
   }

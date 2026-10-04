@@ -22,6 +22,8 @@ $configured = PhotoStorage::isConfigured();
 $photos = EventPhotos::withUrls(EventPhotos::listForEvent($eventId));
 $count = count($photos);
 $manualOrder = $isAdmin && EventPhotos::hasManualOrder($eventId);
+$estimatedCount = 0;
+foreach ($photos as $p) { if (EventPhotosUI::isEstimated($p)) $estimatedCount++; }
 $acceptExts = '.' . implode(',.', PhotoStorage::extensionsFor('image'));
 
 header_html('Photos: ' . $e['name']);
@@ -39,6 +41,9 @@ header_html('Photos: ' . $e['name']);
       <button type="button" class="button hidden" id="cancelOrderBtn">Cancel</button>
       <?php if ($manualOrder): ?>
         <button type="button" class="button" id="resetOrderBtn" title="Clear the manual order and sort by the date each photo was taken">Reset to chronological</button>
+      <?php endif; ?>
+      <?php if ($estimatedCount > 0): ?>
+        <button type="button" class="button" id="refreshDatesBtn" title="Give the <?= $estimatedCount ?> photo<?= $estimatedCount === 1 ? '' : 's' ?> with an estimated date a date that matches where they sit now, so sorting by date keeps them there">Refresh estimated dates (<?= $estimatedCount ?>)</button>
       <?php endif; ?>
     <?php endif; ?>
   </div>
