@@ -674,7 +674,7 @@ CREATE TABLE event_photos (
   height INT UNSIGNED NOT NULL COMMENT 'original px height after EXIF orientation',
   sha256 CHAR(64) DEFAULT NULL COMMENT 'hex SHA-256 of the original, browser-computed, dedup hint',
   taken_at DATETIME DEFAULT NULL COMMENT 'naive wall-clock capture time',
-  taken_at_source ENUM('exif','file','upload') NOT NULL DEFAULT 'upload',
+  taken_at_source ENUM('exif','file','upload','manual') NOT NULL DEFAULT 'upload',
   caption VARCHAR(500) DEFAULT NULL,
   exclude_from_slideshow TINYINT(1) NOT NULL DEFAULT 0,
   sort_order INT DEFAULT NULL COMMENT 'admin manual order; NULL = chronological',

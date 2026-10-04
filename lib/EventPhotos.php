@@ -252,6 +252,28 @@ final class EventPhotos {
     return self::findById($photoId);
   }
 
+  /**
+   * Set the capture date by hand ('Y-m-d H:i:s'); null restores the upload
+   * time. Marks the source 'manual' so it no longer reads as estimated.
+   */
+  public static function setTakenAt(UserContext $ctx, int $photoId, ?string $takenAt): array {
+    $photo = self::requirePhoto($photoId);
+    self::assertCanModify($ctx, $photo);
+    if ($takenAt !== null && $takenAt !== '') {
+      $dt = DateTime::createFromFormat('Y-m-d H:i:s', $takenAt);
+      $ok = $dt && $dt->format('Y-m-d H:i:s') === $takenAt
+         && $dt->getTimestamp() >= strtotime('1990-01-01') && $dt->getTimestamp() <= time() + 86400;
+      if (!$ok) throw new InvalidArgumentException('Please enter a valid date and time.');
+      $st = self::pdo()->prepare("UPDATE event_photos SET taken_at = ?, taken_at_source = 'manual' WHERE id = ?");
+      $st->execute([$takenAt, $photoId]);
+    } else {
+      $st = self::pdo()->prepare("UPDATE event_photos SET taken_at = created_at, taken_at_source = 'upload' WHERE id = ?");
+      $st->execute([$photoId]);
+    }
+    self::log($ctx, 'event_photo.taken_at', ['photo_id' => $photoId, 'event_id' => (int)$photo['event_id'], 'taken_at' => $takenAt]);
+    return self::findById($photoId);
+  }
+
   public static function setExcludeFromSlideshow(UserContext $ctx, int $photoId, bool $exclude): array {
     $photo = self::requirePhoto($photoId);
     self::assertCanModify($ctx, $photo);

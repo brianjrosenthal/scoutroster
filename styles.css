@@ -126,17 +126,28 @@ header nav .nav-right{margin-left:auto}
 .photo-tile img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:10px;transition:opacity .15s}
 .photo-tile.excluded img{opacity:.45}
 .photo-tile .tile-badge{position:absolute;left:6px;top:6px;background:rgba(17,17,17,.8);color:#fff;font-size:11px;padding:2px 7px;border-radius:999px}
+.photo-tile .tile-date-est{position:absolute;right:6px;top:6px;background:rgba(255,243,205,.95);color:#7a4a00;font-size:11px;padding:2px 7px;border-radius:999px;cursor:help}
 .photo-tile .tile-controls{position:absolute;left:0;right:0;bottom:0;display:flex;gap:4px;justify-content:flex-end;padding:6px;background:linear-gradient(transparent,rgba(0,0,0,.55));opacity:0;transition:opacity .15s}
 .photo-tile:hover .tile-controls,.photo-tile:focus-within .tile-controls{opacity:1}
 @media (hover:none){.photo-tile .tile-controls{opacity:1}}
 .photo-tile .tile-btn{font-size:11px;padding:4px 8px;border-radius:8px;background:rgba(255,255,255,.92);color:#111}
 .photo-tile .tile-btn.delete{background:rgba(185,28,28,.92);color:#fff}
 .photo-tile .tile-btn.toggle-slideshow[aria-pressed="true"]{background:#ffe8e8;color:#7a0000}
-.photo-tile .reorder-handles{display:none;position:absolute;inset:0;align-items:center;justify-content:space-between;padding:6px;background:rgba(0,0,0,.25)}
-.photo-grid.reordering .photo-tile{cursor:grab;outline:2px dashed #2563eb;outline-offset:-2px}
-.photo-grid.reordering .photo-tile .reorder-handles{display:flex}
-.photo-grid.reordering .photo-tile .tile-controls{display:none}
-.photo-grid.reordering .photo-tile.dragging{opacity:.4}
+.photo-tile .tile-check{display:none;position:absolute;left:8px;top:8px;width:22px;height:22px;border-radius:50%;border:2px solid #fff;background:rgba(0,0,0,.35);box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.photo-grid.reordering .photo-tile{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.photo-grid.reordering .photo-tile .tile-check{display:block}
+.photo-grid.reordering .photo-tile .tile-controls,.photo-grid.reordering .photo-tile .tile-date-est{display:none}
+.photo-grid.reordering .photo-tile.selected{outline:3px solid #2563eb;outline-offset:-3px}
+.photo-grid.reordering .photo-tile.selected .tile-check{background:#2563eb;border-color:#fff}
+.photo-grid.reordering .photo-tile.selected .tile-check::after{content:"";position:absolute;left:7px;top:3px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.photo-grid.reordering .photo-tile.drag-source{opacity:.35}
+.photo-grid.reordering .photo-tile.drop-before::before,.photo-grid.reordering .photo-tile.drop-after::after{content:"";position:absolute;top:0;bottom:0;width:4px;background:#2563eb;border-radius:2px;z-index:2}
+.photo-grid.reordering .photo-tile.drop-before::before{left:-6px}
+.photo-grid.reordering .photo-tile.drop-after::after{right:-6px}
+.drag-ghost{position:fixed;z-index:2000;pointer-events:none;width:84px;height:84px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.35);transform:translate(-50%,-50%) rotate(-3deg)}
+.drag-ghost img{width:100%;height:100%;object-fit:cover;display:block}
+.drag-ghost .count{position:absolute;right:-6px;top:-6px;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:#2563eb;color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.4)}
+.reorder-bar{background:#eef3ff;border:1px solid #c7d7ff}
 .photo-strip{display:flex;gap:6px;overflow-x:auto;margin-top:10px;padding-bottom:4px}
 .photo-strip img{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:0 0 auto;background:#f2f3f7}
 .upload-queue{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}

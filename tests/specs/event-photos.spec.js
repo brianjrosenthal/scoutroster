@@ -115,6 +115,29 @@ test.describe('Event photos', () => {
     await expect(page.locator('.photo-tile').nth(1)).not.toHaveClass(/excluded/);
   });
 
+  test('photos without EXIF are marked, and setting a date re-sorts them', async ({ page }) => {
+    test.skip(!R2, 'photo storage not configured');
+    await helpers.loginAsAdmin();
+    await page.goto(`/event_photos.php?event_id=${eventId}`);
+    // The PNG (no EXIF) is last and carries the "date?" marker; the EXIF photos do not.
+    const last = page.locator('.photo-tile').last();
+    await expect(last).toHaveAttribute('data-estimated', '1');
+    await expect(last.locator('.tile-date-est')).toBeVisible();
+    await expect(page.locator('.photo-tile').first().locator('.tile-date-est')).toHaveCount(0);
+    const pngId = await last.getAttribute('data-photo-id');
+
+    // Give it a date before the others: it moves to the front and loses the marker.
+    await last.locator('.photo-open').click();
+    await expect(page.locator('#lightboxDateForm')).toBeVisible();
+    await page.fill('#lightboxDateInput', '2026-09-12T08:00');
+    await page.locator('#lightboxDateForm button[type="submit"]').click();
+    await expect(page.locator('.photo-tile').first()).toHaveAttribute('data-photo-id', pngId);
+    await expect(page.locator('.photo-tile').first()).toHaveAttribute('data-estimated', '0');
+    await expect(page.locator('#lightboxMeta')).toContainText('Sep 12, 2026 8:00 AM');
+    await expect(page.locator('#lightboxMeta')).not.toContainText('estimated');
+    await page.locator('#lightboxClose').click();
+  });
+
   test('a regular user sees photos but cannot modify or reorder them', async ({ page }) => {
     test.skip(!R2, 'photo storage not configured');
     await helpers.login(USER_EMAIL, USER_PASSWORD);
@@ -129,23 +152,52 @@ test.describe('Event photos', () => {
     expect(res.status()).toBe(403);
   });
 
-  test('admin can reorder photos and reset to chronological', async ({ page }) => {
+  test('admin can select several photos, drag them as a group, and reset to chronological', async ({ page }) => {
     test.skip(!R2, 'photo storage not configured');
     await helpers.loginAsAdmin();
     await page.goto(`/event_photos.php?event_id=${eventId}`);
     const ids = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(ids).toHaveLength(3);
+
     await page.locator('#reorderBtn').click();
     await expect(page.locator('#photoGrid')).toHaveClass(/reordering/);
-    await page.locator('.photo-tile').first().locator('.move-right').click();
+    await expect(page.locator('#reorderBar')).toBeVisible();
+    await expect(page.locator('.photo-tile .move-left')).toHaveCount(0); // arrows are gone
+
+    // Select photos 2 and 3 (click, then shift-click), then drag photo 2 to before photo 1.
+    const t = (i) => page.locator('.photo-tile').nth(i);
+    await t(1).click();
+    await t(2).click({ modifiers: ['Shift'] });
+    await expect(page.locator('#selectionCount')).toHaveText('2 selected');
+    const from = await t(1).boundingBox();
+    const to = await t(0).boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(from.x + from.width / 2 + 20, from.y + from.height / 2 + 10, { steps: 4 });
+    await page.mouse.move(to.x + 10, to.y + to.height / 2, { steps: 8 });
+    await expect(page.locator('.drag-ghost .count')).toHaveText('2');
+    await expect(t(0)).toHaveClass(/drop-before/);
+    await page.mouse.up();
+    let order = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(order).toEqual([ids[1], ids[2], ids[0]]); // group moved, relative order kept
+
     await page.locator('#saveOrderBtn').click();
-    // The page reloads after saving; the Reset button only exists once a manual order is stored.
     await expect(page.locator('#resetOrderBtn')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#photoGrid')).not.toHaveClass(/reordering/);
-    const after = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
-    expect(after).toEqual([ids[1], ids[0], ids[2]]);
+    order = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(order).toEqual([ids[1], ids[2], ids[0]]);
+
+    // Move to end with the toolbar, then reset.
+    await page.locator('#reorderBtn').click();
+    await t(0).click();
+    await page.locator('#moveEndBtn').click();
+    order = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(order).toEqual([ids[2], ids[0], ids[1]]);
+    await page.locator('#cancelOrderBtn').click();
+    order = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
+    expect(order).toEqual([ids[1], ids[2], ids[0]]); // cancel restored the saved order
+
     page.once('dialog', (d) => d.accept());
     await page.locator('#resetOrderBtn').click();
-    // Reload again; the Reset button disappears once the order is chronological.
     await expect(page.locator('#resetOrderBtn')).toHaveCount(0, { timeout: 10000 });
     const reset = await page.locator('.photo-tile').evaluateAll((els) => els.map((e) => e.getAttribute('data-photo-id')));
     expect(reset).toEqual(ids);

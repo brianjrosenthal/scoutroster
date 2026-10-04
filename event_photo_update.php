@@ -23,6 +23,16 @@ try {
     $photo = EventPhotos::updateCaption($ctx, $photoId, (string)($_POST['caption'] ?? ''));
   } elseif ($action === 'exclude') {
     $photo = EventPhotos::setExcludeFromSlideshow($ctx, $photoId, ((string)($_POST['exclude'] ?? '0')) === '1');
+  } elseif ($action === 'taken_at') {
+    // The browser sends datetime-local ("2026-10-03T14:05" or with seconds); normalise.
+    $raw = trim((string)($_POST['taken_at'] ?? ''));
+    $norm = null;
+    if ($raw !== '') {
+      $raw = str_replace('T', ' ', $raw);
+      if (preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $raw)) $raw .= ':00';
+      $norm = $raw;
+    }
+    $photo = EventPhotos::setTakenAt($ctx, $photoId, $norm);
   } else {
     throw new InvalidArgumentException('Unknown action.');
   }
@@ -30,8 +40,11 @@ try {
   $index = EventPhotos::positionOf((int)$photo['event_id'], $photoId);
   echo json_encode([
     'ok' => true,
-    'photo' => ['id' => $photoId, 'caption' => $photo['caption'], 'exclude_from_slideshow' => (int)$photo['exclude_from_slideshow']],
+    'photo' => ['id' => $photoId, 'caption' => $photo['caption'], 'exclude_from_slideshow' => (int)$photo['exclude_from_slideshow'],
+                'taken_at' => $photo['taken_at'], 'taken_at_source' => $photo['taken_at_source']],
     'tile_html' => EventPhotosUI::renderTile($photo, true, (bool)$ctx->admin, max(0, $index)),
+    'index' => $index,
+    'manual_order' => EventPhotos::hasManualOrder((int)$photo['event_id']),
   ]);
 } catch (Throwable $e) {
   if (http_response_code() === 200) http_response_code($e instanceof InvalidArgumentException ? 400 : 500);
