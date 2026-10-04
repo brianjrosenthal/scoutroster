@@ -735,6 +735,8 @@
         drag.active = true;
         group.forEach(function (t) { t.classList.add('drag-source'); });
         document.body.style.cursor = 'grabbing';
+        // Capture only once dragging, so plain clicks still reach the tile.
+        try { grid.setPointerCapture(drag.pointerId); } catch (x) {}
       }
 
       function updateDrag(e) {
@@ -780,7 +782,6 @@
         if (!tile || !grid.contains(tile)) return;
         e.preventDefault(); // no native image drag / text selection
         drag = { tile: tile, startX: e.clientX, startY: e.clientY, active: false, over: null, after: false, pointerId: e.pointerId };
-        try { grid.setPointerCapture(e.pointerId); } catch (x) {}
       });
       grid.addEventListener('pointermove', function (e) {
         if (!drag) return;
