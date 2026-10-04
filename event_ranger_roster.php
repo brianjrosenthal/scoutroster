@@ -122,6 +122,8 @@ $membershipOf = function (array $r): string {
   if ($r['note'] !== '') $parts[] = $r['note'];
   return implode('; ', $parts);
 };
+$eventDates = Settings::formatDateTimeRange((string)$event['starts_at'], !empty($event['ends_at']) ? (string)$event['ends_at'] : null);
+
 $columns = ['Last Name', 'First Name', 'Type', 'Membership Info', 'Phone', 'Training'];
 $cellsOf = fn(array $r) => [$r['last'], $r['first'], $r['type'], $membershipOf($r), $r['phone'], $r['training']];
 
@@ -162,8 +164,7 @@ header_html('Camping Roster');
   .not-staying{margin-top:20px;padding-top:12px;border-top:1px dashed #cfd2da}
   .not-staying .roster-table td{color:#666}
   .roster-title{font-size:26px;font-weight:700;margin:0 0 6px}
-  .roster-dateline{font-size:16px;margin:10px 0 14px}
-  .roster-dateline .line{display:inline-block;min-width:260px;border-bottom:1px solid #333;margin-left:6px;vertical-align:bottom}
+  .roster-dateline{font-size:16px;margin:6px 0 14px}
   @media print {
     header, .admin-bar, .no-print, .screen-only { display:none !important }
     body{background:#fff}
@@ -189,7 +190,7 @@ header_html('Camping Roster');
 
 <div class="card">
   <p class="roster-title">Pack 440 Camping Roster</p>
-  <p class="roster-dateline"><strong>Date:</strong><span class="line">&nbsp;</span></p>
+  <p class="roster-dateline"><strong>Date:</strong> <?= h($eventDates) ?></p>
   <p style="margin:0 0 4px;"><strong>Event:</strong> <?= h($event['name']) ?></p>
   <p style="margin:0 0 14px;"><strong>Attending:</strong> <?= h($summary) ?></p>
 
@@ -274,7 +275,7 @@ header_html('Camping Roster');
     </div>
   <?php endif; ?>
 
-  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. The Training column is left blank to fill in by hand. Use the + in Membership Info to add a note such as "Parent of ..." or a BSA #, and the + in Training to record training such as BALOO; both are saved to the person's record. "Not staying overnight" moves a whole RSVP party below the table and off the print.</p>
+  <p class="small no-print" style="margin-top:12px;">"Save as PDF" opens your browser's print dialog; choose "Save as PDF" as the destination. Use the + in Membership Info to add a note such as "Parent of ..." or a BSA #, and the + in Training to record training such as BALOO; both are saved to the person's record. "Not staying overnight" moves a whole RSVP party below the table and off the print.</p>
 </div>
 
 <script>
