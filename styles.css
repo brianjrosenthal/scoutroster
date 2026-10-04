@@ -126,7 +126,8 @@ header nav .nav-right{margin-left:auto}
 .photo-tile img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:10px;transition:opacity .15s}
 .photo-tile.excluded img{opacity:.45}
 .photo-tile .tile-badge{position:absolute;left:6px;top:6px;background:rgba(17,17,17,.8);color:#fff;font-size:11px;padding:2px 7px;border-radius:999px}
-.photo-tile .tile-date-est{position:absolute;right:6px;top:6px;background:rgba(255,243,205,.95);color:#7a4a00;font-size:11px;padding:2px 7px;border-radius:999px;cursor:help}
+.photo-tile .tile-date-est{position:absolute;right:6px;top:6px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.45);color:#fff;font-size:11px;font-weight:700;line-height:18px;text-align:center;opacity:.75;cursor:help;transition:opacity .15s,transform .15s}
+.photo-tile:hover .tile-date-est{opacity:1;transform:scale(1.15)}
 .photo-tile .tile-controls{position:absolute;left:0;right:0;bottom:0;display:flex;gap:4px;justify-content:flex-end;padding:6px;background:linear-gradient(transparent,rgba(0,0,0,.55));opacity:0;transition:opacity .15s}
 .photo-tile:hover .tile-controls,.photo-tile:focus-within .tile-controls{opacity:1}
 @media (hover:none){.photo-tile .tile-controls{opacity:1}}
