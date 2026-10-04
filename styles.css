@@ -123,7 +123,7 @@ header nav .nav-right{margin-left:auto}
 /* Event photos */
 .photo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
 .photo-tile{position:relative;margin:0;border-radius:10px;overflow:hidden;background:#f2f3f7}
-.photo-tile img{display:block;width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;transition:opacity .15s}
+.photo-tile img{display:block;width:100%;height:auto;aspect-ratio:1;object-fit:cover;border-radius:10px;transition:opacity .15s}
 .photo-tile.excluded img{opacity:.45}
 .photo-tile .tile-badge{position:absolute;left:6px;top:6px;background:rgba(17,17,17,.8);color:#fff;font-size:11px;padding:2px 7px;border-radius:999px}
 .photo-tile .tile-controls{position:absolute;left:0;right:0;bottom:0;display:flex;gap:4px;justify-content:flex-end;padding:6px;background:linear-gradient(transparent,rgba(0,0,0,.55));opacity:0;transition:opacity .15s}

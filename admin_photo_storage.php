@@ -67,7 +67,7 @@ if (class_exists('SlideshowTracks')) {
   $dbKeys = array_merge($dbKeys, SlideshowTracks::allRecordedKeys());
 }
 $photoCount = (int)pdo()->query('SELECT COUNT(*) FROM event_photos')->fetchColumn();
-$probe = ['exists' => false, 'count' => null, 'bytes' => null, 'cors' => null, 'error' => null, 'keys' => []];
+$probe = ['exists' => false, 'count' => null, 'bytes' => null, 'cors' => null, 'cors_error' => null, 'error' => null, 'keys' => []];
 if ($configured) {
   try {
     $client = PhotoStorage::storage();
@@ -77,12 +77,28 @@ if ($configured) {
       $probe['count'] = count($objects);
       $probe['bytes'] = array_sum(array_column($objects, 'size'));
       $probe['keys'] = array_column($objects, 'key');
-      $probe['cors'] = $client->getBucketCorsOrigins($bucket);
     }
   } catch (Throwable $e) {
     $probe['error'] = $e->getMessage();
   }
+  // Reading the CORS rule needs an "Admin Read & Write" R2 token; an
+  // "Object Read & Write" token gets 403 here although uploads work fine.
+  // Treat that as its own, non-fatal problem.
+  if ($probe['exists'] && $probe['error'] === null) {
+    try {
+      $probe['cors'] = PhotoStorage::storage()->getBucketCorsOrigins($bucket);
+    } catch (Throwable $e) {
+      $probe['cors_error'] = $e->getMessage();
+    }
+  }
 }
+$corsPolicyJson = json_encode([[
+  'AllowedOrigins' => $wantedOrigins,
+  'AllowedMethods' => ['GET', 'PUT', 'HEAD'],
+  'AllowedHeaders' => ['*'],
+  'ExposeHeaders'  => ['ETag'],
+  'MaxAgeSeconds'  => 3000,
+]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 $missing = $probe['exists'] ? array_values(array_diff($dbKeys, $probe['keys'])) : [];
 $orphans = $probe['exists'] ? array_values(array_diff($probe['keys'], $dbKeys)) : [];
 $corsMissing = $probe['cors'] === null ? $wantedOrigins : array_values(array_diff($wantedOrigins, $probe['cors']));
@@ -124,7 +140,10 @@ header_html('Photo Storage');
           <tr><th>Missing from bucket</th><td><?= count($missing) === 0 ? '<span class="badge success">None</span>' : '<strong>' . count($missing) . '</strong> database row(s) point at objects that are gone' ?></td></tr>
           <tr><th>Orphans in bucket</th><td><?= count($orphans) === 0 ? '<span class="badge success">None</span>' : count($orphans) . ' object(s) not referenced by any row (abandoned uploads)' ?></td></tr>
           <tr><th>CORS origins</th><td>
-            <?php if ($probe['cors'] === null): ?><strong>No CORS rule</strong> &mdash; browser uploads will fail.
+            <?php if ($probe['cors_error'] !== null): ?>
+              <strong>Cannot read the CORS rule with this API token</strong> (<?= h($probe['cors_error']) ?>).<br>
+              <span class="small">Cloudflare only lets an <em>Admin Read &amp; Write</em> token read or change CORS; an <em>Object Read &amp; Write</em> token can still upload and serve photos. Either recreate the token as Admin Read &amp; Write (scoped to this bucket) so <strong>Apply CORS</strong> works, or paste the policy below into the Cloudflare dashboard: bucket &rarr; <em>Settings</em> &rarr; <em>CORS Policy</em>.</span>
+            <?php elseif ($probe['cors'] === null): ?><strong>No CORS rule</strong> &mdash; browser uploads will fail.
             <?php else: ?><?php foreach ($probe['cors'] as $o): ?><code><?= h($o) ?></code> <?php endforeach; ?><?php endif; ?>
             <?php if ($corsMissing !== [] && $probe['cors'] !== null): ?><br><strong>Missing:</strong> <?php foreach ($corsMissing as $o): ?><code><?= h($o) ?></code> <?php endforeach; ?><?php endif; ?>
           </td></tr>
@@ -132,12 +151,21 @@ header_html('Photo Storage');
       <?php endif; ?>
     <?php endif; ?>
   </table>
+  <?php if ($configured && $probe['error'] === null && $probe['exists'] && ($probe['cors_error'] !== null || $probe['cors'] === null)): ?>
+    <details style="margin-top:12px">
+      <summary>CORS policy to paste into the Cloudflare dashboard</summary>
+      <p class="small">Bucket <code><?= h($bucket) ?></code> &rarr; <em>Settings</em> &rarr; <em>CORS Policy</em> &rarr; Edit, paste this, save. It allows browsers on this site to upload directly.</p>
+      <pre style="white-space:pre-wrap;background:#f5f5f7;padding:10px;border-radius:8px;font-size:12px"><?= h($corsPolicyJson) ?></pre>
+    </details>
+  <?php endif; ?>
   <?php if ($configured && $probe['error'] === null): ?>
     <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
       <?php if (!$probe['exists']): ?>
         <?= photo_storage_action_form('create_bucket', 'Create bucket', 'primary') ?>
       <?php else: ?>
-        <?= photo_storage_action_form('apply_cors', 'Apply CORS for this site', $corsMissing !== [] ? 'primary' : '') ?>
+        <?php if ($probe['cors_error'] === null): ?>
+          <?= photo_storage_action_form('apply_cors', 'Apply CORS for this site', $corsMissing !== [] ? 'primary' : '') ?>
+        <?php endif; ?>
         <?= photo_storage_action_form('test_upload', 'Test upload') ?>
         <?php if ($orphans !== []): ?>
           <?= photo_storage_action_form('delete_orphans', 'Delete orphans', 'danger', 'Delete ' . count($orphans) . ' orphaned object(s) from the bucket? They are not referenced by any photo or music track.') ?>
@@ -151,9 +179,9 @@ header_html('Photo Storage');
   <h3>Setup</h3>
   <ol class="small" style="line-height:1.6">
     <li>Cloudflare dashboard &rarr; <em>R2 Object Storage</em> &rarr; <strong>Create bucket</strong> named <code><?= h($bucket) ?></code>. Leave it private. On its <em>Settings</em> tab copy the <strong>S3 API</strong> URL.</li>
-    <li><em>Manage R2 API Tokens</em> &rarr; <strong>Create API token</strong> with <em>Object Read &amp; Write</em> scoped to this bucket. Copy the Access Key ID and Secret Access Key.</li>
+    <li><em>Manage R2 API Tokens</em> &rarr; <strong>Create API token</strong> scoped to this bucket. <em>Admin Read &amp; Write</em> lets this page apply the CORS rule for you; <em>Object Read &amp; Write</em> also works for uploads, but then you paste the CORS policy into the dashboard yourself (shown below when needed). Copy the Access Key ID and Secret Access Key.</li>
     <li>In <code>config.local.php</code> set <code>R2_ENDPOINT</code>, <code>R2_ACCESS_KEY</code>, <code>R2_SECRET_KEY</code> (see <code>config.local.php.example</code>).</li>
-    <li>Reload this page: it should read <em>Ready</em>. Click <strong>Apply CORS for this site</strong>, then <strong>Test upload</strong>.</li>
+    <li>Reload this page: it should read <em>Ready</em>. Click <strong>Apply CORS for this site</strong> (or paste the policy in the dashboard), then <strong>Test upload</strong>.</li>
     <li>Upload a photo from any event page.</li>
   </ol>
   <p class="small">Origins the CORS rule will allow: <?php foreach ($wantedOrigins as $o): ?><code><?= h($o) ?></code> <?php endforeach; ?>. Applying adds to whatever the bucket already allows, so applying from a development machine never removes the production origin. <strong>Test upload</strong> performs a presigned PUT from this server exactly as a browser would and shows the raw response.</p>
