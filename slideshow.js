@@ -46,11 +46,17 @@
   var rafId = null;
   var cumulativeBefore = 0;     // seconds of earlier sections, for the progress bar
 
-  // Section clock bookkeeping.
+  // Clock bookkeeping. A section is a run of CUES (music segments), each with
+  // its own start_at within the section. Within a cue the clock is the audio
+  // element's currentTime plus an offset (if the cue has a track), or a wall
+  // clock. When a track restarts (loop) the offset carries the elapsed time
+  // forward, so the clock never jumps.
+  var cueIndex = -1;
+  var cue = null;
   var wallStart = 0, pausedAt = 0, pausedTotal = 0;
-  var offset = 0;               // seek adjustment from arrow keys
-  var loopCount = 0;
-  var looping = false;          // a loop crossfade is in progress
+  var offset = 0;
+  var looping = false;          // a restart crossfade is in progress
+  var seekHold = null;          // {value,a} while an audio seek is pending: cueElapsed() returns value
   var endCardStart = 0;
   var nextPreloaded = false;
 
@@ -83,15 +89,38 @@
   // Clock
   // ---------------------------------------------------------------------------
 
-  function elapsed() {
-    if (!section) return 0;
-    if (section.music_mode !== 'none' && section.track) {
-      var a = audios[activeAudio];
-      var loopAt = section.loop_at || (a.duration && isFinite(a.duration) ? a.duration : 0);
-      return loopCount * loopAt + (a.currentTime || 0) + offset;
-    }
+  function cueHasMusic() { return !!(cue && cue.track && cue.music_mode !== 'none'); }
+
+  // Seconds into the current cue.
+  function cueElapsed() {
+    if (!cue) return 0;
+    if (seekHold) return seekHold.value;
+    if (cueHasMusic()) return (audios[activeAudio].currentTime || 0) + offset;
     var now = paused ? pausedAt : performance.now();
     return (now - wallStart - pausedTotal) / 1000 + offset;
+  }
+
+  // Seconds into the current section.
+  function elapsed() {
+    if (!section || !cue) return 0;
+    return cue.start_at + cueElapsed();
+  }
+
+  // Photo index for a time within a section (-1 during the title card).
+  function photoIndexAt(sec, t) {
+    var starts = sec.photo_starts;
+    var idx = -1;
+    for (var i = 0; i < starts.length; i++) { if (t >= starts[i]) idx = i; else break; }
+    return idx;
+  }
+
+  // Where a track should restart from the top: the server's loop point, or
+  // the real end of the audio minus the crossfade if that comes first (the
+  // stored duration can be a little longer than what this browser reports).
+  function restartPoint(a) {
+    var p = (cue.music_mode === 'loop' && cue.loop_at) ? cue.loop_at : Infinity;
+    if (a.duration && isFinite(a.duration)) p = Math.min(p, a.duration - C.music_loop_xfade_seconds);
+    return p;
   }
 
   // ---------------------------------------------------------------------------
@@ -111,12 +140,7 @@
     sectionIndex = i;
     section = manifest.sections[i];
     shownIdx = -1;
-    offset = 0;
-    loopCount = 0;
-    looping = false;
     nextPreloaded = false;
-    wallStart = performance.now();
-    pausedTotal = 0;
     state = 'PLAYING';
 
     // Photos off, title card on.
@@ -127,30 +151,94 @@
     card.classList.remove('hidden');
     requestAnimationFrame(function () { card.classList.add('show'); });
 
-    // Music: crossfade from the previous section's element to the other one.
-    var prev = audios[activeAudio];
-    var next = audios[1 - activeAudio];
-    activeAudio = 1 - activeAudio;
-    if (section.track && section.music_mode !== 'none') {
-      if (next.src !== section.track.url) next.src = section.track.url;
-      next.currentTime = 0;
-      setVolume(next, canFade ? 0 : 1);
-      next.play().catch(function (e) { showError('Music could not start: ' + (e.message || e.name)); });
-      if (!canFade) { try { prev.pause(); } catch (e) {} }
-    } else {
-      // No music this section: fade the previous one out.
-    }
-    fadeOutAndStop(prev, C.section_xfade_seconds);
-    if (section.track && section.music_mode !== 'none') fadeIn(next, C.section_xfade_seconds);
+    enterCue(0, 0);
 
     // Warm the first photos.
     for (var k = 0; k < 3 && k < section.photos.length; k++) preload(section.photos[k].url);
     if (paused) resume();
   }
 
+  // Start cue k of the current section, $at seconds into it: switch to the
+  // other <audio> element with a crossfade (a hard cut when the browser cannot
+  // set volume), seek the music to the matching point (wrapping into the
+  // track if it would have looped) and reset the cue clock so that
+  // elapsed() === cue.start_at + at.
+  function enterCue(k, at) {
+    cueIndex = k;
+    cue = section.cues[k];
+    offset = 0;
+    looping = false;
+    seekHold = null;
+    at = Math.max(0, at || 0);
+
+    var prev = audios[activeAudio];
+    var next = audios[1 - activeAudio];
+    activeAudio = 1 - activeAudio;
+    var xf = C.section_xfade_seconds;
+
+    if (cueHasMusic()) {
+      if (next.src !== cue.track.url) next.src = cue.track.url;
+      var target = at;
+      var loopAt = cue.loop_at || (next.duration && isFinite(next.duration) ? next.duration - C.music_loop_xfade_seconds : 0);
+      if (loopAt > 0 && at >= loopAt) target = at - Math.floor(at / loopAt) * loopAt;
+      seekAudio(next, target, at);
+      setVolume(next, canFade ? 0 : 1);
+      if (!paused) next.play().catch(function (e) { showError('Music could not start: ' + (e.message || e.name)); });
+      if (!canFade) { try { prev.pause(); } catch (e) {} }
+      fadeIn(next, xf);
+    } else {
+      wallStart = performance.now() - at * 1000;
+      pausedTotal = 0;
+      if (paused) pausedAt = performance.now();
+    }
+    fadeOutAndStop(prev, xf);
+  }
+
+  // Move an audio element to $target seconds while the cue clock must read
+  // $cueSeconds. currentTime can read back the OLD position for a moment
+  // after it is set (Safari especially), so the clock is held at $cueSeconds
+  // until the browser confirms the seek; then the offset is set from the
+  // confirmed position, which also absorbs a clamped seek.
+  function seekAudio(a, target, cueSeconds) {
+    seekHold = { value: cueSeconds, a: a };
+    var done = function () {
+      if (!seekHold || seekHold.a !== a) return;
+      seekHold = null;
+      offset = cueSeconds - (a.currentTime || 0);
+    };
+    var apply = function () {
+      try { a.currentTime = target; } catch (e) {}
+      if (a.seeking) a.addEventListener('seeked', done, { once: true }); else done();
+    };
+    if (a.readyState >= 1) apply(); else a.addEventListener('loadedmetadata', apply, { once: true });
+    setTimeout(function () { if (seekHold && seekHold.a === a) done(); }, 1500); // never hold forever
+  }
+
+  // Start the current cue's track again from the top on the other element,
+  // crossfading, and carry the elapsed time forward so the clock is continuous.
+  function restartTrack() {
+    var a = audios[activeAudio];
+    var other = audios[1 - activeAudio];
+    looping = true;
+    var carried = cueElapsed();
+    if (other.src !== cue.track.url) other.src = cue.track.url;
+    try { other.currentTime = 0; } catch (e) {}
+    setVolume(other, canFade ? 0 : 1);
+    other.play().catch(function () {});
+    fadeOutAndStop(a, C.music_loop_xfade_seconds);
+    fadeIn(other, C.music_loop_xfade_seconds);
+    activeAudio = 1 - activeAudio;
+    offset = carried; // the new element starts at 0
+    setTimeout(function () { looping = false; }, C.music_loop_xfade_seconds * 1000 + 200);
+  }
+
   var fades = [];
-  function fadeIn(a, secs) { fades.push({ a: a, from: 0, to: 1, start: performance.now(), dur: secs * 1000, stop: false }); }
+  // An element being started again must not be stopped by a fade-out that
+  // was scheduled for it earlier (e.g. a cue switch followed quickly by a restart).
+  function cancelFades(a) { fades = fades.filter(function (f) { return f.a !== a; }); }
+  function fadeIn(a, secs) { cancelFades(a); fades.push({ a: a, from: 0, to: 1, start: performance.now(), dur: secs * 1000, stop: false }); }
   function fadeOutAndStop(a, secs) {
+    cancelFades(a);
     if (a.paused && a.currentTime === 0) return;
     var from = canFade ? a.volume : 1;
     fades.push({ a: a, from: from, to: 0, start: performance.now(), dur: secs * 1000, stop: true });
@@ -239,7 +327,8 @@
     };
     img.onload = function () {
       incoming.style.setProperty('--xf', xf + 's');
-      incoming.style.setProperty('--kb', (section.seconds_per_photo + xf) + 's');
+      var dur = (idx + 1 < section.photo_starts.length ? section.photo_starts[idx + 1] : section.section_seconds) - section.photo_starts[idx];
+      incoming.style.setProperty('--kb', (dur + xf) + 's');
       void incoming.offsetWidth; // restart animations when a layer is reused
       img.className = motion;
       incoming.classList.add('active', 'enter-' + entrance);
@@ -318,54 +407,38 @@
 
     var t = elapsed();
     var n = section.photos.length;
-    var spp = section.seconds_per_photo;
 
     // Which photo should be up?
-    if (t >= C.title_card_seconds) {
-      var idx = Math.floor((t - C.title_card_seconds) / spp);
-      if (idx >= n) { startSection(sectionIndex + 1); return; }
-      if (idx !== shownIdx) showPhoto(idx);
+    if (t >= section.section_seconds) { startSection(sectionIndex + 1); return; }
+    var idx = photoIndexAt(section, t);
+    if (idx >= n) { startSection(sectionIndex + 1); return; }
+    if (idx >= 0 && idx !== shownIdx) showPhoto(idx);
+
+    // Next cue (another track) due?
+    if (!seekHold && cueIndex + 1 < section.cues.length && t >= section.cues[cueIndex + 1].start_at) {
+      enterCue(cueIndex + 1, t - section.cues[cueIndex + 1].start_at);
     }
 
-    // Music envelope.
-    if (section.track && section.music_mode !== 'none') {
+    // Music: restart the track when it runs out while photos remain, and
+    // fade it out over the last seconds of the cue.
+    if (cueHasMusic()) {
       var a = audios[activeAudio];
-      if (section.music_mode === 'loop') {
-        var loopAt = section.loop_at || (a.duration && isFinite(a.duration) ? a.duration - C.music_loop_xfade_seconds : null);
-        if (loopAt && !looping && a.currentTime >= loopAt) {
-          // Restart the same track on the other element with a crossfade.
-          looping = true;
-          var other = audios[1 - activeAudio];
-          var carried = loopCount * (section.loop_at || loopAt) + a.currentTime; // elapsed so far, pre-swap
-          other.src = section.track.url;
-          other.currentTime = 0;
-          setVolume(other, canFade ? 0 : 1);
-          other.play().catch(function () {});
-          fadeOutAndStop(a, C.music_loop_xfade_seconds);
-          fadeIn(other, C.music_loop_xfade_seconds);
-          if (!section.loop_at) section.loop_at = loopAt;
-          loopCount = Math.floor(carried / section.loop_at);
-          activeAudio = 1 - activeAudio;
-          setTimeout(function () { looping = false; }, C.music_loop_xfade_seconds * 1000 + 200);
-        }
+      var cueEnd = cue.start_at + cue.segment_seconds;
+      if (!seekHold && !looping && cueEnd - t > C.music_loop_xfade_seconds && (a.ended || a.currentTime >= restartPoint(a))) {
+        restartTrack();
       }
-      if (section.fade_out_at !== null && t >= section.fade_out_at) {
-        var remaining = section.section_seconds - t;
-        setVolume(a, Math.max(0, remaining / C.music_fade_out_seconds));
+      if (cue.fade_out_at !== null && t >= cue.fade_out_at) {
+        setVolume(audios[activeAudio], Math.max(0, (cueEnd - t) / C.music_fade_out_seconds));
       }
-      // Preload the next section's track ~10 s early on the idle element.
-      if (!nextPreloaded && section.section_seconds - t < 10 && sectionIndex + 1 < manifest.sections.length) {
-        nextPreloaded = true;
-        var ns = manifest.sections[sectionIndex + 1];
-        var idle = audios[1 - activeAudio];
-        if (ns.track && !looping && idle.paused) { idle.src = ns.track.url; idle.load(); }
-        if (ns.photos[0]) preload(ns.photos[0].url);
-      }
-    } else if (!nextPreloaded && section.section_seconds - t < 10 && sectionIndex + 1 < manifest.sections.length) {
+    }
+    // Preload the next section's first track and photo ~10 s early on the idle element.
+    if (!nextPreloaded && section.section_seconds - t < 10 && sectionIndex + 1 < manifest.sections.length) {
       nextPreloaded = true;
-      var ns2 = manifest.sections[sectionIndex + 1];
-      if (ns2.track) { var idle2 = audios[1 - activeAudio]; idle2.src = ns2.track.url; idle2.load(); }
-      if (ns2.photos[0]) preload(ns2.photos[0].url);
+      var ns = manifest.sections[sectionIndex + 1];
+      var idle = audios[1 - activeAudio];
+      var nt = ns.cues[0] && ns.cues[0].track;
+      if (nt && !looping && idle.paused && cueIndex + 1 >= section.cues.length) { idle.src = nt.url; idle.load(); }
+      if (ns.photos[0]) preload(ns.photos[0].url);
     }
 
     // HUD.
@@ -375,7 +448,9 @@
       progressThumb.style.left = pct + '%';
       progressEl.setAttribute('aria-valuenow', String(Math.round(pct)));
     }
-    hudText.textContent = section.title + (shownIdx >= 0 ? ' · ' + (shownIdx + 1) + ' / ' + n : '') + ' · ' + fmt(cumulativeBefore + t) + ' / ' + fmt(manifest.total_seconds);
+    hudText.textContent = section.title + (shownIdx >= 0 ? ' · ' + (shownIdx + 1) + ' / ' + n : '')
+      + (section.cues.length > 1 && cue.track ? ' · \u266b ' + cue.track.title : '')
+      + ' · ' + fmt(cumulativeBefore + t) + ' / ' + fmt(manifest.total_seconds);
   }
 
   // ---------------------------------------------------------------------------
@@ -395,22 +470,16 @@
     if (!paused) return;
     paused = false;
     pausedTotal += performance.now() - pausedAt;
-    var a = audios[activeAudio];
-    if (section && section.track && section.music_mode !== 'none') a.play().catch(function () {});
+    if (cueHasMusic()) audios[activeAudio].play().catch(function () {});
     var p = document.getElementById('paused');
     if (p) p.remove();
   }
 
   function seekPhotos(delta) {
     if (state !== 'PLAYING' || !section) return;
-    var t = elapsed();
-    var spp = section.seconds_per_photo;
-    var n = section.photos.length;
-    var idx = Math.max(0, Math.floor((t - C.title_card_seconds) / spp)) + delta;
-    idx = Math.max(0, Math.min(n - 1, idx));
-    var target = C.title_card_seconds + idx * spp + 0.05;
-    offset += target - t;
-    if (shownIdx !== idx) showPhoto(idx);
+    var idx = Math.max(0, photoIndexAt(section, elapsed())) + delta;
+    idx = Math.max(0, Math.min(section.photos.length - 1, idx));
+    seekTo(cumulativeBefore + section.photo_starts[idx] + 0.05);
   }
 
   function nextSection() { if (state === 'PLAYING') startSection(sectionIndex + 1); }
@@ -440,13 +509,13 @@
     var loc = locate(globalSeconds);
     if (loc.section >= manifest.sections.length) return manifest.end_card.title + ' \u00b7 ' + fmt(globalSeconds);
     var sec = manifest.sections[loc.section];
-    var idx = Math.floor((loc.within - C.title_card_seconds) / sec.seconds_per_photo);
+    var idx = photoIndexAt(sec, loc.within);
     var where = idx < 0 ? 'title' : (idx + 1) + ' / ' + sec.photos.length;
     return sec.title + ' \u00b7 ' + where + ' \u00b7 ' + fmt(globalSeconds);
   }
 
-  // Jump to an absolute point. Starts the right section, moves the music to
-  // the matching point (respecting loops) and shows the right photo.
+  // Jump to an absolute point: the right section and cue, music moved to the
+  // matching point, the right photo shown immediately.
   function seekTo(globalSeconds) {
     if (state === 'IDLE' || state === 'READY' || state === 'DONE') return;
     var loc = locate(globalSeconds);
@@ -455,35 +524,11 @@
     if (state !== 'PLAYING' || loc.section !== sectionIndex) startSection(loc.section);
     var ts = Math.max(0, Math.min(section.section_seconds - 0.05, loc.within));
 
-    if (section.track && section.music_mode !== 'none') {
-      var a = audios[activeAudio];
-      var loopAt = section.loop_at || (a.duration && isFinite(a.duration) ? a.duration : 0);
-      var target = ts;
-      loopCount = 0;
-      if (section.music_mode === 'loop' && loopAt > 0) {
-        loopCount = Math.floor(ts / loopAt);
-        target = ts - loopCount * loopAt;
-      }
-      looping = false;
-      var apply = function () {
-        try { a.currentTime = target; } catch (e) {}
-        offset = ts - (loopCount * (section.loop_at || loopAt) + (a.currentTime || 0));
-      };
-      if (a.readyState >= 1) apply(); else a.addEventListener('loadedmetadata', apply, { once: true });
-      // Until metadata arrives, the offset carries the seek so photos are right immediately.
-      offset = ts - (a.currentTime || 0);
-      setVolume(a, 1);
-      try { audios[1 - activeAudio].pause(); } catch (e) {} // a loop crossfade in progress must not keep playing
-      if (!wasPaused) a.play().catch(function () {});
-    } else {
-      wallStart = performance.now();
-      pausedTotal = 0;
-      if (paused) pausedAt = wallStart;
-      offset = ts;
-    }
+    var k = 0;
+    for (var i = 0; i < section.cues.length; i++) { if (ts >= section.cues[i].start_at) k = i; }
+    enterCue(k, ts - section.cues[k].start_at);
 
-    // Show the right thing right now rather than waiting a frame.
-    var idx = Math.floor((ts - C.title_card_seconds) / section.seconds_per_photo);
+    var idx = photoIndexAt(section, ts);
     if (idx < 0) {
       shownIdx = -1;
       layers.forEach(function (l) { l.classList.remove('active'); clearLayerAnims(l); });
@@ -630,8 +675,8 @@
   // Read-only snapshot of the clock, for debugging from the console.
   window.SLIDESHOW_STATE = function () {
     var a = audios[activeAudio];
-    return { state: state, section: sectionIndex, elapsed: section ? elapsed() : null, offset: offset, loopCount: loopCount,
-             looping: looping, activeAudio: activeAudio, currentTime: a.currentTime, audioPaused: a.paused, paused: paused, shownIdx: shownIdx };
+    return { state: state, section: sectionIndex, cue: cueIndex, elapsed: section ? elapsed() : null, offset: offset, seekHold: !!seekHold,
+             looping: looping, activeAudio: activeAudio, currentTime: a.currentTime, audioPaused: a.paused, audioEnded: a.ended, paused: paused, shownIdx: shownIdx };
   };
 
   load();

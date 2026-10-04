@@ -110,6 +110,9 @@ test.describe('Slideshows', () => {
     expect(m.sections).toHaveLength(1);
     expect(m.sections[0].photos).toHaveLength(2);
     expect(m.sections[0].track).not.toBeNull();
+    expect(m.sections[0].cues).toHaveLength(1);
+    expect(m.sections[0].cues[0].track.id).toBe(m.sections[0].track.id);
+    expect(m.sections[0].photo_starts).toHaveLength(2);
     expect(m.sections[0].seconds_per_photo).toBeGreaterThanOrEqual(1);
     expect(m.transition).toBe('random');
 

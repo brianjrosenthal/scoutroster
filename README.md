@@ -125,8 +125,8 @@ C. Edit anyone's RSVP's at an event.
 8. Event Photos and Slideshows
 A. Any logged-in user can add photos to an event (from a phone's photo library or files). Photos are stored in a private Cloudflare R2 bucket, never on the server or in the database: the browser gets presigned URLs from `event_photo_presign.php`, makes a 2048px display copy and a 400px thumbnail, uploads all three straight to R2, then `event_photo_attach.php` verifies the objects and records the row.
 B. Galleries (`event_photos.php`) order photos by EXIF capture time; admins can drag to reorder or reset to chronological. Uploaders manage their own photos (caption, "Not in slideshow" flag, delete); admins can manage any photo.
-C. Admins build slideshows (`slideshows.php`, `admin_slideshow_edit.php`) as an ordered list of events, each with a music track (also stored in R2, reusable). The player (`slideshow_play.php`) runs full screen in the browser, timed to the music.
-D. Setup: set `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY` in `config.local.php` (see the example), apply `db_migrations/20261004_create_event_photos.sql` and `20261004_create_slideshows.sql`, then use Admin -> Photo Storage to apply the bucket CORS rule and run a test upload.
+C. Admins build slideshows (`slideshows.php`, `admin_slideshow_edit.php`) as an ordered list of events, each with a music track (also stored in R2, reusable) or several tracks that start at chosen photos. Each slideshow picks a photo transition style (mix, random, or one named effect). The player (`slideshow_play.php`) runs full screen in the browser, timed to the music, restarts a track that runs out, and has a draggable progress bar for skipping around.
+D. Setup: set `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY` in `config.local.php` (see the example), apply the four `db_migrations/20261004_*.sql` files, then use Admin -> Photo Storage to apply the bucket CORS rule (or paste the policy it shows into the Cloudflare dashboard) and run a test upload.
 
 = Data Model = 
 
