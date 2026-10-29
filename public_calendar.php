@@ -6,7 +6,10 @@ require_once __DIR__.'/lib/EventManagement.php';
 // But we'll show logged-in navigation if user is authenticated
 $user = current_user_optional();
 
-$events = EventManagement::listUpcoming(500);
+// Show all events since the most recent August 1st (start of the scouting year)
+$augYear = (int)date('n') >= 8 ? (int)date('Y') : (int)date('Y') - 1;
+$since = sprintf('%04d-08-01 00:00:00', $augYear);
+$events = EventManagement::listUpcoming(500, $since);
 
 /**
  * Format time smartly: hide :00 minutes, show non-zero minutes
@@ -47,11 +50,11 @@ function renderEventWhen(string $startsAt, ?string $endsAt): string {
   return $dateStr . ' ' . $startTime . ' - ' . $endDateStr . ' ' . $endTime;
 }
 
-header_html('Upcoming Events', $user);
+header_html('Pack Calendar', $user);
 ?>
 
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-  <h2 style="margin: 0;">Upcoming Events</h2>
+  <h2 style="margin: 0;">Pack Calendar</h2>
   <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
     <a class="button" href="https://www.scarsdalepack440.com" target="_blank" rel="noopener">Main Website</a>
   </div>
@@ -59,7 +62,7 @@ header_html('Upcoming Events', $user);
 
 <?php if (empty($events)): ?>
   <div class="card">
-    <p>No upcoming events.</p>
+    <p>No events.</p>
   </div>
 <?php else: ?>
   <div class="card">
